@@ -36,21 +36,21 @@ export function DashboardCards({
   const metrics: Metric[] = [
     {
       id: "categories",
-      label: "Categorías",
+      label: "Categorías activas",
       value: categoryCount,
       icon: Tags,
       tone: "bg-amber-50 text-amber-700",
     },
     {
       id: "products",
-      label: "Productos",
+      label: "Productos activos",
       value: productCount,
       icon: UtensilsCrossed,
       tone: "bg-rose-50 text-[#a8392f]",
     },
     {
       id: "languages",
-      label: "Idiomas",
+      label: "Idiomas disponibles",
       value: languageCount,
       icon: Languages,
       tone: "bg-sky-50 text-sky-700",

@@ -90,3 +90,28 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   expect(dimensions.viewportWidth).toBe(320);
   expect(dimensions.documentWidth).toBeLessThanOrEqual(320);
 });
+
+test("mobile admin menu opens and closes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+
+  const sidebar = page.locator("#admin-sidebar");
+  const openMenuButton = page.getByRole("button", {
+    name: "Abrir menú de administración",
+  });
+
+  await expect(sidebar).not.toBeInViewport();
+  await openMenuButton.click();
+  await expect(sidebar).toBeInViewport();
+
+  await page.getByRole("button", { name: "Cerrar menú", exact: true }).click();
+  await expect(sidebar).not.toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Cerrar menú de administración" }),
+  ).toHaveClass(/pointer-events-none/);
+
+  await page
+    .getByRole("heading", { name: "Dashboard", level: 1 })
+    .click();
+  await expect(openMenuButton).toBeEnabled();
+});

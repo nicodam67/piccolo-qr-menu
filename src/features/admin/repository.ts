@@ -37,8 +37,8 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
       .select({
         restaurantName: restaurantTranslations.name,
         locale: restaurantSettings.defaultLocale,
-        categoryCount: sql<number>`(select count(*)::integer from ${categories})`,
-        productCount: sql<number>`(select count(*)::integer from ${products})`,
+        categoryCount: sql<number>`(select count(*)::integer from ${categories} where ${categories.isActive} = true)`,
+        productCount: sql<number>`(select count(*)::integer from ${products} where ${products.isActive} = true)`,
         languageCount: sql<number>`(select count(distinct ${restaurantTranslations.locale})::integer from ${restaurantTranslations})`,
         allergenCount: sql<number>`(select count(*)::integer from ${allergens})`,
         tagCount: sql<number>`(select count(*)::integer from ${tags})`,
