@@ -29,10 +29,10 @@ export default async function AdminPage() {
           />
           <div>
             <p className="text-sm font-bold">
-              Panel de Administración - Acceso temporal de desarrollo
+              Panel de Administración
             </p>
             <p className="mt-0.5 text-xs leading-5 text-amber-800/75">
-              La autenticación completa se incorporará en una entrega futura.
+              Acceso administrativo protegido.
             </p>
           </div>
         </div>
