@@ -2,8 +2,8 @@ import { Languages } from "lucide-react";
 
 export function LanguageSelector() {
   return (
-    <label className="flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/20 px-3 text-sm font-bold text-white shadow-sm backdrop-blur-md">
-      <Languages aria-hidden="true" className="size-4" />
+    <label className="flex min-h-10 items-center gap-1.5 rounded-full border border-white/20 bg-black/25 px-3 text-xs font-bold text-white backdrop-blur-md">
+      <Languages aria-hidden="true" className="size-3.5" />
       <span className="sr-only">Seleccionar idioma</span>
       <select
         aria-label="Idioma"

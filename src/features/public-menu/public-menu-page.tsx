@@ -101,43 +101,39 @@ export function PublicMenuPage({
         Saltar a la carta
       </a>
 
-      <main className="min-h-screen pb-28">
+      <main className="min-h-screen pb-20">
         <MenuHeader menu={menu} openingStatus={openingStatus} />
 
         <section
           id="menu-content"
           aria-labelledby="menu-title"
-          className="mx-auto max-w-5xl pt-10"
+          className="mx-auto max-w-5xl"
         >
-          <div className="px-4 sm:px-6">
-            <p className="text-xs font-extrabold tracking-[0.18em] text-[#a8392f] uppercase">
-              Prototipo visual
-            </p>
-            <div className="mt-2 flex items-end justify-between gap-5">
+          <div className="px-4 py-4 sm:px-6">
+            <div className="flex items-end justify-between gap-5">
               <div>
                 <h2
                   id="menu-title"
-                  className="font-display text-4xl text-[#173f35] sm:text-5xl"
+                  className="font-display text-2xl text-[#173f35]"
                 >
                   Carta de demostración
                 </h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
-                  Todos los platos, precios, alérgenos e imágenes de esta vista
-                  son datos provisionales y no representan la carta oficial.
+                <p className="mt-0.5 max-w-xl text-[10px] leading-4 text-stone-500">
+                  Contenido provisional, no oficial
                 </p>
               </div>
-              <span className="hidden text-sm font-semibold text-stone-400 sm:block">
-                {filteredProducts.length} resultados
+              <span className="text-[10px] font-semibold text-stone-400">
+                {filteredProducts.length} platos demo
               </span>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-3">
               <MenuSearch value={query} onChange={setQuery} />
             </div>
           </div>
 
           {visibleCategories.length > 0 ? (
-            <div className="sticky top-0 z-40 mt-5 border-y border-stone-200/80 bg-[#f7f3eb]/95 shadow-[0_8px_24px_-24px_rgba(23,63,53,0.7)] backdrop-blur-lg">
+            <div className="sticky top-0 z-40 border-y border-stone-200 bg-[#fffdfa]/95 backdrop-blur-lg">
               <CategoryNavigation
                 categories={visibleCategories}
                 activeCategory={visibleActiveCategory}
@@ -147,12 +143,12 @@ export function PublicMenuPage({
           ) : null}
 
           <div
-            className="px-4 pt-4 sm:px-6"
+            className="px-4 pt-3 sm:px-6"
             aria-live="polite"
             aria-atomic="true"
           >
             {query ? (
-              <p className="text-sm text-stone-500">
+              <p className="text-xs text-stone-500">
                 {filteredProducts.length === 1
                   ? "1 resultado de demostración"
                   : `${filteredProducts.length} resultados de demostración`}
@@ -161,7 +157,7 @@ export function PublicMenuPage({
           </div>
 
           {visibleCategories.length > 0 ? (
-            <div className="space-y-14 px-4 pt-8 sm:px-6">
+            <div className="space-y-10 px-4 pt-6 sm:px-6">
               {visibleCategories.map((category) => {
                 const categoryProducts = filteredProducts.filter(
                   (product) => product.categoryId === category.id,
@@ -172,22 +168,22 @@ export function PublicMenuPage({
                     id={`category-${category.id}`}
                     key={category.id}
                     data-category={category.id}
-                    className="scroll-mt-28"
+                    className="scroll-mt-16"
                     aria-labelledby={`category-title-${category.id}`}
                   >
-                    <div className="mb-5">
-                      <p className="text-[11px] font-bold tracking-[0.16em] text-[#a8392f] uppercase">
-                        {category.eyebrow}
-                      </p>
+                    <div className="mb-4 flex items-end gap-3 border-b border-stone-200 pb-2.5">
                       <h2
                         id={`category-title-${category.id}`}
-                        className="font-display mt-1 text-3xl text-[#173f35]"
+                        className="font-display text-2xl text-[#a8392f]"
                       >
                         {category.name}
                       </h2>
+                      <p className="pb-0.5 text-[9px] font-bold tracking-[0.1em] text-stone-400 uppercase">
+                        {category.eyebrow}
+                      </p>
                     </div>
 
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
                       {categoryProducts.map((product) => (
                         <ProductCard key={product.id} product={product} />
                       ))}
@@ -197,7 +193,7 @@ export function PublicMenuPage({
               })}
             </div>
           ) : (
-            <div className="mx-4 mt-8 rounded-[1.75rem] border border-dashed border-stone-300 bg-white px-6 py-12 text-center sm:mx-6">
+            <div className="mx-4 mt-6 border-y border-stone-200 px-6 py-10 text-center sm:mx-6">
               <p className="font-display text-2xl text-[#173f35]">
                 No encontramos ese plato
               </p>
@@ -215,7 +211,7 @@ export function PublicMenuPage({
           )}
         </section>
 
-        <footer className="mx-auto mt-16 max-w-5xl border-t border-stone-200 px-4 pt-8 text-center text-xs leading-5 text-stone-500 sm:px-6">
+        <footer className="mx-auto mt-10 max-w-5xl border-t border-stone-200 px-4 pt-6 text-center text-[10px] leading-4 text-stone-500 sm:px-6">
           <p className="font-bold text-stone-700">Entrega 1 · Prototipo visual</p>
           <p className="mt-1">
             Ningún dato de esta carta, salvo el nombre y el eslogan indicados,

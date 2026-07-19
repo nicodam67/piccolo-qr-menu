@@ -14,7 +14,7 @@ export function CategoryNavigation({
   return (
     <nav
       aria-label="Categorías de la carta"
-      className="hide-scrollbar flex gap-2 overflow-x-auto px-4 py-3 sm:px-6"
+      className="hide-scrollbar flex gap-6 overflow-x-auto px-4 sm:px-6"
     >
       {categories.map((category) => {
         const isActive = activeCategory === category.id;
@@ -25,10 +25,10 @@ export function CategoryNavigation({
             key={category.id}
             onClick={() => onSelect(category.id)}
             aria-current={isActive ? "true" : undefined}
-            className={`min-h-11 shrink-0 rounded-full px-5 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35] ${
+            className={`relative min-h-11 shrink-0 border-b-2 px-0.5 pt-0.5 text-xs font-extrabold tracking-[0.08em] uppercase transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35] ${
               isActive
-                ? "bg-[#173f35] text-white shadow-md"
-                : "border border-stone-200 bg-white text-stone-600 hover:border-[#173f35]/30"
+                ? "border-[#a8392f] text-[#173f35]"
+                : "border-transparent text-stone-500 hover:text-[#173f35]"
             }`}
           >
             {category.name}

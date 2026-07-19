@@ -20,9 +20,7 @@ html {
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 100% 12%, rgb(201 155 85 / 10%), transparent 24rem),
-    var(--piccolo-cream);
+  background: #fffdfa;
   color: var(--piccolo-ink);
   font-family:
     Arial, Helvetica, ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -49,7 +47,7 @@ a {
 .font-display {
   font-family: Georgia, "Times New Roman", ui-serif, serif;
   font-weight: 500;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
 }
 
 .hide-scrollbar {
