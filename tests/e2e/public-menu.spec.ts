@@ -149,6 +149,11 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toHaveCount(0);
+
+  await page.goto("/admin/configuracion");
+  await expect(page).toHaveURL(
+    /\/login\?next=%2Fadmin%2Fconfiguracion$/,
+  );
 });
 
 test("incorrect admin credentials show a clear error", async ({ page }) => {
