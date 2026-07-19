@@ -34,7 +34,18 @@ npm run db:seed
 ```
 
 El seed es idempotente, usa identificadores reservados y está marcado como
-demostrativo. Sus datos no son información oficial de Piccolo La Ràpita.
+demostrativo. Está destinado únicamente a desarrollo y no debe ejecutarse
+contra una base de datos de producción.
+
+Con `NODE_ENV=production`, el comando se bloquea antes de abrir una conexión.
+Solo una autorización excepcional y explícita permite ejecutarlo:
+
+```bash
+NODE_ENV=production ALLOW_DEMO_SEED=true npm run db:seed
+```
+
+No configures `ALLOW_DEMO_SEED=true` de forma permanente. Los datos del seed no
+son información oficial de Piccolo La Ràpita.
 
 ## Comprobaciones
 

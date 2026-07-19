@@ -28,6 +28,17 @@ import {
  * Piccolo La Ràpita.
  */
 
+const isProduction = process.env.NODE_ENV === "production";
+const hasExplicitProductionAuthorization =
+  process.env.ALLOW_DEMO_SEED === "true";
+
+if (isProduction && !hasExplicitProductionAuthorization) {
+  console.error(
+    "Seed demo bloqueado: NODE_ENV=production. Para autorizarlo de forma excepcional, establece explícitamente ALLOW_DEMO_SEED=true. No se ha abierto ninguna conexión ni se ha modificado la base de datos.",
+  );
+  process.exit(1);
+}
+
 const ids = {
   restaurant: "10000000-0000-4000-8000-000000000001",
   categories: {
