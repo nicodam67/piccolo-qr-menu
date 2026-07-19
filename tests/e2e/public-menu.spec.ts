@@ -304,16 +304,34 @@ test("five failures block login and a later success clears attempts", async ({
   const normalizedEmail = email.toLowerCase();
   await clearAdminLoginAttempts(normalizedEmail);
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
+  const emailInput = page.getByLabel("Email");
+  const passwordInput = page.getByLabel("Contraseña");
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    await page.getByLabel("Contraseña").fill("contraseña-incorrecta");
+    await expect(emailInput).toHaveValue("");
+    await expect(passwordInput).toHaveValue("");
+    await emailInput.fill(email);
+    await passwordInput.fill("contraseña-incorrecta");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(
       page.getByRole("alert").filter({
         hasText: "Email o contraseña incorrectos.",
       }),
     ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const [attemptRow] = await withDatabase(async (sql) => {
+          return sql<Array<{ failed_attempts: number }>>`
+            select failed_attempts
+            from admin_login_attempts
+            where email_normalized = ${normalizedEmail}
+          `;
+        });
+        return Number(attemptRow?.failed_attempts);
+      })
+      .toBe(attempt + 1);
+    await expect(emailInput).toHaveValue("");
+    await expect(passwordInput).toHaveValue("");
   }
 
   const [blockedAttempt] = await withDatabase(async (sql) => {
@@ -332,7 +350,8 @@ test("five failures block login and a later success clears attempts", async ({
     Date.now(),
   );
 
-  await page.getByLabel("Contraseña").fill(password);
+  await emailInput.fill(email);
+  await passwordInput.fill(password);
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(
@@ -349,7 +368,10 @@ test("five failures block login and a later success clears attempts", async ({
     `;
   });
 
-  await page.getByLabel("Contraseña").fill(password);
+  await expect(emailInput).toHaveValue("");
+  await expect(passwordInput).toHaveValue("");
+  await emailInput.fill(email);
+  await passwordInput.fill(password);
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 

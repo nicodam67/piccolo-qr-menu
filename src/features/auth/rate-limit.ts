@@ -46,6 +46,9 @@ export async function registerFailedLoginAttempt(
   const now = new Date();
   const windowThreshold = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
   const blockedUntil = new Date(now.getTime() + RATE_LIMIT_WINDOW_MS);
+  const nowIso = now.toISOString();
+  const windowThresholdIso = windowThreshold.toISOString();
+  const blockedUntilIso = blockedUntil.toISOString();
 
   await db
     .insert(adminLoginAttempts)
@@ -65,24 +68,24 @@ export async function registerFailedLoginAttempt(
       set: {
         failedAttempts: sql<number>`
           case
-            when ${adminLoginAttempts.windowStartedAt} <= ${windowThreshold}
+            when ${adminLoginAttempts.windowStartedAt} <= ${windowThresholdIso}::timestamptz
               then 1
             else ${adminLoginAttempts.failedAttempts} + 1
           end
         `,
         windowStartedAt: sql<Date>`
           case
-            when ${adminLoginAttempts.windowStartedAt} <= ${windowThreshold}
-              then ${now}
+            when ${adminLoginAttempts.windowStartedAt} <= ${windowThresholdIso}::timestamptz
+              then ${nowIso}::timestamptz
             else ${adminLoginAttempts.windowStartedAt}
           end
         `,
         blockedUntil: sql<Date | null>`
           case
-            when ${adminLoginAttempts.windowStartedAt} <= ${windowThreshold}
+            when ${adminLoginAttempts.windowStartedAt} <= ${windowThresholdIso}::timestamptz
               then null
             when ${adminLoginAttempts.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS}
-              then ${blockedUntil}
+              then ${blockedUntilIso}::timestamptz
             else ${adminLoginAttempts.blockedUntil}
           end
         `,
