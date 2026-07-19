@@ -29,11 +29,14 @@ if (!fullName || fullName.length > 160) {
   throw new Error("ADMIN_FULL_NAME es obligatorio y admite 160 caracteres.");
 }
 
+const adminEmail = email;
+const adminPassword = password;
+const adminFullName = fullName;
 const client = postgres(databaseUrl, { max: 1 });
 const db = drizzle(client);
 
 async function createOrUpdateAdmin() {
-  const passwordHash = await argon2.hash(password, {
+  const passwordHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
     memoryCost: 65_536,
     timeCost: 3,
@@ -43,16 +46,16 @@ async function createOrUpdateAdmin() {
   await db
     .insert(admins)
     .values({
-      email,
+      email: adminEmail,
       passwordHash,
-      fullName,
+      fullName: adminFullName,
       isActive: true,
     })
     .onConflictDoUpdate({
       target: admins.email,
       set: {
         passwordHash,
-        fullName,
+        fullName: adminFullName,
         isActive: true,
         updatedAt: new Date(),
       },
@@ -61,7 +64,7 @@ async function createOrUpdateAdmin() {
 
 createOrUpdateAdmin()
   .then(() => {
-    console.info(`Administrador creado o actualizado: ${email}`);
+    console.info(`Administrador creado o actualizado: ${adminEmail}`);
   })
   .catch((error: unknown) => {
     console.error("No se pudo crear el administrador.", error);

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { LoaderCircle, LockKeyhole, Mail } from "lucide-react";
 
 import {
-  initialLoginState,
+  type LoginActionState,
   loginAction,
 } from "@/features/auth/actions";
 
@@ -13,6 +13,7 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ nextPath }: LoginFormProps) {
+  const initialLoginState: LoginActionState = { error: null };
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialLoginState,

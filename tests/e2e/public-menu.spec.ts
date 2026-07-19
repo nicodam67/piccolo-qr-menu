@@ -159,9 +159,11 @@ test("incorrect admin credentials show a clear error", async ({ page }) => {
   await page.getByLabel("Contraseña").fill("contraseña-incorrecta");
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
 
-  await expect(page.getByRole("alert")).toHaveText(
-    "Email o contraseña incorrectos.",
-  );
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Email o contraseña incorrectos.",
+    }),
+  ).toHaveText("Email o contraseña incorrectos.");
   await expect(page).toHaveURL(/\/login$/);
 });
 

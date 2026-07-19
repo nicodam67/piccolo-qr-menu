@@ -13,10 +13,6 @@ export type LoginActionState = {
   error: string | null;
 };
 
-export const initialLoginState: LoginActionState = {
-  error: null,
-};
-
 const INVALID_CREDENTIALS_MESSAGE = "Email o contraseña incorrectos.";
 const LOGIN_SERVICE_ERROR =
   "No se ha podido iniciar sesión. Inténtalo de nuevo.";
