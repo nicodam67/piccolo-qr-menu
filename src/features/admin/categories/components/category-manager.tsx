@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   closestCenter,
@@ -62,10 +62,6 @@ export function CategoryManager({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-
-  useEffect(() => {
-    setCategories(initialCategories);
-  }, [initialCategories]);
 
   const categoryIds = useMemo(
     () => categories.map((category) => category.id),

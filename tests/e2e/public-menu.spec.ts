@@ -197,6 +197,7 @@ test("mobile admin menu opens and closes", async ({ page }) => {
 test("administrator manages categories without changing the schema", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
   await cleanupE2ECategories();
   await loginAsAdmin(page);
   await page.goto("/admin/categories");
@@ -247,12 +248,20 @@ test("administrator manages categories without changing the schema", async ({
     }),
   ).toBeVisible();
 
+  const targetCategoryRow = page
+    .getByTestId(/^category-row-/)
+    .filter({ hasText: "Antipasti" });
   const sourceHandle = testCategoryRow.getByRole("button", {
     name: "Reordenar Categoría E2E actualizada",
   });
-  const targetHandle = page.getByRole("button", {
+  const targetHandle = targetCategoryRow.getByRole("button", {
     name: "Reordenar Antipasti",
   });
+  await expect(testCategoryRow).toBeVisible();
+  await expect(targetCategoryRow).toBeVisible();
+  await expect(sourceHandle).toBeVisible();
+  await expect(sourceHandle).toBeEnabled();
+  await expect(targetHandle).toBeVisible();
   const sourceBox = await sourceHandle.boundingBox();
   const targetBox = await targetHandle.boundingBox();
 
@@ -265,13 +274,27 @@ test("administrator manages categories without changing the schema", async ({
     sourceBox.y + sourceBox.height / 2,
   );
   await page.mouse.down();
+  await page.waitForTimeout(100);
   await page.mouse.move(
     targetBox.x + targetBox.width / 2,
-    targetBox.y + targetBox.height / 2,
-    { steps: 12 },
+    targetBox.y + 4,
+    { steps: 20 },
   );
   await page.mouse.up();
-  await expect(page.getByText("Orden guardado automáticamente.")).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [categoryOrder] = await withDatabase(async (sql) => {
+        return sql<Array<{ sort_order: number }>>`
+          select categories.sort_order
+          from categories
+          inner join category_translations
+            on category_translations.category_id = categories.id
+          where category_translations.name = 'Categoría E2E actualizada'
+        `;
+      });
+      return Number(categoryOrder?.sort_order);
+    })
+    .toBe(1);
   await expect(testCategoryRow).toContainText("Orden 1");
 
   await page.getByRole("button", { name: "Eliminar Antipasti" }).click();

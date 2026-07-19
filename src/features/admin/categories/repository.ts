@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, count, eq, inArray, sql } from "drizzle-orm";
+import { asc, count, eq, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
@@ -133,6 +133,9 @@ export async function createCategory(input: CategoryMutationInput) {
   const { db } = getDatabase();
 
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('piccolo-categories-order'))`,
+    );
     await ensureLocaleExists(tx, input.locale);
     const lockedCategories = await tx
       .select({ id: categories.id })
@@ -189,6 +192,9 @@ export async function updateCategory(
   const { db } = getDatabase();
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('piccolo-categories-order'))`,
+    );
     await ensureLocaleExists(tx, input.locale);
     const lockedCategories = await tx
       .select({ id: categories.id })
@@ -269,6 +275,9 @@ export async function reorderCategories(orderedCategoryIds: string[]) {
   const { db } = getDatabase();
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('piccolo-categories-order'))`,
+    );
     const lockedCategories = await tx
       .select({ id: categories.id })
       .from(categories)
@@ -299,6 +308,9 @@ export async function deleteEmptyCategory(categoryId: string) {
   const { db } = getDatabase();
 
   return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('piccolo-categories-order'))`,
+    );
     const lockedCategories = await tx
       .select({ id: categories.id })
       .from(categories)
