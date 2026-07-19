@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Download,
   LayoutDashboard,
+  PackageOpen,
   Palette,
   QrCode,
   Settings,
@@ -38,6 +39,12 @@ const navigationItems: NavigationItem[] = [
     icon: UtensilsCrossed,
     available: true,
     href: "/admin/categories",
+  },
+  {
+    label: "Productos",
+    icon: PackageOpen,
+    available: true,
+    href: "/admin/products",
   },
   { label: "Branding", icon: Palette, available: false },
   { label: "QR & Share", icon: QrCode, available: false },

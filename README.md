@@ -104,5 +104,10 @@ eliminar categorías vacías utilizando exclusivamente `categories` y
 `category_translations`. Icono, color e imagen están excluidos porque no existen
 en el esquema y no se autorizó una migración.
 
-No contiene edición de productos, branding, QR, exportaciones, almacenamiento
-S3, publicación, pedidos ni integración con Piccolo TPV.
+`/admin/products` gestiona productos, traducciones, precios, categoría,
+visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
+reutilizando exclusivamente las tablas actuales. No se crean migraciones ni se
+suben archivos.
+
+No contiene branding, QR, exportaciones, variantes, extras, combos,
+almacenamiento S3, publicación, pedidos ni integración con Piccolo TPV.
