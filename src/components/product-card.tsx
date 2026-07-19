@@ -17,6 +17,7 @@ type ProductCardProps = {
 export function ProductCard({ product }: ProductCardProps) {
   return (
     <article
+      data-testid="product-card"
       className={`group overflow-hidden rounded-[1.75rem] border bg-white shadow-[0_18px_50px_-36px_rgba(23,63,53,0.55)] ${
         product.isSoldOut ? "border-stone-300" : "border-white"
       }`}

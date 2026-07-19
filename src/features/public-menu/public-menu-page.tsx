@@ -41,6 +41,12 @@ export function PublicMenuPage({
     [filteredProducts, menu.categories],
   );
 
+  const visibleActiveCategory = visibleCategories.some(
+    (category) => category.id === activeCategory,
+  )
+    ? activeCategory
+    : (visibleCategories[0]?.id ?? "");
+
   useEffect(() => {
     const refreshStatus = () => {
       setOpeningStatus(
@@ -55,14 +61,6 @@ export function PublicMenuPage({
   useEffect(() => {
     if (visibleCategories.length === 0) {
       return;
-    }
-
-    const firstVisibleId = visibleCategories[0]?.id;
-    if (
-      firstVisibleId &&
-      !visibleCategories.some((category) => category.id === activeCategory)
-    ) {
-      setActiveCategory(firstVisibleId);
     }
 
     const observer = new IntersectionObserver(
@@ -85,7 +83,7 @@ export function PublicMenuPage({
     });
 
     return () => observer.disconnect();
-  }, [activeCategory, visibleCategories]);
+  }, [visibleCategories]);
 
   const handleCategorySelect = (categoryId: string) => {
     setActiveCategory(categoryId);
@@ -142,7 +140,7 @@ export function PublicMenuPage({
             <div className="sticky top-0 z-40 mt-5 border-y border-stone-200/80 bg-[#f7f3eb]/95 shadow-[0_8px_24px_-24px_rgba(23,63,53,0.7)] backdrop-blur-lg">
               <CategoryNavigation
                 categories={visibleCategories}
-                activeCategory={activeCategory}
+                activeCategory={visibleActiveCategory}
                 onSelect={handleCategorySelect}
               />
             </div>

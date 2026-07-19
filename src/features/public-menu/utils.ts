@@ -20,9 +20,9 @@ function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-function getZonedTime(date: Date, timeZone: string) {
+function getZonedTime(date: Date, targetTimeZone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
+    timeZone: targetTimeZone,
     weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
@@ -67,9 +67,9 @@ function findOpenPeriod(
 export function getOpeningStatus(
   date: Date,
   openingHours: OpeningDay[],
-  timeZone: string,
+  targetTimeZone: string,
 ): OpeningStatus {
-  const { dayIndex, minutes } = getZonedTime(date, timeZone);
+  const { dayIndex, minutes } = getZonedTime(date, targetTimeZone);
   const currentDay = openingHours[dayIndex];
   const previousDay = openingHours[(dayIndex + 6) % 7];
 

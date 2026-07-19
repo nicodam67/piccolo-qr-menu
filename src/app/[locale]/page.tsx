@@ -8,6 +8,12 @@ type LocalePageProps = {
   params: Promise<{ locale: string }>;
 };
 
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ locale: "es" }];
+}
+
 export default async function LocalePage({ params }: LocalePageProps) {
   const { locale } = await params;
 
