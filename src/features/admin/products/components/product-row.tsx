@@ -55,7 +55,7 @@ export function ProductRow({
         transition,
       }}
       data-testid={`product-row-${product.id}`}
-      className={`grid grid-cols-[auto_3rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-stone-100 bg-white px-3 py-3 last:border-b-0 sm:grid-cols-[auto_3.5rem_minmax(0,1.4fr)_minmax(7rem,0.5fr)_minmax(7rem,0.5fr)_4rem_auto] sm:px-4 ${
+      className={`grid grid-cols-[auto_3rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-b border-stone-100 bg-white px-3 py-3 last:border-b-0 sm:grid-cols-[auto_3.5rem_minmax(0,1.4fr)_minmax(7rem,0.5fr)_minmax(7rem,0.5fr)_4rem_auto] sm:gap-3 sm:px-4 ${
         isDragging ? "relative z-20 rounded-xl shadow-xl ring-2 ring-[#d7ae6a]" : ""
       }`}
     >
@@ -132,7 +132,7 @@ export function ProductRow({
         {product.sortOrder}
       </p>
 
-      <div className="flex items-center justify-end gap-1">
+      <div className="col-start-3 flex items-center justify-start gap-1 sm:col-start-auto sm:justify-end">
         <button
           type="button"
           onClick={() => onEdit(product)}
