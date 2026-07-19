@@ -1,0 +1,130 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Download,
+  LayoutDashboard,
+  Palette,
+  QrCode,
+  Settings,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+
+type SidebarProps = {
+  collapsed: boolean;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+};
+
+type NavigationItem = {
+  label: string;
+  icon: LucideIcon;
+  available: boolean;
+};
+
+const navigationItems: NavigationItem[] = [
+  { label: "Dashboard", icon: LayoutDashboard, available: true },
+  { label: "Menú", icon: UtensilsCrossed, available: false },
+  { label: "Branding", icon: Palette, available: false },
+  { label: "QR & Share", icon: QrCode, available: false },
+  { label: "Exportar", icon: Download, available: false },
+  { label: "Configuración", icon: Settings, available: false },
+];
+
+export function Sidebar({
+  collapsed,
+  mobileOpen,
+  onMobileClose,
+}: SidebarProps) {
+  const collapsedLabelClass = collapsed ? "md:hidden lg:block" : "";
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Cerrar menú de administración"
+        onClick={onMobileClose}
+        className={`fixed inset-0 z-40 bg-[#17201d]/35 backdrop-blur-[2px] transition-opacity md:hidden ${
+          mobileOpen
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      <aside
+        id="admin-sidebar"
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-stone-200 bg-[#173f35] text-white transition-[width,transform] duration-200 md:translate-x-0 lg:w-64 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } ${collapsed ? "md:w-20" : "md:w-64"}`}
+      >
+        <div className="flex min-h-[4.5rem] items-center border-b border-white/10 px-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold tracking-[0.2em] text-[#d7ae6a] uppercase">
+              Piccolo
+            </p>
+            <p
+              className={`mt-1 truncate text-sm font-semibold ${collapsedLabelClass}`}
+            >
+              Administración
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onMobileClose}
+            aria-label="Cerrar menú"
+            className="ml-auto grid size-10 place-items-center rounded-xl text-white/80 hover:bg-white/10 md:hidden"
+          >
+            <X aria-hidden="true" className="size-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+
+            if (item.available) {
+              return (
+                <Link
+                  key={item.label}
+                  href="/admin"
+                  onClick={onMobileClose}
+                  title={item.label}
+                  aria-current="page"
+                  className="flex min-h-12 items-center gap-3 rounded-xl bg-white px-3 font-bold text-[#173f35] shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  <Icon aria-hidden="true" className="size-5 shrink-0" />
+                  <span className={collapsedLabelClass}>{item.label}</span>
+                </Link>
+              );
+            }
+
+            return (
+              <div
+                key={item.label}
+                title={`${item.label} · Disponible próximamente`}
+                aria-disabled="true"
+                className="flex min-h-14 items-center gap-3 rounded-xl px-3 text-white/60"
+              >
+                <Icon aria-hidden="true" className="size-5 shrink-0" />
+                <div className={`min-w-0 ${collapsedLabelClass}`}>
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <p className="mt-0.5 text-[9px] tracking-wide text-white/40 uppercase">
+                    Disponible próximamente
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-white/10 p-4">
+          <p
+            className={`text-[10px] leading-4 text-white/45 ${collapsedLabelClass}`}
+          >
+            Estructura temporal de desarrollo
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}
