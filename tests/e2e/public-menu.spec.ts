@@ -45,6 +45,33 @@ async function clearAdminLoginAttempts(email: string) {
   });
 }
 
+async function cleanupE2ECategories() {
+  await withDatabase(async (sql) => {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        delete from categories
+        where id in (
+          select category_id
+          from category_translations
+          where name like 'Categoría E2E%'
+        )
+      `;
+      await transaction`
+        with ordered as (
+          select
+            id,
+            row_number() over (order by sort_order, id)::integer as next_order
+          from categories
+        )
+        update categories
+        set sort_order = ordered.next_order, updated_at = now()
+        from ordered
+        where categories.id = ordered.id
+      `;
+    });
+  });
+}
+
 async function loginAsAdmin(page: Page) {
   const { email, password } = getAdminCredentials();
 
@@ -132,7 +159,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
     .getByRole("button", { name: "Abrir menú de administración" })
     .click();
   await expect(page.getByRole("navigation")).toBeVisible();
-  await expect(page.getByText("Disponible próximamente")).toHaveCount(5);
+  await expect(page.getByText("Disponible próximamente")).toHaveCount(4);
 
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -165,6 +192,111 @@ test("mobile admin menu opens and closes", async ({ page }) => {
     .getByRole("heading", { name: "Dashboard", level: 1 })
     .click();
   await expect(openMenuButton).toBeEnabled();
+});
+
+test("administrator manages categories without changing the schema", async ({
+  page,
+}) => {
+  await cleanupE2ECategories();
+  await loginAsAdmin(page);
+  await page.goto("/admin/categories");
+
+  await expect(
+    page.getByRole("heading", { name: "Categorías", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText("Antipasti", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Nueva categoría" }).click();
+  await page.getByLabel("Nombre").fill(" Categoría E2E");
+  await page
+    .getByLabel("Descripción")
+    .fill("Categoría creada por la prueba de administración.");
+  await page.getByRole("button", { name: "Crear categoría" }).click();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "El nombre no puede empezar ni terminar con espacios.",
+    }),
+  ).toHaveText("El nombre no puede empezar ni terminar con espacios.");
+
+  await page.getByLabel("Nombre").fill("Categoría E2E");
+  await page.getByRole("button", { name: "Crear categoría" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Categoría E2E", level: 3 }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Editar Categoría E2E" })
+    .click();
+  await page.getByLabel("Nombre").fill("Categoría E2E actualizada");
+  await page
+    .getByLabel("Descripción")
+    .fill("Descripción actualizada desde PostgreSQL.");
+  await page.getByLabel("Visible").uncheck();
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+  const testCategoryRow = page
+    .getByTestId(/^category-row-/)
+    .filter({ hasText: "Categoría E2E actualizada" });
+  await expect(testCategoryRow).toContainText("No visible");
+  await testCategoryRow
+    .getByRole("button", { name: "Mostrar Categoría E2E actualizada" })
+    .click();
+  await expect(
+    testCategoryRow.getByRole("button", {
+      name: "Ocultar Categoría E2E actualizada",
+    }),
+  ).toBeVisible();
+
+  const sourceHandle = testCategoryRow.getByRole("button", {
+    name: "Reordenar Categoría E2E actualizada",
+  });
+  const targetHandle = page.getByRole("button", {
+    name: "Reordenar Antipasti",
+  });
+  const sourceBox = await sourceHandle.boundingBox();
+  const targetBox = await targetHandle.boundingBox();
+
+  if (!sourceBox || !targetBox) {
+    throw new Error("No se pudieron calcular las posiciones del drag & drop.");
+  }
+
+  await page.mouse.move(
+    sourceBox.x + sourceBox.width / 2,
+    sourceBox.y + sourceBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + targetBox.height / 2,
+    { steps: 12 },
+  );
+  await page.mouse.up();
+  await expect(page.getByText("Orden guardado automáticamente.")).toBeVisible();
+  await expect(testCategoryRow).toContainText("Orden 1");
+
+  await page.getByRole("button", { name: "Eliminar Antipasti" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(
+    page.getByText(/No se puede eliminar: tiene 2 productos/),
+  ).toBeVisible();
+  await expect(page.getByText("Antipasti", { exact: true })).toBeVisible();
+
+  await testCategoryRow
+    .getByRole("button", { name: "Eliminar Categoría E2E actualizada" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Categoría E2E actualizada",
+      level: 3,
+    }),
+  ).toHaveCount(0);
 });
 
 test("unauthenticated admin access redirects to login", async ({ page }) => {
@@ -383,4 +515,8 @@ test("five failures block login and a later success clears attempts", async ({
     `;
   });
   expect(Number(remainingAttempts?.count)).toBe(0);
+});
+
+test.afterAll(async () => {
+  await cleanupE2ECategories();
 });
