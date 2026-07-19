@@ -1,19 +1,40 @@
 # Piccolo QR Menu
 
-Entrega 1: prototipo visual público y mobile-first de la carta de Piccolo La
-Ràpita.
+Entrega 2: carta pública mobile-first conectada a PostgreSQL mediante Drizzle.
 
 ## Ejecutar en local
 
-Requisitos: Node.js 20.9 o superior y npm.
+Requisitos: Node.js 20.9 o superior, npm y PostgreSQL.
 
 ```bash
 npm install
+cp .env.example .env
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
+Antes de migrar, crea una base PostgreSQL vacía y adapta `DATABASE_URL` en
+`.env` a sus credenciales reales.
+
 Abrir [http://localhost:3000](http://localhost:3000). La ruta raíz redirige a
 `/es`.
+
+## Base de datos
+
+```bash
+# Generar una nueva migración después de modificar el esquema
+npm run db:generate
+
+# Aplicar migraciones pendientes
+npm run db:migrate
+
+# Insertar o actualizar exclusivamente los datos demo
+npm run db:seed
+```
+
+El seed es idempotente, usa identificadores reservados y está marcado como
+demostrativo. Sus datos no son información oficial de Piccolo La Ràpita.
 
 ## Comprobaciones
 
@@ -21,12 +42,14 @@ Abrir [http://localhost:3000](http://localhost:3000). La ruta raíz redirige a
 npm run typecheck
 npm run lint
 npm run build
+npx playwright test
 ```
 
 ## Alcance
 
-Esta entrega usa exclusivamente datos e imágenes remotas de demostración
-definidos en `src/features/public-menu/demo-data.ts`.
+La página `/es` consulta PostgreSQL mediante
+`src/features/public-menu/repository.ts`. Las imágenes siguen siendo remotas y
+temporales.
 
-No contiene base de datos, administración, autenticación, almacenamiento S3,
-publicación, pedidos ni integración con Piccolo TPV.
+No contiene administración, autenticación, almacenamiento S3, publicación,
+pedidos ni integración con Piccolo TPV.

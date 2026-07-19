@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { demoMenu } from "@/features/public-menu/demo-data";
 import { PublicMenuPage } from "@/features/public-menu/public-menu-page";
+import { getPublicMenu } from "@/features/public-menu/repository";
 import { getOpeningStatus } from "@/features/public-menu/utils";
 
 type LocalePageProps = {
@@ -9,6 +9,7 @@ type LocalePageProps = {
 };
 
 export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return [{ locale: "es" }];
@@ -21,16 +22,14 @@ export default async function LocalePage({ params }: LocalePageProps) {
     notFound();
   }
 
+  const menu = await getPublicMenu(locale);
   const initialOpeningStatus = getOpeningStatus(
     new Date(),
-    demoMenu.openingHours,
-    demoMenu.timeZone,
+    menu.openingHours,
+    menu.timeZone,
   );
 
   return (
-    <PublicMenuPage
-      menu={demoMenu}
-      initialOpeningStatus={initialOpeningStatus}
-    />
+    <PublicMenuPage menu={menu} initialOpeningStatus={initialOpeningStatus} />
   );
 }

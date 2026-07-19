@@ -59,8 +59,8 @@ export type DemoMenu = {
     heroImageUrl: string;
     heroImageAlt: string;
   };
-  locale: "es";
-  timeZone: "Europe/Madrid";
+  locale: string;
+  timeZone: string;
   categories: DemoCategory[];
   products: DemoProduct[];
   openingHours: OpeningDay[];
