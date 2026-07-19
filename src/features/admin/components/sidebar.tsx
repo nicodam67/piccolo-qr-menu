@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
   X,
 } from "lucide-react";
+import Link from "next/link";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -83,7 +84,7 @@ export function Sidebar({
 
             if (item.available) {
               return (
-                <a
+                <Link
                   key={item.label}
                   href="/admin"
                   onClick={onMobileClose}
@@ -93,7 +94,7 @@ export function Sidebar({
                 >
                   <Icon aria-hidden="true" className="size-5 shrink-0" />
                   <span className={collapsedLabelClass}>{item.label}</span>
-                </a>
+                </Link>
               );
             }
 
