@@ -18,7 +18,8 @@ npm run dev
 
 Antes de migrar, crea una base PostgreSQL vacía y adapta `DATABASE_URL` en
 `.env` a sus credenciales reales. Configura también `AUTH_SECRET`,
-`ADMIN_EMAIL`, `ADMIN_PASSWORD` y `ADMIN_FULL_NAME`. Genera el secreto con:
+`ADMIN_EMAIL`, `ADMIN_PASSWORD` y `ADMIN_FULL_NAME`. `AUTH_SECRET` debe tener
+como mínimo 32 bytes de entropía aleatoria. Genéralo con:
 
 ```bash
 openssl rand -base64 48
@@ -56,14 +57,32 @@ son información oficial de Piccolo La Ràpita.
 
 ## Administrador y sesiones
 
-`npm run db:admin:create` crea o actualiza el único administrador configurado
-en las variables `ADMIN_*`. La contraseña se transforma con Argon2id antes de
-guardarse y nunca se almacena en texto plano. Elimina `ADMIN_PASSWORD` del
-entorno cuando el alta haya terminado si no necesitas repetir el comando.
+`npm run db:admin:create` crea el administrador configurado en las variables
+`ADMIN_*` únicamente si el email todavía no existe. Si ya existe, el comando
+termina sin modificar datos.
+
+Para cambiar explícitamente el nombre y la contraseña de una cuenta activa:
+
+```bash
+ADMIN_UPDATE_EXISTING=true npm run db:admin:create
+```
+
+La actualización mantiene `is_active`, incrementa `session_version` e invalida
+inmediatamente todas las sesiones anteriores. Una cuenta inactiva nunca se
+reactiva mediante este comando.
+
+La contraseña se transforma con Argon2id y nunca se almacena en texto plano.
+`ADMIN_PASSWORD` solo debe existir durante la creación o actualización del
+administrador: elimínala del `.env` al terminar y nunca la mantengas como
+credencial permanente.
 
 La sesión utiliza una cookie `httpOnly`, `SameSite=Lax`, marcada como `Secure`
 en producción. `AUTH_SESSION_TTL_SECONDS` controla su duración y admite valores
-entre 300 y 604800 segundos.
+entre 300 y 604800 segundos. Cada carga servidor de `/admin` confirma en
+PostgreSQL que la cuenta siga activa y que `session_version` coincida.
+
+El login admite cinco intentos fallidos por combinación de email e IP dentro de
+una ventana de quince minutos. Un acceso correcto elimina el contador.
 
 ## Comprobaciones
 

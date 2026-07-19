@@ -4,7 +4,6 @@ import { Clock3, Construction } from "lucide-react";
 import { AdminLayout } from "@/features/admin/components/admin-layout";
 import { DashboardCards } from "@/features/admin/components/dashboard-cards";
 import { getAdminDashboardSummary } from "@/features/admin/repository";
-import { requireAdminSession } from "@/features/auth/server-session";
 
 export const metadata: Metadata = {
   title: "Administración · Piccolo QR Menu",
@@ -14,7 +13,6 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  await requireAdminSession();
   const summary = await getAdminDashboardSummary();
 
   return (
@@ -31,10 +29,10 @@ export default async function AdminPage() {
           />
           <div>
             <p className="text-sm font-bold">
-              Panel de Administración - Acceso temporal de desarrollo
+              Panel de Administración
             </p>
             <p className="mt-0.5 text-xs leading-5 text-amber-800/75">
-              La autenticación completa se incorporará en una entrega futura.
+              Acceso administrativo protegido.
             </p>
           </div>
         </div>

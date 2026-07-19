@@ -64,11 +64,50 @@ export const admins = pgTable(
     passwordHash: text("password_hash").notNull(),
     fullName: varchar("full_name", { length: 160 }).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
+    sessionVersion: integer("session_version").default(1).notNull(),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("admins_email_uidx").on(table.email),
+    uniqueIndex("admins_email_lower_uidx").on(sql`lower(${table.email})`),
     index("admins_active_idx").on(table.isActive),
+    check("admins_email_lowercase_check", sql`${table.email} = lower(${table.email})`),
+    check(
+      "admins_session_version_check",
+      sql`${table.sessionVersion} >= 1`,
+    ),
+  ],
+);
+
+export const adminLoginAttempts = pgTable(
+  "admin_login_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    emailNormalized: varchar("email_normalized", { length: 320 }).notNull(),
+    ipAddress: varchar("ip_address", { length: 64 }).notNull(),
+    failedAttempts: integer("failed_attempts").default(0).notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    blockedUntil: timestamp("blocked_until", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("admin_login_attempts_email_ip_uidx").on(
+      table.emailNormalized,
+      table.ipAddress,
+    ),
+    index("admin_login_attempts_blocked_until_idx").on(table.blockedUntil),
+    check(
+      "admin_login_attempts_email_lowercase_check",
+      sql`${table.emailNormalized} = lower(${table.emailNormalized})`,
+    ),
+    check(
+      "admin_login_attempts_failed_count_check",
+      sql`${table.failedAttempts} >= 0`,
+    ),
   ],
 );
 

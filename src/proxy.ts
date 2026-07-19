@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import {
   ADMIN_SESSION_COOKIE,
+  getAdminCookieSecurityOptions,
   verifyAdminSessionToken,
 } from "@/features/auth/session";
 
@@ -20,7 +21,17 @@ export async function proxy(request: NextRequest) {
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
 
-  return NextResponse.redirect(loginUrl);
+  const response = NextResponse.redirect(loginUrl);
+
+  if (token) {
+    response.cookies.set(ADMIN_SESSION_COOKIE, "", {
+      ...getAdminCookieSecurityOptions(),
+      expires: new Date(0),
+      maxAge: 0,
+    });
+  }
+
+  return response;
 }
 
 export const config = {

@@ -3,6 +3,12 @@
 import { redirect } from "next/navigation";
 
 import { DUMMY_PASSWORD_HASH, verifyPasswordHash } from "./password";
+import {
+  clearLoginAttempts,
+  getClientIpAddress,
+  isLoginBlocked,
+  registerFailedLoginAttempt,
+} from "./rate-limit";
 import { findAdminByEmail } from "./repository";
 import {
   createAdminSession,
@@ -49,6 +55,18 @@ export async function loginAction(
     return { error: INVALID_CREDENTIALS_MESSAGE };
   }
 
+  let ipAddress: string;
+
+  try {
+    ipAddress = await getClientIpAddress();
+
+    if (await isLoginBlocked(email, ipAddress)) {
+      return { error: INVALID_CREDENTIALS_MESSAGE };
+    }
+  } catch {
+    return { error: LOGIN_SERVICE_ERROR };
+  }
+
   let admin;
 
   try {
@@ -63,14 +81,22 @@ export async function loginAction(
   );
 
   if (!admin || !admin.isActive || !passwordIsValid) {
+    try {
+      await registerFailedLoginAttempt(email, ipAddress);
+    } catch {
+      return { error: LOGIN_SERVICE_ERROR };
+    }
+
     return { error: INVALID_CREDENTIALS_MESSAGE };
   }
 
   try {
+    await clearLoginAttempts(email, ipAddress);
     await createAdminSession({
       adminId: admin.id,
       email: admin.email,
       fullName: admin.fullName,
+      sessionVersion: admin.sessionVersion,
     });
   } catch {
     return { error: LOGIN_SERVICE_ERROR };

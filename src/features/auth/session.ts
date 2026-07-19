@@ -10,6 +10,7 @@ export type AdminSession = {
   adminId: string;
   email: string;
   fullName: string;
+  sessionVersion: number;
   expiresAt: number;
 };
 
@@ -18,11 +19,17 @@ type SessionIdentity = Omit<AdminSession, "expiresAt">;
 function getAuthSecret() {
   const authSecret = process.env.AUTH_SECRET;
 
-  if (!authSecret || authSecret.length < 32) {
-    throw new Error("AUTH_SECRET debe contener al menos 32 caracteres.");
+  if (!authSecret) {
+    throw new Error("AUTH_SECRET es obligatoria.");
   }
 
-  return new TextEncoder().encode(authSecret);
+  const encodedSecret = new TextEncoder().encode(authSecret);
+
+  if (encodedSecret.byteLength < 32) {
+    throw new Error("AUTH_SECRET debe contener al menos 32 bytes.");
+  }
+
+  return encodedSecret;
 }
 
 export function getSessionTtlSeconds() {
@@ -43,6 +50,15 @@ export function getSessionTtlSeconds() {
   return ttl;
 }
 
+export function getAdminCookieSecurityOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+  };
+}
+
 export async function createAdminSessionToken(
   identity: SessionIdentity,
 ): Promise<string> {
@@ -51,6 +67,7 @@ export async function createAdminSessionToken(
   return new SignJWT({
     email: identity.email,
     fullName: identity.fullName,
+    sessionVersion: identity.sessionVersion,
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setSubject(identity.adminId)
@@ -75,6 +92,9 @@ export async function verifyAdminSessionToken(
       !payload.sub ||
       typeof payload.email !== "string" ||
       typeof payload.fullName !== "string" ||
+      typeof payload.sessionVersion !== "number" ||
+      !Number.isInteger(payload.sessionVersion) ||
+      payload.sessionVersion < 1 ||
       typeof payload.exp !== "number"
     ) {
       return null;
@@ -84,6 +104,7 @@ export async function verifyAdminSessionToken(
       adminId: payload.sub,
       email: payload.email,
       fullName: payload.fullName,
+      sessionVersion: payload.sessionVersion,
       expiresAt: payload.exp,
     };
   } catch {

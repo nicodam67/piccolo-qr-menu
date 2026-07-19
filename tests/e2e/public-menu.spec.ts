@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import postgres, { type Sql } from "postgres";
+
+test.describe.configure({ mode: "serial" });
 
 function getAdminCredentials() {
   const email = process.env.ADMIN_EMAIL;
@@ -11,6 +14,35 @@ function getAdminCredentials() {
   }
 
   return { email, password };
+}
+
+function getDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL es obligatoria para las pruebas E2E.");
+  }
+
+  return databaseUrl;
+}
+
+async function withDatabase<T>(callback: (sql: Sql) => Promise<T>) {
+  const sql = postgres(getDatabaseUrl(), { max: 1 });
+
+  try {
+    return await callback(sql);
+  } finally {
+    await sql.end();
+  }
+}
+
+async function clearAdminLoginAttempts(email: string) {
+  await withDatabase(async (sql) => {
+    await sql`
+      delete from admin_login_attempts
+      where email_normalized = ${email.toLowerCase()}
+    `;
+  });
 }
 
 async function loginAsAdmin(page: Page) {
@@ -83,11 +115,7 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
 test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   await loginAsAdmin(page);
 
-  await expect(
-    page.getByText(
-      "Panel de Administración - Acceso temporal de desarrollo",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText("Acceso administrativo protegido.")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
@@ -206,4 +234,131 @@ test("logout destroys the session and blocks subsequent access", async ({
 
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
+});
+
+test("inactive administrator loses access immediately", async ({
+  page,
+  context,
+}) => {
+  const { email } = getAdminCredentials();
+  await loginAsAdmin(page);
+
+  try {
+    await withDatabase(async (sql) => {
+      await sql`
+        update admins
+        set is_active = false, updated_at = now()
+        where email = ${email.toLowerCase()}
+      `;
+    });
+
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/login$/);
+    expect(
+      (await context.cookies()).some(
+        (cookie) => cookie.name === "piccolo_admin_session",
+      ),
+    ).toBe(false);
+  } finally {
+    await withDatabase(async (sql) => {
+      await sql`
+        update admins
+        set
+          is_active = true,
+          session_version = session_version + 1,
+          updated_at = now()
+        where email = ${email.toLowerCase()}
+      `;
+    });
+  }
+});
+
+test("session version change invalidates the previous JWT", async ({
+  page,
+  context,
+}) => {
+  const { email } = getAdminCredentials();
+  await loginAsAdmin(page);
+
+  await withDatabase(async (sql) => {
+    await sql`
+      update admins
+      set session_version = session_version + 1, updated_at = now()
+      where email = ${email.toLowerCase()}
+    `;
+  });
+
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/login$/);
+  expect(
+    (await context.cookies()).some(
+      (cookie) => cookie.name === "piccolo_admin_session",
+    ),
+  ).toBe(false);
+});
+
+test("five failures block login and a later success clears attempts", async ({
+  page,
+}) => {
+  const { email, password } = getAdminCredentials();
+  const normalizedEmail = email.toLowerCase();
+  await clearAdminLoginAttempts(normalizedEmail);
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await page.getByLabel("Contraseña").fill("contraseña-incorrecta");
+    await page.getByRole("button", { name: "Iniciar sesión" }).click();
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "Email o contraseña incorrectos.",
+      }),
+    ).toBeVisible();
+  }
+
+  const [blockedAttempt] = await withDatabase(async (sql) => {
+    return sql<
+      Array<{ failed_attempts: number; blocked_until: Date | null }>
+    >`
+      select failed_attempts, blocked_until
+      from admin_login_attempts
+      where email_normalized = ${normalizedEmail}
+    `;
+  });
+
+  expect(Number(blockedAttempt?.failed_attempts)).toBe(5);
+  expect(blockedAttempt?.blocked_until).not.toBeNull();
+  expect(new Date(blockedAttempt?.blocked_until ?? 0).getTime()).toBeGreaterThan(
+    Date.now(),
+  );
+
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Email o contraseña incorrectos.",
+    }),
+  ).toBeVisible();
+
+  await withDatabase(async (sql) => {
+    await sql`
+      update admin_login_attempts
+      set blocked_until = now() - interval '1 second'
+      where email_normalized = ${normalizedEmail}
+    `;
+  });
+
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+
+  const [remainingAttempts] = await withDatabase(async (sql) => {
+    return sql<Array<{ count: number }>>`
+      select count(*)::integer as count
+      from admin_login_attempts
+      where email_normalized = ${normalizedEmail}
+    `;
+  });
+  expect(Number(remainingAttempts?.count)).toBe(0);
 });
