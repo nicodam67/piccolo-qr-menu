@@ -1,4 +1,27 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+function getAdminCredentials() {
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    throw new Error(
+      "ADMIN_EMAIL y ADMIN_PASSWORD son obligatorias para las pruebas E2E.",
+    );
+  }
+
+  return { email, password };
+}
+
+async function loginAsAdmin(page: Page) {
+  const { email, password } = getAdminCredentials();
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+}
 
 test("public menu works at 320px", async ({ page }, testInfo) => {
   await page.goto("/");
@@ -58,7 +81,7 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
 });
 
 test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
-  await page.goto("/admin");
+  await loginAsAdmin(page);
 
   await expect(
     page.getByText(
@@ -68,7 +91,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("Conectada")).toBeVisible();
+  await expect(page.getByLabel("Base de datos conectada")).toBeVisible();
 
   await expect(page.getByTestId("admin-metric-categories")).toContainText("4");
   await expect(page.getByTestId("admin-metric-products")).toContainText("6");
@@ -93,7 +116,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
 
 test("mobile admin menu opens and closes", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/admin");
+  await loginAsAdmin(page);
 
   const sidebar = page.locator("#admin-sidebar");
   const openMenuButton = page.getByRole("button", {
@@ -114,4 +137,66 @@ test("mobile admin menu opens and closes", async ({ page }) => {
     .getByRole("heading", { name: "Dashboard", level: 1 })
     .click();
   await expect(openMenuButton).toBeEnabled();
+});
+
+test("unauthenticated admin access redirects to login", async ({ page }) => {
+  await page.goto("/admin");
+
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
+  await expect(
+    page.getByRole("heading", { name: "Bienvenido de nuevo", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Dashboard", level: 1 }),
+  ).toHaveCount(0);
+});
+
+test("incorrect admin credentials show a clear error", async ({ page }) => {
+  const { email } = getAdminCredentials();
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill("contraseña-incorrecta");
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
+
+  await expect(page.getByRole("alert")).toHaveText(
+    "Email o contraseña incorrectos.",
+  );
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("correct admin credentials create a secure session", async ({
+  page,
+  context,
+}) => {
+  await loginAsAdmin(page);
+
+  await expect(
+    page.getByRole("heading", { name: "Dashboard", level: 1 }),
+  ).toBeVisible();
+
+  const sessionCookie = (await context.cookies()).find(
+    (cookie) => cookie.name === "piccolo_admin_session",
+  );
+  expect(sessionCookie).toBeDefined();
+  expect(sessionCookie?.httpOnly).toBe(true);
+  expect(sessionCookie?.sameSite).toBe("Lax");
+});
+
+test("logout destroys the session and blocks subsequent access", async ({
+  page,
+  context,
+}) => {
+  await loginAsAdmin(page);
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  expect(
+    (await context.cookies()).some(
+      (cookie) => cookie.name === "piccolo_admin_session",
+    ),
+  ).toBe(false);
+
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
 });

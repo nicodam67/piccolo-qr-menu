@@ -1,5 +1,6 @@
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
+import { logoutAction } from "@/features/auth/actions";
 import { DatabaseStatus } from "./database-status";
 
 type TopbarProps = {
@@ -67,6 +68,16 @@ export function Topbar({
           {locale}
         </span>
         <DatabaseStatus status={databaseStatus} />
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            aria-label="Cerrar sesión"
+            className="flex min-h-9 items-center gap-2 rounded-full border border-stone-200 bg-white px-2.5 text-xs font-bold text-stone-600 transition hover:border-[#a8392f]/30 hover:text-[#a8392f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a8392f] sm:px-3"
+          >
+            <LogOut aria-hidden="true" className="size-3.5" />
+            <span className="hidden lg:inline">Cerrar sesión</span>
+          </button>
+        </form>
       </div>
     </header>
   );

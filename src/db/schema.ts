@@ -56,6 +56,22 @@ export const restaurantTranslations = pgTable(
   ],
 );
 
+export const admins = pgTable(
+  "admins",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    passwordHash: text("password_hash").notNull(),
+    fullName: varchar("full_name", { length: 160 }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("admins_email_uidx").on(table.email),
+    index("admins_active_idx").on(table.isActive),
+  ],
+);
+
 export const openingHours = pgTable(
   "opening_hours",
   {

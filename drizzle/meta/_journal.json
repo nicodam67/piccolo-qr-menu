@@ -8,6 +8,13 @@
       "when": 1784492335770,
       "tag": "0000_late_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784495483115,
+      "tag": "0001_perpetual_lilandra",
+      "breakpoints": true
     }
   ]
 }
