@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { LoaderCircle, X } from "lucide-react";
 
 import {
@@ -13,6 +13,7 @@ import type {
   ProductCategoryOption,
   ProductTagOption,
 } from "../repository";
+import { ProductImageManager } from "./product-image-manager";
 
 type ProductFormDialogProps = {
   mode: "create" | "edit";
@@ -72,6 +73,7 @@ export function ProductFormDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const uploadCommittedRef = useRef(false);
 
   const getMaxOrder = (nextCategoryId: string) => {
     const category = categories.find(({ id }) => id === nextCategoryId);
@@ -132,6 +134,7 @@ export function ProductFormDialog({
         return;
       }
 
+      uploadCommittedRef.current = true;
       onSaved();
     });
   };
@@ -317,25 +320,16 @@ export function ProductFormDialog({
           </div>
 
           <div>
-            <label
-              htmlFor="product-image-url"
-              className="text-xs font-bold text-stone-700"
-            >
-              URL de imagen existente
-            </label>
-            <input
-              id="product-image-url"
-              name="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-              required
-              disabled={isPending}
-              className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm outline-none focus:border-[#245849]"
-            />
-            <p className="mt-1 text-[10px] text-stone-400">
-              Se reutiliza el campo actual; esta entrega no sube archivos.
+            <p className="mb-2 text-xs font-bold text-stone-700">
+              Imagen del producto
             </p>
+            <ProductImageManager
+              value={imageUrl}
+              initialValue={product?.imageUrl ?? ""}
+              onChange={setImageUrl}
+              commitRef={uploadCommittedRef}
+              disabled={isPending}
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

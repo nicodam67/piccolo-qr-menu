@@ -106,8 +106,19 @@ en el esquema y no se autorizó una migración.
 
 `/admin/products` gestiona productos, traducciones, precios, categoría,
 visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
-reutilizando exclusivamente las tablas actuales. No se crean migraciones ni se
-suben archivos.
+reutilizando exclusivamente las tablas actuales.
+
+## Imágenes de productos
+
+El editor acepta JPG, JPEG, PNG y WEBP de hasta 10 MB. Cada subida elimina
+metadatos, convierte a WEBP y genera variantes móvil (640 px) y escritorio
+(1440 px). PostgreSQL conserva únicamente la URL de escritorio en el campo
+`products.image_url`; la variante móvil se deriva del mismo nombre.
+
+`IMAGE_STORAGE_DRIVER=local` está destinado a desarrollo y guarda archivos en
+`.data/uploads`. En producción configura `IMAGE_STORAGE_DRIVER=s3` junto con
+bucket, región y `IMAGE_PUBLIC_BASE_URL`; endpoint y credenciales explícitas son
+opcionales para proveedores S3-compatible.
 
 `/admin/branding` permite editar identidad, contacto, portada y horarios con una
 vista previa en tiempo real. Utiliza `restaurant_settings`,

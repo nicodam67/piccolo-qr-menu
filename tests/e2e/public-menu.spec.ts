@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { rm } from "node:fs/promises";
+import path from "node:path";
 import postgres, { type Sql } from "postgres";
+import sharp from "sharp";
 
 test.describe.configure({ mode: "serial" });
 
@@ -73,8 +76,15 @@ async function cleanupE2ECategories() {
 }
 
 async function cleanupE2EProducts() {
-  await withDatabase(async (sql) => {
-    await sql.begin(async (transaction) => {
+  const managedImageUrls = await withDatabase(async (sql) => {
+    return sql.begin(async (transaction) => {
+      const imageRows = await transaction<Array<{ image_url: string }>>`
+        select products.image_url
+        from products
+        inner join product_translations
+          on product_translations.product_id = products.id
+        where product_translations.name like 'Producto E2E%'
+      `;
       await transaction`
         delete from products
         where id in (
@@ -98,8 +108,33 @@ async function cleanupE2EProducts() {
         from ordered
         where products.id = ordered.id
       `;
+      return imageRows.map(({ image_url }) => image_url);
     });
   });
+
+  await Promise.all(
+    managedImageUrls.flatMap((url) => {
+      if (!url.startsWith("/uploads/products/")) {
+        return [];
+      }
+
+      const desktopFile = path.basename(url);
+      const mobileFile = desktopFile.replace(
+        /\.desktop\.webp$/,
+        ".mobile.webp",
+      );
+      const directory = path.resolve(
+        process.cwd(),
+        process.env.IMAGE_LOCAL_DIRECTORY ?? ".data/uploads",
+        "products",
+      );
+
+      return [
+        rm(path.join(directory, desktopFile), { force: true }),
+        rm(path.join(directory, mobileFile), { force: true }),
+      ];
+    }),
+  );
 }
 
 type BrandingBackup = {
@@ -443,11 +478,70 @@ test("administrator manages products with existing schema fields", async ({
     .getByLabel("Descripción")
     .fill("Producto creado mediante la prueba E2E.");
   await page.getByLabel("Precio completo").fill("12.34");
+  const imageInput = page.getByLabel("Seleccionar archivo de imagen");
+  await imageInput.setInputFiles({
+    name: "archivo-invalido.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("no es una imagen"),
+  });
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Formato no permitido.",
+    }),
+  ).toBeVisible();
+
+  await imageInput.setInputFiles({
+    name: "imagen-demasiado-grande.png",
+    mimeType: "image/png",
+    buffer: Buffer.alloc(10 * 1024 * 1024 + 1),
+  });
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "La imagen supera el tamaño máximo de 10 MB.",
+    }),
+  ).toBeVisible();
+
+  const initialImage = await sharp({
+    create: {
+      width: 1_200,
+      height: 800,
+      channels: 3,
+      background: { r: 184, g: 62, b: 48 },
+    },
+  })
+    .png()
+    .toBuffer();
+  let releaseCancelledUpload: (() => void) | undefined;
+  await page.route("**/api/admin/images", async (route) => {
+    await new Promise<void>((resolve) => {
+      releaseCancelledUpload = resolve;
+    });
+    await route.abort();
+  });
+  await imageInput.setInputFiles({
+    name: "producto-e2e-cancelado.png",
+    mimeType: "image/png",
+    buffer: initialImage,
+  });
   await page
-    .getByLabel("URL de imagen existente")
-    .fill(
-      "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=1200&q=85",
-    );
+    .getByRole("button", { name: "Cancelar subida" })
+    .click();
+  releaseCancelledUpload?.();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Subida cancelada." }),
+  ).toBeVisible();
+  await page.unroute("**/api/admin/images");
+
+  await imageInput.setInputFiles({
+    name: "producto-e2e.png",
+    mimeType: "image/png",
+    buffer: initialImage,
+  });
+  await expect(
+    page.getByRole("status").filter({
+      hasText: "Imagen optimizada.",
+    }),
+  ).toBeVisible();
   await page.getByLabel("Vegetariano").check();
   await page.getByLabel("Leche").check();
   await page.getByRole("button", { name: "Crear producto" }).click();
@@ -463,7 +557,40 @@ test("administrator manages products with existing schema fields", async ({
     page.getByRole("heading", { name: "Producto E2E", level: 3 }),
   ).toBeVisible();
 
+  const [createdImage] = await withDatabase(async (sql) => {
+    return sql<Array<{ image_url: string }>>`
+      select products.image_url
+      from products
+      inner join product_translations
+        on product_translations.product_id = products.id
+      where product_translations.name = 'Producto E2E'
+    `;
+  });
+  expect(createdImage?.image_url).toMatch(
+    /^\/uploads\/products\/.+\.desktop\.webp$/,
+  );
+
   await page.getByRole("button", { name: "Editar Producto E2E" }).click();
+  const replacementImage = await sharp({
+    create: {
+      width: 900,
+      height: 900,
+      channels: 3,
+      background: { r: 36, g: 88, b: 73 },
+    },
+  })
+    .webp()
+    .toBuffer();
+  await page.getByLabel("Seleccionar archivo de imagen").setInputFiles({
+    name: "producto-e2e-reemplazo.webp",
+    mimeType: "image/webp",
+    buffer: replacementImage,
+  });
+  await expect(
+    page.getByRole("status").filter({
+      hasText: "Imagen optimizada.",
+    }),
+  ).toBeVisible();
   await page.getByLabel("Nombre").fill("Producto E2E actualizado");
   await page
     .getByLabel("Descripción")
@@ -480,6 +607,52 @@ test("administrator manages products with existing schema fields", async ({
   await expect(testProductRow).toContainText("13,45");
   await expect(testProductRow).toContainText("No visible");
   await expect(testProductRow).toContainText("Agotado");
+
+  const [replacementStoredImage] = await withDatabase(async (sql) => {
+    return sql<Array<{ image_url: string }>>`
+      select products.image_url
+      from products
+      inner join product_translations
+        on product_translations.product_id = products.id
+      where product_translations.name = 'Producto E2E actualizado'
+    `;
+  });
+  expect(replacementStoredImage?.image_url).toMatch(
+    /^\/uploads\/products\/.+\.desktop\.webp$/,
+  );
+  expect(replacementStoredImage?.image_url).not.toBe(createdImage?.image_url);
+
+  await testProductRow
+    .getByRole("button", { name: "Editar Producto E2E actualizado" })
+    .click();
+  await page.getByRole("button", { name: "Eliminar imagen" }).click();
+  const [imageBeforeSave] = await withDatabase(async (sql) => {
+    return sql<Array<{ image_url: string }>>`
+      select products.image_url
+      from products
+      inner join product_translations
+        on product_translations.product_id = products.id
+      where product_translations.name = 'Producto E2E actualizado'
+    `;
+  });
+  expect(imageBeforeSave?.image_url).toBe(replacementStoredImage?.image_url);
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(
+    testProductRow.getByRole("img", {
+      name: "Producto E2E actualizado sin imagen",
+    }),
+  ).toBeVisible();
+  const [imageAfterSave] = await withDatabase(async (sql) => {
+    return sql<Array<{ image_url: string }>>`
+      select products.image_url
+      from products
+      inner join product_translations
+        on product_translations.product_id = products.id
+      where product_translations.name = 'Producto E2E actualizado'
+    `;
+  });
+  expect(imageAfterSave?.image_url).toBe("");
+
   await testProductRow
     .getByRole("button", { name: "Mostrar Producto E2E actualizado" })
     .click();
@@ -488,6 +661,13 @@ test("administrator manages products with existing schema fields", async ({
       name: "Ocultar Producto E2E actualizado",
     }),
   ).toBeVisible();
+
+  await page.goto("/es");
+  const publicTestProduct = page
+    .getByTestId("product-card")
+    .filter({ hasText: "Producto E2E actualizado" });
+  await expect(publicTestProduct).toContainText("Sin imagen");
+  await page.goto("/admin/products");
 
   const targetProductRow = page
     .getByTestId(/^product-row-/)

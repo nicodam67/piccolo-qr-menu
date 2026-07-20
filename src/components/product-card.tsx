@@ -1,8 +1,8 @@
-import Image from "next/image";
 import { AlertCircle } from "lucide-react";
 
 import type { DemoProduct, ProductTag } from "@/features/public-menu/types";
 import { formatDemoPrice } from "@/features/public-menu/utils";
+import { ProductImage } from "./product-image";
 
 const tagTones: Record<ProductTag["tone"], string> = {
   green: "text-emerald-700",
@@ -21,14 +21,10 @@ export function ProductCard({ product }: ProductCardProps) {
       className="group border-b border-stone-200 pb-7"
     >
       <div className="relative aspect-[16/10] overflow-hidden rounded-[1.1rem] bg-stone-200">
-        <Image
+        <ProductImage
           src={product.imageUrl}
           alt={product.imageAlt}
-          fill
-          sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw"
-          className={`object-cover transition-transform duration-500 group-hover:scale-[1.025] ${
-            product.isSoldOut ? "grayscale-[35%]" : ""
-          }`}
+          isSoldOut={product.isSoldOut}
         />
         <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[8px] font-extrabold tracking-[0.13em] text-white uppercase backdrop-blur-sm">
           Demo

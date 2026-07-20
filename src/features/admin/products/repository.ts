@@ -399,7 +399,7 @@ export async function updateProduct(
 ) {
   const { db } = getDatabase();
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('piccolo-products-order'))`,
     );
@@ -408,6 +408,7 @@ export async function updateProduct(
       .select({
         id: products.id,
         categoryId: products.categoryId,
+        imageUrl: products.imageUrl,
       })
       .from(products)
       .orderBy(asc(products.categoryId), asc(products.sortOrder), asc(products.id))
@@ -485,6 +486,8 @@ export async function updateProduct(
       input.tagIds,
       input.allergenIds,
     );
+
+    return currentProduct.imageUrl;
   });
 }
 
@@ -539,12 +542,16 @@ export async function reorderProducts(
 export async function deleteProduct(productId: string) {
   const { db } = getDatabase();
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('piccolo-products-order'))`,
     );
     const [product] = await tx
-      .select({ id: products.id, categoryId: products.categoryId })
+      .select({
+        id: products.id,
+        categoryId: products.categoryId,
+        imageUrl: products.imageUrl,
+      })
       .from(products)
       .where(eq(products.id, productId))
       .for("update");
@@ -564,5 +571,7 @@ export async function deleteProduct(productId: string) {
       tx,
       remainingProducts.map(({ id }) => id),
     );
+
+    return product.imageUrl;
   });
 }
