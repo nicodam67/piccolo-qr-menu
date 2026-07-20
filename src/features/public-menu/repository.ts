@@ -136,7 +136,11 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
 
     const productIds = productRows.map((product) => product.id);
     let tagRows: Array<{ productId: string; name: string; color: string }> = [];
-    let allergenRows: Array<{ productId: string; name: string }> = [];
+    let allergenRows: Array<{
+      productId: string;
+      name: string;
+      icon: string;
+    }> = [];
 
     if (productIds.length > 0) {
       [tagRows, allergenRows] = await Promise.all([
@@ -155,11 +159,18 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
               eq(tagTranslations.locale, locale),
             ),
           )
-          .where(inArray(productTags.productId, productIds)),
+          .where(
+            and(
+              inArray(productTags.productId, productIds),
+              eq(tags.isActive, true),
+            ),
+          )
+          .orderBy(asc(tags.sortOrder)),
         db
           .select({
             productId: productAllergens.productId,
             name: allergenTranslations.name,
+            icon: allergens.icon,
           })
           .from(productAllergens)
           .innerJoin(
@@ -173,8 +184,16 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
               eq(allergenTranslations.locale, locale),
             ),
           )
-          .where(inArray(productAllergens.productId, productIds))
-          .orderBy(asc(allergenTranslations.name)),
+          .where(
+            and(
+              inArray(productAllergens.productId, productIds),
+              eq(allergens.isActive, true),
+            ),
+          )
+          .orderBy(
+            asc(allergens.sortOrder),
+            asc(allergenTranslations.name),
+          ),
       ]);
     }
 
@@ -247,7 +266,10 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
           })),
         allergens: allergenRows
           .filter((allergen) => allergen.productId === product.id)
-          .map((allergen) => allergen.name),
+          .map((allergen) => ({
+            label: allergen.name,
+            icon: allergen.icon,
+          })),
         isSoldOut: product.isSoldOut,
       })),
       openingHours: normalizedHours,

@@ -29,6 +29,11 @@ export type ProductTag = {
   tone: "green" | "red" | "gold";
 };
 
+export type ProductAllergen = {
+  label: string;
+  icon: string;
+};
+
 export type DemoProduct = {
   id: string;
   categoryId: string;
@@ -39,7 +44,7 @@ export type DemoProduct = {
   fullPrice: number;
   halfPrice?: number;
   tags: ProductTag[];
-  allergens: string[];
+  allergens: ProductAllergen[];
   isSoldOut?: boolean;
 };
 

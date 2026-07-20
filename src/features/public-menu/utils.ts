@@ -118,7 +118,7 @@ export function filterProducts(products: DemoProduct[], query: string) {
       product.name,
       product.description,
       ...product.tags.map((tag) => tag.label),
-      ...product.allergens,
+      ...product.allergens.map((allergen) => allergen.label),
     ].join(" ");
 
     return normalizeSearchValue(searchableText).includes(normalizedQuery);

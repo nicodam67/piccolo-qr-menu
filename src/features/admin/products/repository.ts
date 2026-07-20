@@ -48,12 +48,14 @@ export type ProductTagOption = {
   id: string;
   name: string;
   color: string;
+  isActive: boolean;
 };
 
 export type ProductAllergenOption = {
   id: string;
   name: string;
   icon: string;
+  isActive: boolean;
 };
 
 export type AdminProductData = {
@@ -249,16 +251,18 @@ export async function getAdminProductData(): Promise<AdminProductData> {
       .select({
         id: tags.id,
         color: tags.color,
+        isActive: tags.isActive,
         name: tagTranslations.name,
       })
       .from(tags)
       .innerJoin(tagTranslations, eq(tagTranslations.tagId, tags.id))
       .where(eq(tagTranslations.locale, defaultLocale))
-      .orderBy(asc(tagTranslations.name)),
+      .orderBy(asc(tags.sortOrder), asc(tagTranslations.name)),
     db
       .select({
         id: allergens.id,
         icon: allergens.icon,
+        isActive: allergens.isActive,
         name: allergenTranslations.name,
       })
       .from(allergens)
@@ -267,7 +271,7 @@ export async function getAdminProductData(): Promise<AdminProductData> {
         eq(allergenTranslations.allergenId, allergens.id),
       )
       .where(eq(allergenTranslations.locale, defaultLocale))
-      .orderBy(asc(allergenTranslations.name)),
+      .orderBy(asc(allergens.sortOrder), asc(allergenTranslations.name)),
     db
       .selectDistinct({ locale: restaurantTranslations.locale })
       .from(restaurantTranslations)

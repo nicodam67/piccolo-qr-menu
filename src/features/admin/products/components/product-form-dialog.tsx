@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { LoaderCircle, X } from "lucide-react";
 
+import { TaxonomyIcon } from "@/components/taxonomy-icon";
+
 import {
   createProductAction,
   updateProductAction,
@@ -91,6 +93,17 @@ export function ProductFormDialog({
     String(product?.sortOrder ?? getMaxOrder(initialCategoryId)),
   );
   const maxOrder = getMaxOrder(categoryId);
+  const availableTags = tags.filter(
+    (tag) => tag.isActive || selectedTagIds.includes(tag.id),
+  );
+  const availableAllergens = allergens.filter(
+    (allergen) =>
+      allergen.isActive || selectedAllergenIds.includes(allergen.id),
+  );
+  const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
+  const selectedAllergens = allergens.filter((allergen) =>
+    selectedAllergenIds.includes(allergen.id),
+  );
 
   const handleLocaleChange = (nextLocale: string) => {
     const translation = product?.translations.find(
@@ -364,7 +377,7 @@ export function ProductFormDialog({
               Etiquetas existentes
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
-              {tags.map((tag) => (
+              {availableTags.map((tag) => (
                 <label
                   key={tag.id}
                   className="flex cursor-pointer items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600"
@@ -385,6 +398,7 @@ export function ProductFormDialog({
                     className="size-3.5 accent-[#173f35]"
                   />
                   {tag.name}
+                  {!tag.isActive ? " · inactiva" : ""}
                 </label>
               ))}
             </div>
@@ -395,7 +409,7 @@ export function ProductFormDialog({
               Alérgenos existentes
             </legend>
             <div className="mt-2 flex flex-wrap gap-2">
-              {allergens.map((allergen) => (
+              {availableAllergens.map((allergen) => (
                 <label
                   key={allergen.id}
                   className="flex cursor-pointer items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600"
@@ -416,10 +430,48 @@ export function ProductFormDialog({
                     className="size-3.5 accent-[#a8392f]"
                   />
                   {allergen.name}
+                  {!allergen.isActive ? " · inactivo" : ""}
                 </label>
               ))}
             </div>
           </fieldset>
+
+          <section
+            aria-label="Vista previa de etiquetas y alérgenos"
+            className="rounded-2xl border border-stone-200 bg-stone-50 p-4"
+          >
+            <p className="text-[10px] font-extrabold tracking-[0.12em] text-stone-500 uppercase">
+              Vista previa de la selección
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedTags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#173f35] ring-1 ring-stone-200"
+                >
+                  {tag.name}
+                </span>
+              ))}
+              {selectedAllergens.map((allergen) => (
+                <span
+                  key={allergen.id}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs text-stone-600 ring-1 ring-stone-200"
+                >
+                  <TaxonomyIcon
+                    icon={allergen.icon}
+                    label={allergen.name}
+                  />
+                  {allergen.name}
+                </span>
+              ))}
+              {selectedTags.length === 0 &&
+              selectedAllergens.length === 0 ? (
+                <span className="text-xs text-stone-400">
+                  Sin etiquetas ni alérgenos seleccionados.
+                </span>
+              ) : null}
+            </div>
+          </section>
 
           <div aria-live="polite" className="min-h-5">
             {error ? (

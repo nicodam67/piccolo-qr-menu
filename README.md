@@ -120,6 +120,12 @@ metadatos, convierte a WEBP y genera variantes móvil (640 px) y escritorio
 bucket, región y `IMAGE_PUBLIC_BASE_URL`; endpoint y credenciales explícitas son
 opcionales para proveedores S3-compatible.
 
+`/admin/allergens` y `/admin/tags` gestionan traducciones, visibilidad y orden.
+Los elementos inactivos conservan sus asociaciones y siguen apareciendo al
+editar productos ya relacionados, pero no se muestran en la carta pública. La
+migración `0003_good_vin_gonzales.sql` añade únicamente `is_active` y
+`sort_order` a ambas tablas.
+
 `/admin/branding` permite editar identidad, contacto, portada y horarios con una
 vista previa en tiempo real. Utiliza `restaurant_settings`,
 `restaurant_translations` y `opening_hours` sin duplicar datos.

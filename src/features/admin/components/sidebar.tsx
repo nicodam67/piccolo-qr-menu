@@ -8,6 +8,8 @@ import {
   Palette,
   QrCode,
   Settings,
+  ShieldAlert,
+  Tags,
   UtensilsCrossed,
   X,
 } from "lucide-react";
@@ -45,6 +47,18 @@ const navigationItems: NavigationItem[] = [
     icon: PackageOpen,
     available: true,
     href: "/admin/products",
+  },
+  {
+    label: "Alérgenos",
+    icon: ShieldAlert,
+    available: true,
+    href: "/admin/allergens",
+  },
+  {
+    label: "Etiquetas",
+    icon: Tags,
+    available: true,
+    href: "/admin/tags",
   },
   {
     label: "Branding",

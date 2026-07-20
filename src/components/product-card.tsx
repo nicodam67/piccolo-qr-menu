@@ -1,8 +1,7 @@
-import { AlertCircle } from "lucide-react";
-
 import type { DemoProduct, ProductTag } from "@/features/public-menu/types";
 import { formatDemoPrice } from "@/features/public-menu/utils";
 import { ProductImage } from "./product-image";
+import { TaxonomyIcon } from "./taxonomy-icon";
 
 const tagTones: Record<ProductTag["tone"], string> = {
   green: "text-emerald-700",
@@ -80,15 +79,32 @@ export function ProductCard({ product }: ProductCardProps) {
         ) : null}
 
         {product.allergens.length > 0 ? (
-          <div className="mt-2 flex items-start gap-1.5 text-[10px] leading-4 text-stone-500">
-            <AlertCircle
-              aria-hidden="true"
-              className="mt-px size-3.5 shrink-0 text-[#a8392f]"
-            />
-            <p>
-              <span className="font-bold text-stone-600">Alérgenos demo:</span>{" "}
-              {product.allergens.join(", ")}
-            </p>
+          <div className="mt-3 flex items-center gap-2 text-[10px] text-stone-500">
+            <span className="font-bold text-stone-600">Alérgenos:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {product.allergens.map((allergen) => (
+                <details
+                  key={allergen.label}
+                  className="group relative"
+                >
+                  <summary
+                    aria-label={`Mostrar alérgeno ${allergen.label}`}
+                    className="grid size-7 cursor-pointer list-none place-items-center rounded-full bg-stone-100 text-sm outline-none ring-[#a8392f] focus-visible:ring-2"
+                  >
+                    <TaxonomyIcon
+                      icon={allergen.icon}
+                      label={allergen.label}
+                    />
+                  </summary>
+                  <span
+                    role="tooltip"
+                    className="absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#17201d] px-2.5 py-1.5 text-[10px] font-bold text-white shadow-lg group-open:block"
+                  >
+                    {allergen.label}
+                  </span>
+                </details>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

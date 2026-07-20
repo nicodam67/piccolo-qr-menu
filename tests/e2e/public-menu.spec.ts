@@ -137,6 +137,67 @@ async function cleanupE2EProducts() {
   );
 }
 
+async function cleanupE2ETaxonomies() {
+  await withDatabase(async (sql) => {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        delete from allergens
+        where id in (
+          select allergen_id
+          from allergen_translations
+          where name like 'Alérgeno E2E%'
+        )
+      `;
+      await transaction`
+        delete from tags
+        where id in (
+          select tag_id
+          from tag_translations
+          where name like 'Etiqueta E2E%'
+        )
+      `;
+      await transaction`
+        with ordered as (
+          select
+            id,
+            row_number() over (order by sort_order, id)::integer as next_order
+          from allergens
+        )
+        update allergens
+        set sort_order = ordered.next_order
+        from ordered
+        where allergens.id = ordered.id
+      `;
+      await transaction`
+        with ordered as (
+          select
+            id,
+            row_number() over (order by sort_order, id)::integer as next_order
+          from tags
+        )
+        update tags
+        set sort_order = ordered.next_order
+        from ordered
+        where tags.id = ordered.id
+      `;
+      await transaction`
+        update tags
+        set is_active = true
+        where id in (
+          select tag_id from tag_translations where name = 'Vegetariano'
+        )
+      `;
+      await transaction`
+        update allergens
+        set is_active = true
+        where id in (
+          select allergen_id from allergen_translations where name = 'Leche'
+        )
+      `;
+    });
+  });
+}
+
 type BrandingBackup = {
   restaurantId: string;
   name: string;
@@ -457,6 +518,193 @@ test("administrator manages categories without changing the schema", async ({
   ).toHaveCount(0);
 });
 
+test("administrator manages allergens and protects associated items", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await cleanupE2ETaxonomies();
+  await loginAsAdmin(page);
+  await page.goto("/admin/allergens");
+
+  const search = page.getByPlaceholder("Buscar alérgenos…");
+  await search.fill("gluten");
+  await expect(page.getByText("Gluten", { exact: true })).toBeVisible();
+  await expect(page.getByText("Huevo", { exact: true })).toHaveCount(0);
+  await search.fill("");
+
+  await page.getByRole("button", { name: "Nuevo alérgeno" }).click();
+  await page.getByLabel("Nombre").fill(" Alérgeno E2E");
+  await page.getByLabel("Código").fill("allergen_e2e");
+  await page.getByLabel("Icono").fill("fish");
+  await page.getByRole("button", { name: "Crear alérgeno" }).click();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "El nombre no puede empezar ni terminar con espacios.",
+    }),
+  ).toBeVisible();
+
+  await page.getByLabel("Nombre").fill("Alérgeno E2E");
+  await page.getByRole("button", { name: "Crear alérgeno" }).click();
+  await page.getByRole("button", { name: "Editar Alérgeno E2E" }).click();
+  await page.getByLabel("Nombre").fill("Alérgeno E2E actualizado");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+  const allergenRow = page
+    .getByTestId(/^allergen-row-/)
+    .filter({ hasText: "Alérgeno E2E actualizado" });
+  await allergenRow
+    .getByRole("button", { name: "Desactivar Alérgeno E2E actualizado" })
+    .click();
+  await expect(allergenRow).toContainText("Inactivo");
+  await allergenRow
+    .getByRole("button", { name: "Activar Alérgeno E2E actualizado" })
+    .click();
+
+  const sourceHandle = allergenRow.getByRole("button", {
+    name: "Reordenar Alérgeno E2E actualizado",
+  });
+  const targetHandle = page.getByRole("button", {
+    name: "Reordenar Gluten",
+  });
+  await expect(sourceHandle).toBeEnabled();
+  const sourceBox = await sourceHandle.boundingBox();
+  const targetBox = await targetHandle.boundingBox();
+
+  if (!sourceBox || !targetBox) {
+    throw new Error("No se pudo arrastrar el alérgeno.");
+  }
+
+  await page.mouse.move(
+    sourceBox.x + sourceBox.width / 2,
+    sourceBox.y + sourceBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + 4,
+    { steps: 20 },
+  );
+  await page.mouse.up();
+  await expect
+    .poll(async () => {
+      const [order] = await withDatabase(async (sql) => {
+        return sql<Array<{ sort_order: number }>>`
+          select allergens.sort_order
+          from allergens
+          inner join allergen_translations
+            on allergen_translations.allergen_id = allergens.id
+          where allergen_translations.name = 'Alérgeno E2E actualizado'
+        `;
+      });
+      return Number(order?.sort_order);
+    })
+    .toBe(1);
+
+  await page.getByRole("button", { name: "Eliminar Leche" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(
+    page.getByText(/No se puede eliminar: está asociado a \d+ productos/),
+  ).toBeVisible();
+  await allergenRow
+    .getByRole("button", { name: "Eliminar Alérgeno E2E actualizado" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(allergenRow).toHaveCount(0);
+});
+
+test("administrator manages dietary tags and protects associations", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await cleanupE2ETaxonomies();
+  await loginAsAdmin(page);
+  await page.goto("/admin/tags");
+
+  await page.getByRole("button", { name: "Nueva etiqueta" }).click();
+  await page.getByLabel("Nombre").fill("Etiqueta E2E");
+  await page.getByLabel("Color").fill("purple");
+  await page.getByRole("button", { name: "Crear etiqueta" }).click();
+  await page.getByRole("button", { name: "Editar Etiqueta E2E" }).click();
+  await page.getByLabel("Nombre").fill("Etiqueta E2E actualizada");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+  const tagRow = page
+    .getByTestId(/^tag-row-/)
+    .filter({ hasText: "Etiqueta E2E actualizada" });
+  await tagRow
+    .getByRole("button", { name: "Desactivar Etiqueta E2E actualizada" })
+    .click();
+  await expect(tagRow).toContainText("Inactivo");
+  await tagRow
+    .getByRole("button", { name: "Activar Etiqueta E2E actualizada" })
+    .click();
+
+  const sourceHandle = tagRow.getByRole("button", {
+    name: "Reordenar Etiqueta E2E actualizada",
+  });
+  const targetHandle = page.getByRole("button", {
+    name: "Reordenar Vegetariano",
+  });
+  await expect(sourceHandle).toBeEnabled();
+  const sourceBox = await sourceHandle.boundingBox();
+  const targetBox = await targetHandle.boundingBox();
+
+  if (!sourceBox || !targetBox) {
+    throw new Error("No se pudo arrastrar la etiqueta.");
+  }
+
+  await page.mouse.move(
+    sourceBox.x + sourceBox.width / 2,
+    sourceBox.y + sourceBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.waitForTimeout(100);
+  await page.mouse.move(
+    targetBox.x + targetBox.width / 2,
+    targetBox.y + 4,
+    { steps: 20 },
+  );
+  await page.mouse.up();
+  await expect
+    .poll(async () => {
+      const [order] = await withDatabase(async (sql) => {
+        return sql<Array<{ sort_order: number }>>`
+          select tags.sort_order
+          from tags
+          inner join tag_translations
+            on tag_translations.tag_id = tags.id
+          where tag_translations.name = 'Etiqueta E2E actualizada'
+        `;
+      });
+      return Number(order?.sort_order);
+    })
+    .toBe(1);
+
+  await page.getByRole("button", { name: "Eliminar Vegetariano" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(
+    page.getByText(/No se puede eliminar: está asociado a \d+ productos/),
+  ).toBeVisible();
+  await tagRow
+    .getByRole("button", { name: "Eliminar Etiqueta E2E actualizada" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(tagRow).toHaveCount(0);
+});
+
 test("administrator manages products with existing schema fields", async ({
   page,
 }) => {
@@ -544,6 +792,11 @@ test("administrator manages products with existing schema fields", async ({
   ).toBeVisible();
   await page.getByLabel("Vegetariano").check();
   await page.getByLabel("Leche").check();
+  const selectionPreview = page.getByLabel(
+    "Vista previa de etiquetas y alérgenos",
+  );
+  await expect(selectionPreview).toContainText("Vegetariano");
+  await expect(selectionPreview).toContainText("Leche");
   await page.getByRole("button", { name: "Crear producto" }).click();
   await expect(
     page.getByRole("alert").filter({
@@ -579,7 +832,42 @@ test("administrator manages products with existing schema fields", async ({
   expect(createdMobileResponse.ok()).toBe(true);
   expect(createdDesktopResponse.headers()["content-type"]).toBe("image/webp");
 
+  await withDatabase(async (sql) => {
+    await sql`
+      update tags
+      set is_active = false
+      where id in (
+        select tag_id from tag_translations where name = 'Vegetariano'
+      )
+    `;
+    await sql`
+      update allergens
+      set is_active = false
+      where id in (
+        select allergen_id from allergen_translations where name = 'Leche'
+      )
+    `;
+  });
+  await page.reload();
   await page.getByRole("button", { name: "Editar Producto E2E" }).click();
+  await expect(page.getByLabel("Vegetariano · inactiva")).toBeChecked();
+  await expect(page.getByLabel("Leche · inactivo")).toBeChecked();
+  await withDatabase(async (sql) => {
+    await sql`
+      update tags
+      set is_active = true
+      where id in (
+        select tag_id from tag_translations where name = 'Vegetariano'
+      )
+    `;
+    await sql`
+      update allergens
+      set is_active = true
+      where id in (
+        select allergen_id from allergen_translations where name = 'Leche'
+      )
+    `;
+  });
   const replacementImage = await sharp({
     create: {
       width: 900,
@@ -690,6 +978,11 @@ test("administrator manages products with existing schema fields", async ({
     .getByTestId("product-card")
     .filter({ hasText: "Producto E2E actualizado" });
   await expect(publicTestProduct).toContainText("Sin imagen");
+  await expect(publicTestProduct).toContainText("Vegetariano");
+  await publicTestProduct.getByLabel("Mostrar alérgeno Leche").click();
+  await expect(
+    publicTestProduct.getByRole("tooltip", { name: "Leche" }),
+  ).toBeVisible();
   await page.goto("/admin/products");
 
   const targetProductRow = page
@@ -1037,5 +1330,6 @@ test("five failures block login and a later success clears attempts", async ({
 test.afterAll(async () => {
   await restoreBrandingBackup();
   await cleanupE2EProducts();
+  await cleanupE2ETaxonomies();
   await cleanupE2ECategories();
 });
