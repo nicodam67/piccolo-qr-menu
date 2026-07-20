@@ -9,8 +9,12 @@ type QrPreviewProps = {
   destinationUrl: string;
   locale: string;
   restaurantName: string;
+  slogan: string;
   showRestaurantName: boolean;
+  showSlogan: boolean;
   showCallToAction: boolean;
+  layout: "square" | "vertical";
+  transparent: boolean;
   configuredDomain: boolean;
   copy: QrAdminCopy;
 };
@@ -20,8 +24,12 @@ export function QrPreview({
   destinationUrl,
   locale,
   restaurantName,
+  slogan,
   showRestaurantName,
+  showSlogan,
   showCallToAction,
+  layout,
+  transparent,
   configuredDomain,
   copy,
 }: QrPreviewProps) {
@@ -38,12 +46,19 @@ export function QrPreview({
         </p>
         <div
           data-testid="qr-preview-card"
-          className="rounded-[1.75rem] border border-stone-200 bg-white p-5 text-center shadow-[0_24px_70px_-45px_rgba(23,63,53,0.65)] sm:p-7"
+          className={`rounded-[1.75rem] border border-stone-200 p-5 text-center shadow-[0_24px_70px_-45px_rgba(23,63,53,0.65)] sm:p-7 ${
+            transparent
+              ? "bg-[linear-gradient(45deg,#eee_25%,transparent_25%),linear-gradient(-45deg,#eee_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#eee_75%),linear-gradient(-45deg,transparent_75%,#eee_75%)] bg-[length:20px_20px]"
+              : "bg-white"
+          }`}
         >
-          {showRestaurantName ? (
+          {layout === "vertical" && showRestaurantName ? (
             <h2 className="font-display text-2xl text-[#173f35]">
               {restaurantName}
             </h2>
+          ) : null}
+          {layout === "vertical" && showSlogan && slogan ? (
+            <p className="mt-1 text-xs text-stone-500">{slogan}</p>
           ) : null}
           <div className="mx-auto mt-4 grid aspect-square w-full max-w-md place-items-center bg-white">
             {qrDataUrl ? (
@@ -62,7 +77,7 @@ export function QrPreview({
               />
             )}
           </div>
-          {showCallToAction ? (
+          {layout === "vertical" && showCallToAction ? (
             <p className="font-display mt-4 text-xl text-[#173f35]">
               {copy.callToAction}
             </p>
@@ -91,6 +106,7 @@ export function QrPreview({
         className="hidden"
       >
         <h1>{restaurantName}</h1>
+        {showSlogan && slogan ? <h2>{slogan}</h2> : null}
         {qrDataUrl ? (
           // Generated locally from a trusted data URL.
           // eslint-disable-next-line @next/next/no-img-element

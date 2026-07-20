@@ -158,17 +158,22 @@ e imágenes adicionales están excluidos porque no existen en el esquema.
 
 ## Código QR de la carta
 
-`/admin/qr` genera el QR oficial para `NEXT_PUBLIC_SITE_URL/{locale}` usando
-únicamente locales presentes en `restaurant_translations` — actualmente `es`.
+`/admin/qr-code` genera el QR oficial para `NEXT_PUBLIC_SITE_URL/{locale}` usando
+únicamente locales activados y publicados en `restaurant_locales`.
 Configura `NEXT_PUBLIC_SITE_URL` con un origen absoluto de producción y sin el
 locale final. Si falta, la interfaz muestra una advertencia y utiliza el origen
 actual solo como vista temporal.
 
-El QR se genera íntegramente en el navegador, con corrección de errores alta,
-margen silencioso y contraste blanco/oscuro. Permite descargar PNG o SVG en
-512, 1024 y 2048 px e imprimir un cartel A4 mediante el diálogo normal del
-navegador. Comprueba siempre el código con un teléfono antes de imprimir muchas
-copias.
+El QR se genera íntegramente en el navegador. Permite tamaño, margen, corrección
+M/Q/H, colores con contraste validado, fondo blanco/transparente, formato
+vertical/cuadrado y textos opcionales. Descarga PNG o SVG en 512, 1024 y 2048 px
+e imprime una plantilla A4 mediante el diálogo normal del navegador.
+
+La personalización no se persiste porque no existe un campo específico y
+`menu_display_settings` pertenece a la carta. Una futura persistencia requeriría
+autorización para una columna JSONB `qr_settings` o una tabla de presets. La ruta
+anterior `/admin/qr` redirige por compatibilidad. Comprueba siempre el código
+con un teléfono antes de imprimir muchas copias.
 
 No contiene exportación de carta/PDF, variantes, extras, combos, pedidos ni
 integración con Piccolo TPV.

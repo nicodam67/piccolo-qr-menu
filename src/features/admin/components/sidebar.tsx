@@ -84,7 +84,7 @@ const navigationItems: NavigationItem[] = [
     label: "Código QR",
     icon: QrCode,
     available: true,
-    href: "/admin/qr",
+    href: "/admin/qr-code",
   },
   { label: "Exportar", icon: Download, available: false },
   {

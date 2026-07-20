@@ -21,6 +21,7 @@ export type PublishedLocale = {
   openGraphLocale: string;
   direction: "ltr" | "rtl";
   restaurantName: string;
+  restaurantSlogan: string;
   isPrimary: boolean;
 };
 
@@ -30,6 +31,7 @@ export async function getPublishedLocales(): Promise<PublishedLocale[]> {
     .select({
       locale: restaurantLocales.locale,
       restaurantName: restaurantTranslations.name,
+      restaurantSlogan: restaurantTranslations.slogan,
       primaryLocale: restaurantSettings.defaultLocale,
     })
     .from(restaurantLocales)
@@ -71,6 +73,7 @@ export async function getPublishedLocales(): Promise<PublishedLocale[]> {
         openGraphLocale: config.openGraphLocale,
         direction: config.direction,
         restaurantName: row.restaurantName,
+        restaurantSlogan: row.restaurantSlogan,
         isPrimary: row.primaryLocale === row.locale,
       },
     ];

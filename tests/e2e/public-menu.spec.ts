@@ -921,6 +921,16 @@ test("QR URL builder normalizes base paths and locales", () => {
 test("administrator generates downloads and print-ready QR", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          sessionStorage.setItem("copied-qr-url", value);
+        },
+      },
+    });
+  });
   const clientErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -929,7 +939,7 @@ test("administrator generates downloads and print-ready QR", async ({
   });
   page.on("pageerror", (error) => clientErrors.push(error.message));
   await loginAsAdmin(page);
-  await page.goto("/admin/qr");
+  await page.goto("/admin/qr-code");
 
   await expect(
     page.getByRole("heading", { name: "Código QR", level: 1 }),
@@ -946,6 +956,9 @@ test("administrator generates downloads and print-ready QR", async ({
   await expect(page.getByTestId("qr-preview-card")).toContainText(
     "Piccolo La Ràpita",
   );
+  await expect(page.getByTestId("qr-preview-card")).toContainText(
+    "Cocina con sabor italiano",
+  );
   const previewImage = page.getByTestId("qr-preview-image");
   await expect(previewImage).toHaveAttribute(
     "alt",
@@ -954,23 +967,47 @@ test("administrator generates downloads and print-ready QR", async ({
   const initialQrSource = await previewImage.getAttribute("src");
   expect(initialQrSource).toMatch(/^data:image\/png;base64,/);
 
+  await page.getByRole("button", { name: "Copiar enlace" }).click();
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem("copied-qr-url")))
+    .toBe("https://menu.piccolo.test/base/es");
+  await expect(page.getByText("Enlace copiado")).toBeVisible();
+
   await page.getByLabel("2048 px").check({ force: true });
   await expect(page.getByLabel("2048 px")).toBeChecked();
   await page.getByLabel("512 px").check({ force: true });
+  await page.getByLabel("Margen exterior").fill("6");
+  await page.getByLabel("Nivel de corrección").selectOption("Q");
+  await expect
+    .poll(() => previewImage.getAttribute("src"))
+    .not.toBe(initialQrSource);
+  await page.getByLabel("Color del código").fill("#002b22");
+  await page.getByLabel("Color de fondo").fill("#ffffff");
   const restaurantNameToggle = page.getByLabel(
     "Mostrar nombre del restaurante",
   );
+  const sloganToggle = page.getByLabel("Mostrar eslogan");
   await restaurantNameToggle.focus();
   await page.keyboard.press("Space");
   await expect(restaurantNameToggle).not.toBeChecked();
   await page.getByLabel("Mostrar texto de llamada").uncheck();
+  await sloganToggle.uncheck();
   const previewCard = page.getByTestId("qr-preview-card");
   await expect(previewCard.getByText("Piccolo La Ràpita")).toHaveCount(0);
   await expect(
     previewCard.getByText("Escanea para ver nuestra carta"),
   ).toHaveCount(0);
+  await expect(
+    previewCard.getByText("Cocina con sabor italiano"),
+  ).toHaveCount(0);
   await restaurantNameToggle.check();
+  await sloganToggle.check();
   await page.getByLabel("Mostrar texto de llamada").check();
+  await page.getByText("Cuadrado", { exact: true }).click();
+  await expect(restaurantNameToggle).toBeDisabled();
+  await expect(previewCard.getByText("Piccolo La Ràpita")).toHaveCount(0);
+  await page.getByText("Vertical", { exact: true }).click();
+  await page.getByLabel("Fondo transparente").check();
 
   const pngDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Descargar PNG" }).click();
@@ -1001,6 +1038,8 @@ test("administrator generates downloads and print-ready QR", async ({
   expect(svg).toContain("<svg");
   expect(svg).toContain("Código QR para https://menu.piccolo.test/base/es");
   expect(svg).toContain("Piccolo La Ràpita");
+  expect(svg).toContain("Cocina con sabor italiano");
+  expect(svg).not.toContain('<rect width="100%" height="100%"');
 
   await page.evaluate(() => {
     window.print = () => sessionStorage.setItem("print-called", "true");
@@ -1043,7 +1082,7 @@ test("QR administration is responsive across supported viewports", async ({
     { width: 1_280, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
-    await page.goto("/admin/qr");
+    await page.goto("/admin/qr-code");
     await expect(page.getByTestId("qr-preview-card")).toBeVisible();
     const dimensions = await page.evaluate(() => ({
       viewportWidth: window.innerWidth,
@@ -1196,7 +1235,7 @@ test("administrator activates translates and publishes Catalan", async ({
     new RegExp(`/es/producto/${productId}-burrata-de-muestra$`),
   );
 
-  await page.goto("/admin/qr");
+  await page.goto("/admin/qr-code");
   const qrLocale = page.getByLabel("Idioma", { exact: true });
   await expect(qrLocale.locator("option")).toHaveCount(2);
   const previousQr = await page.getByTestId("qr-preview-image").getAttribute("src");
@@ -2166,8 +2205,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(
     /\/login\?next=%2Fadmin%2Fconfiguracion$/,
   );
-  await page.goto("/admin/qr");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr$/);
+  await page.goto("/admin/qr-code");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr-code$/);
   await page.goto("/admin/languages");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
   await page.goto("/admin/special-hours");

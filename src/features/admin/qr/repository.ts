@@ -9,6 +9,7 @@ export type QrAdminData = {
   defaultLocale: string;
   locales: PublishedLocale[];
   restaurantNames: Record<string, string>;
+  restaurantSlogans: Record<string, string>;
 };
 
 export async function getQrAdminData(): Promise<QrAdminData> {
@@ -38,6 +39,12 @@ export async function getQrAdminData(): Promise<QrAdminData> {
       translations.map(({ code, restaurantName }) => [
         code,
         restaurantName,
+      ]),
+    ),
+    restaurantSlogans: Object.fromEntries(
+      translations.map(({ code, restaurantSlogan }) => [
+        code,
+        restaurantSlogan,
       ]),
     ),
   };

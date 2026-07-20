@@ -2,32 +2,38 @@ import QRCode from "qrcode";
 
 import type {
   QrDownloadFormat,
-  QrDownloadSize,
 } from "./qr-url";
+import {
+  validateQrCustomization,
+  type QrCustomization,
+} from "./qr-settings";
 
-export type QrExportOptions = {
+export type QrExportOptions = QrCustomization & {
   url: string;
-  size: QrDownloadSize;
   restaurantName: string;
+  slogan: string;
   callToAction: string;
-  showRestaurantName: boolean;
-  showCallToAction: boolean;
 };
 
-const qrOptions = {
-  errorCorrectionLevel: "H" as const,
-  margin: 4,
+const getQrOptions = (options: QrCustomization) => ({
+  errorCorrectionLevel: options.errorCorrectionLevel,
+  margin: options.margin,
   color: {
-    dark: "#111111",
-    light: "#ffffff",
+    dark: options.darkColor,
+    light:
+      options.background === "transparent"
+        ? "#00000000"
+        : options.lightColor,
   },
-};
+});
 
 function getTextLayout(options: QrExportOptions) {
   const lines = [
     options.showRestaurantName ? options.restaurantName : null,
+    options.showSlogan ? options.slogan : null,
     options.showCallToAction ? options.callToAction : null,
   ].filter((line): line is string => Boolean(line));
+  if (options.layout === "square") lines.length = 0;
   const fontSize = Math.max(18, Math.round(options.size * 0.045));
   const lineHeight = Math.round(fontSize * 1.4);
   const padding = lines.length > 0 ? Math.round(options.size * 0.05) : 0;
@@ -41,18 +47,23 @@ function getTextLayout(options: QrExportOptions) {
   };
 }
 
-export function generateQrPreviewDataUrl(url: string) {
+export function generateQrPreviewDataUrl(
+  url: string,
+  customization: QrCustomization,
+) {
+  validateQrCustomization(customization);
   return QRCode.toDataURL(url, {
-    ...qrOptions,
+    ...getQrOptions(customization),
     width: 512,
     type: "image/png",
   });
 }
 
 export async function createQrPngBlob(options: QrExportOptions) {
+  validateQrCustomization(options);
   const qrCanvas = document.createElement("canvas");
   await QRCode.toCanvas(qrCanvas, options.url, {
-    ...qrOptions,
+    ...getQrOptions(options),
     width: options.size,
   });
   const textLayout = getTextLayout(options);
@@ -65,10 +76,12 @@ export async function createQrPngBlob(options: QrExportOptions) {
     throw new Error("Canvas no disponible.");
   }
 
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, output.width, output.height);
+  if (options.background === "white") {
+    context.fillStyle = options.lightColor;
+    context.fillRect(0, 0, output.width, output.height);
+  }
   context.drawImage(qrCanvas, 0, 0);
-  context.fillStyle = "#173f35";
+  context.fillStyle = options.darkColor;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.font = `600 ${textLayout.fontSize}px Georgia, serif`;
@@ -95,8 +108,9 @@ export async function createQrPngBlob(options: QrExportOptions) {
 }
 
 export async function createQrSvgBlob(options: QrExportOptions) {
+  validateQrCustomization(options);
   const qrSvgText = await QRCode.toString(options.url, {
-    ...qrOptions,
+    ...getQrOptions(options),
     type: "svg",
     width: options.size,
   });
@@ -122,8 +136,10 @@ export async function createQrSvgBlob(options: QrExportOptions) {
   const background = document.createElementNS(namespace, "rect");
   background.setAttribute("width", "100%");
   background.setAttribute("height", "100%");
-  background.setAttribute("fill", "#ffffff");
-  output.appendChild(background);
+  if (options.background === "white") {
+    background.setAttribute("fill", options.lightColor);
+    output.appendChild(background);
+  }
 
   const nestedQr = document.importNode(sourceSvg, true);
   nestedQr.setAttribute("x", "0");
@@ -149,7 +165,7 @@ export async function createQrSvgBlob(options: QrExportOptions) {
     text.setAttribute("font-family", "Georgia, serif");
     text.setAttribute("font-size", String(textLayout.fontSize));
     text.setAttribute("font-weight", "600");
-    text.setAttribute("fill", "#173f35");
+    text.setAttribute("fill", options.darkColor);
     text.textContent = line;
     output.appendChild(text);
   });
