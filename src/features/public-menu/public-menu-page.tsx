@@ -215,6 +215,9 @@ export function PublicMenuPage({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        const isAtDocumentEnd =
+          window.innerHeight + window.scrollY >=
+          document.documentElement.scrollHeight - 2;
         const visibleEntry = entries
           .filter((entry) => entry.isIntersecting)
           .sort(
@@ -222,8 +225,9 @@ export function PublicMenuPage({
               Math.abs(left.boundingClientRect.top - 88) -
               Math.abs(right.boundingClientRect.top - 88),
           )[0];
-        const categoryId =
-          visibleEntry?.target.getAttribute("data-category");
+        const categoryId = isAtDocumentEnd
+          ? visibleCategories.at(-1)?.id
+          : visibleEntry?.target.getAttribute("data-category");
 
         if (categoryId && categoryId !== activeCategoryRef.current) {
           activeCategoryRef.current = categoryId;
@@ -231,7 +235,7 @@ export function PublicMenuPage({
         }
       },
       {
-        rootMargin: "-5rem 0px -60% 0px",
+        rootMargin: "-80px 0px -60% 0px",
         threshold: [0, 0.1, 0.25, 0.5],
       },
     );

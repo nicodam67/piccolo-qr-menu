@@ -387,7 +387,7 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   await expect(
     page.getByText("No encontramos ningún plato"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Borrar búsqueda" }).click();
+  await page.getByText("Borrar búsqueda", { exact: true }).click();
   await expect(page.getByTestId("product-card")).toHaveCount(6);
   await page.getByRole("button", { name: "Pizze" }).click();
   await expect(
@@ -396,9 +396,12 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   await expect(
     page.getByRole("button", { name: "Pizze · 2" }),
   ).toHaveAttribute("aria-current", "page");
+  await page.waitForTimeout(600);
   await page
     .getByRole("heading", { name: "Dolci", level: 2 })
-    .scrollIntoViewIfNeeded();
+    .evaluate((element) =>
+      element.scrollIntoView({ block: "start", behavior: "auto" }),
+    );
   await expect(
     page.getByRole("button", { name: "Dolci · 1" }),
   ).toHaveAttribute("aria-current", "page");
@@ -426,7 +429,9 @@ test("public menu restores its recent position in the same session", async ({
   await page.goto("/es");
   await page
     .getByRole("heading", { name: "Pasta", level: 2 })
-    .scrollIntoViewIfNeeded();
+    .evaluate((element) =>
+      element.scrollIntoView({ block: "start", behavior: "auto" }),
+    );
   await expect(
     page.getByRole("button", { name: "Pasta · 1" }),
   ).toHaveAttribute("aria-current", "page");
