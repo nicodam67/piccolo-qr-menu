@@ -243,7 +243,7 @@ export async function getLanguageManagementData(
     const requiredDescriptionIds = displaySettings.showDescriptions
       ? new Set(
           primaryProductRows
-            .filter((row) => row.description.trim())
+            .filter((row) => row.description?.trim())
             .map(({ id }) => id),
         )
       : new Set<string>();

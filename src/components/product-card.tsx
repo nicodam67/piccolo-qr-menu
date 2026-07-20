@@ -105,7 +105,7 @@ export function ProductCard({
           ) : null}
         </div>
 
-        {settings.showDescriptions ? (
+        {settings.showDescriptions && product.description ? (
           <p className="mt-2 text-[13px] leading-5 text-stone-600">
             {product.description}
           </p>

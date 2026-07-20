@@ -5,6 +5,8 @@ import type {
   DemoMenu,
   OpeningStatus,
 } from "@/features/public-menu/types";
+import type { PublishedLocale } from "@/features/locales/repository";
+import { getPublicMenuCopy } from "@/features/public-menu/copy";
 
 import { LanguageSelector } from "./language-selector";
 import { OpeningHours } from "./opening-hours";
@@ -12,10 +14,16 @@ import { OpeningHours } from "./opening-hours";
 type MenuHeaderProps = {
   menu: DemoMenu;
   openingStatus: OpeningStatus;
+  publishedLocales: PublishedLocale[];
 };
 
-export function MenuHeader({ menu, openingStatus }: MenuHeaderProps) {
+export function MenuHeader({
+  menu,
+  openingStatus,
+  publishedLocales,
+}: MenuHeaderProps) {
   const { restaurant } = menu;
+  const copy = getPublicMenuCopy(menu.locale);
 
   return (
     <header className="bg-[#fffdfa]">
@@ -34,7 +42,11 @@ export function MenuHeader({ menu, openingStatus }: MenuHeaderProps) {
           <span className="rounded-full border border-white/20 bg-black/30 px-2.5 py-1.5 text-[9px] font-bold tracking-[0.14em] text-white uppercase backdrop-blur-md">
             Imagen demo
           </span>
-          <LanguageSelector />
+          <LanguageSelector
+            locales={publishedLocales}
+            currentLocale={menu.locale}
+            unavailableMessage={copy.productUnavailableInLanguage}
+          />
         </div>
 
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-5 pb-8 text-center text-white sm:pb-10">

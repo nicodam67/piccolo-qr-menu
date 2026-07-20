@@ -1030,6 +1030,13 @@ test("administrator activates translates and publishes Catalan", async ({
       page.getByTestId(`language-${locale.code}`),
     ).toContainText(locale.nativeName);
   }
+  const languagePageDimensions = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  expect(languagePageDimensions.documentWidth).toBeLessThanOrEqual(
+    languagePageDimensions.viewportWidth,
+  );
 
   const spanishRow = page.getByTestId("language-es");
   await expect(spanishRow).toContainText("Principal: Sí");
@@ -1354,7 +1361,11 @@ test("administrator manages allergens and protects associated items", async ({
     })
     .toBe(1);
 
-  await page.getByRole("button", { name: "Eliminar Leche" }).click();
+  const deleteMilkButton = page.getByRole("button", {
+    name: "Eliminar Leche",
+  });
+  await expect(deleteMilkButton).toBeEnabled();
+  await deleteMilkButton.click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Eliminar", exact: true })
@@ -1442,7 +1453,11 @@ test("administrator manages dietary tags and protects associations", async ({
     })
     .toBe(1);
 
-  await page.getByRole("button", { name: "Eliminar Vegetariano" }).click();
+  const deleteVegetarianButton = page.getByRole("button", {
+    name: "Eliminar Vegetariano",
+  });
+  await expect(deleteVegetarianButton).toBeEnabled();
+  await deleteVegetarianButton.click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Eliminar", exact: true })

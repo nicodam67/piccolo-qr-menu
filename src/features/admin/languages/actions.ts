@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { isSupportedLocale } from "@/config/locales";
 import { getDatabase } from "@/db";
