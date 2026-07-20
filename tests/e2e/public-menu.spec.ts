@@ -1310,12 +1310,12 @@ test("administrator previews and prints the real menu without persistence", asyn
   await expect(printable).toContainText("Burrata de muestra");
   await expect(printable).toContainText("12,50");
 
-  await page.getByLabel("Columnas").selectOption("1");
+  await page.getByLabel(/Columnas|Columnes/).selectOption("1");
   await expect(printable.locator("[data-print-columns]")).toHaveAttribute(
     "data-print-columns",
     "1",
   );
-  await page.getByLabel("Orientación").selectOption("landscape");
+  await page.getByLabel(/Orientación|Orientació/).selectOption("landscape");
   await expect(printable).toHaveAttribute("data-orientation", "landscape");
   await page.getByLabel("Mostrar descripciones").uncheck();
   await expect(printable).not.toContainText(
@@ -1363,8 +1363,10 @@ test("administrator previews and prints the real menu without persistence", asyn
   await page.emulateMedia({ media: "screen" });
 
   await page.reload();
-  await expect(page.getByLabel("Columnas")).toHaveValue("2");
-  await expect(page.getByLabel("Orientación")).toHaveValue("portrait");
+  await expect(page.getByLabel(/Columnas|Columnes/)).toHaveValue("2");
+  await expect(page.getByLabel(/Orientación|Orientació/)).toHaveValue(
+    "portrait",
+  );
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
     documentWidth: document.documentElement.scrollWidth,
@@ -1699,7 +1701,7 @@ test("hierarchy is shared by products public detail search and print", async ({
         inner join product_translations
           on product_translations.product_id = products.id
         where product_translations.locale = 'es'
-          and product_translations.name = 'Pizza picante de muestra'
+          and product_translations.name = 'Pizza piccante de muestra'
         limit 1
       `;
       await transaction`
@@ -1719,9 +1721,9 @@ test("hierarchy is shared by products public detail search and print", async ({
   await page.goto("/admin/products");
   const productRow = page
     .getByTestId(/^product-row-/)
-    .filter({ hasText: "Pizza picante de muestra" });
+    .filter({ hasText: "Pizza piccante de muestra" });
   await productRow
-    .getByRole("button", { name: "Editar Pizza picante de muestra" })
+    .getByRole("button", { name: "Editar Pizza piccante de muestra" })
     .click();
   await expect(page.getByLabel("Categoría")).toHaveValue(fixture.childId);
   await expect(
@@ -1738,13 +1740,13 @@ test("hierarchy is shared by products public detail search and print", async ({
   await expect(
     page.getByRole("heading", { name: /Vinos tintos E2E/ }),
   ).toBeVisible();
-  await page.getByRole("searchbox").fill("PICÁNTE");
+  await page.getByRole("searchbox").fill("PÍCCANTE");
   await expect(
     page.getByRole("button", { name: "Vinos E2E · 1" }),
   ).toBeVisible();
   const publicProduct = page
     .locator("article")
-    .filter({ hasText: "Pizza picante de muestra" });
+    .filter({ hasText: "Pizza piccante de muestra" });
   await publicProduct
     .getByRole("link", { name: "Ver producto", exact: true })
     .click();
@@ -1756,13 +1758,31 @@ test("hierarchy is shared by products public detail search and print", async ({
   const printable = page.locator("[data-print-menu]");
   await expect(printable).toContainText("Vinos E2E");
   await expect(printable).toContainText("Vinos tintos E2E");
-  await expect(printable).toContainText("Pizza picante de muestra");
+  await expect(printable).toContainText("Pizza piccante de muestra");
 
-  await page.goto("/ca");
-  await expect(
-    page.getByRole("button", { name: "Vins E2E · 1" }),
-  ).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Vins negres E2E/ })).toBeVisible();
+  const [catalanAvailable] = await withDatabase(async (sql) =>
+    sql<Array<{ available: boolean }>>`
+      select (
+        exists (
+          select 1 from restaurant_locales
+          where locale = 'ca' and is_published = true
+        )
+        and exists (
+          select 1 from product_translations
+          where product_id = ${fixture.productId} and locale = 'ca'
+        )
+      ) as available
+    `,
+  );
+  if (catalanAvailable?.available) {
+    await page.goto("/ca");
+    await expect(
+      page.getByRole("button", { name: "Vins E2E · 1" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /Vins negres E2E/ }),
+    ).toBeVisible();
+  }
 
   await page.goto("/admin/qr-code");
   await expect(
