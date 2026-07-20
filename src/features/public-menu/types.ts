@@ -73,3 +73,13 @@ export type DemoMenu = {
   openingHours: OpeningDay[];
   displaySettings: MenuDisplaySettings;
 };
+
+export type PublicProductDetail = {
+  locale: string;
+  currencyCode: string;
+  restaurant: DemoMenu["restaurant"];
+  category: DemoCategory;
+  product: DemoProduct;
+  relatedProducts: DemoProduct[];
+  displaySettings: MenuDisplaySettings;
+};

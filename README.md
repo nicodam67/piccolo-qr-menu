@@ -116,6 +116,17 @@ La última categoría y posición se conservan en `sessionStorage` durante trein
 minutos para navegación de retorno; no se utilizan cookies ni persistencia en
 PostgreSQL.
 
+Cada producto visible dispone de una ficha en
+`/{locale}/producto/{uuid}-{slug}`. El UUID identifica el registro y el slug es
+decorativo, por lo que enlaces antiguos siguen funcionando. Configura
+`NEXT_PUBLIC_SITE_URL` con el dominio canónico de producción para Open Graph,
+Twitter Card, JSON-LD y enlaces absolutos.
+
+La ficha reutiliza la configuración visual de la carta, variantes de imagen,
+etiquetas y alérgenos activos. Incluye ampliación accesible, compartir mediante
+Web Share o portapapeles y hasta cuatro productos relacionados de la misma
+categoría, obtenidos sin consultas N+1.
+
 `/admin/products` gestiona productos, traducciones, precios, categoría,
 visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
 reutilizando exclusivamente las tablas actuales.

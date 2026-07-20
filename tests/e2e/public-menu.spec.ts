@@ -366,6 +366,15 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   await expect(page.getByRole("button", { name: "Pizze · 2" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pasta · 1" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Dolci · 1" })).toBeVisible();
+  const pizzaCardBeforeSearch = page
+    .getByTestId("product-card")
+    .filter({ hasText: "Pizza de muestra" });
+  await expect(
+    pizzaCardBeforeSearch.getByLabel("Ver producto: Pizza de muestra"),
+  ).toBeVisible();
+  await expect(
+    pizzaCardBeforeSearch.getByRole("link", { name: "Ver producto" }),
+  ).toBeVisible();
   await search.fill("BURRÁTA");
   await expect(page.getByTestId("product-card")).toHaveCount(1);
   await expect(
@@ -421,6 +430,216 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
     path: testInfo.outputPath("piccolo-mobile-320.png"),
     fullPage: true,
   });
+});
+
+test("product detail opens from menu and returns to saved position", async ({
+  page,
+}) => {
+  await page.goto("/es");
+  await page.getByRole("button", { name: "Pizze · 2" }).click();
+  await page.waitForTimeout(600);
+  const previousScrollY = await page.evaluate(() => window.scrollY);
+  await page
+    .getByRole("link", { name: "Pizza de muestra", exact: true })
+    .click();
+
+  await expect(page).toHaveURL(/\/es\/producto\/[0-9a-f-]{36}-pizza-de-muestra$/);
+  const detail = page.getByTestId("product-detail");
+  await expect(
+    detail.getByRole("heading", { name: "Pizza de muestra", level: 1 }),
+  ).toBeVisible();
+  await expect(detail).toContainText("Pizze");
+  await expect(detail).toContainText("11,80 €");
+  await expect(detail).toContainText("7,20 €");
+  await expect(detail).toContainText("Vegetariano");
+  await expect(detail).toContainText("Gluten");
+  await expect(detail).toContainText("Leche");
+
+  await page.getByRole("button", { name: "Ampliar imagen" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Ampliar imagen" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .toBe("hidden");
+  await page.getByRole("button", { name: "Cerrar imagen" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Ampliar imagen" }),
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Ampliar imagen" }).click();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Ampliar imagen" }),
+  ).toHaveCount(0);
+
+  const related = page.getByTestId("related-products");
+  await expect(
+    related.getByRole("heading", {
+      name: "Productos relacionados",
+      level: 2,
+    }),
+  ).toBeVisible();
+  await expect(related).toContainText("Pizza piccante de muestra");
+  await expect(
+    related.getByRole("heading", { name: "Pizza de muestra", level: 3 }),
+  ).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Volver a la carta" }).click();
+  await expect(page).toHaveURL(/\/es$/);
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThanOrEqual(Math.max(0, previousScrollY - 120));
+});
+
+test("product detail exposes share, SEO, JSON-LD and stable identifiers", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          sessionStorage.setItem("shared-product-url", value);
+        },
+      },
+    });
+  });
+  await page.goto("/es");
+  const productHref = await page
+    .getByRole("link", { name: "Pizza de muestra", exact: true })
+    .getAttribute("href");
+
+  if (!productHref) {
+    throw new Error("La tarjeta no contiene una URL de producto.");
+  }
+
+  await page.goto(productHref);
+  await expect(page).toHaveTitle(
+    "Pizza de muestra | Piccolo La Ràpita",
+  );
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    /^http:\/\/localhost:3000\/es\/producto\//,
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    "Pizza de muestra | Piccolo La Ràpita",
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary_large_image",
+  );
+
+  const structuredData = await page
+    .locator('script[type="application/ld+json"]')
+    .textContent();
+  const jsonLd = JSON.parse(structuredData ?? "{}") as {
+    "@type"?: string;
+    name?: string;
+    offers?: { price?: string; priceCurrency?: string };
+  };
+  expect(jsonLd["@type"]).toBe("MenuItem");
+  expect(jsonLd.name).toBe("Pizza de muestra");
+  expect(jsonLd.offers?.price).toBe("11.80");
+  expect(jsonLd.offers?.priceCurrency).toBe("EUR");
+
+  await page.getByRole("button", { name: "Compartir" }).click();
+  await expect(page.getByRole("status")).toHaveText("Enlace copiado");
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("shared-product-url")),
+    )
+    .toBe(page.url());
+
+  const segment = productHref.split("/").at(-1) ?? "";
+  const productId = segment.slice(0, 36);
+  await page.goto(`/es/producto/${productId}-texto-antiguo`);
+  await expect(
+    page.getByRole("heading", { name: "Pizza de muestra", level: 1 }),
+  ).toBeVisible();
+
+  await page.goto("/es");
+  await page
+    .getByRole("link", { name: "Focaccia de muestra", exact: true })
+    .click();
+  await expect(page.getByText("Producto agotado")).toBeVisible();
+});
+
+test("hidden products, hidden categories and invalid locales return 404", async ({
+  page,
+}) => {
+  const [record] = await withDatabase(async (sql) => {
+    return sql<Array<{ product_id: string; category_id: string }>>`
+      select products.id as product_id, products.category_id
+      from products
+      inner join product_translations
+        on product_translations.product_id = products.id
+      where product_translations.locale = 'es'
+        and product_translations.name = 'Pizza de muestra'
+      limit 1
+    `;
+  });
+
+  if (!record) {
+    throw new Error("No se encontró el producto para validar el 404.");
+  }
+
+  const productPath = `/es/producto/${record.product_id}-pizza-de-muestra`;
+
+  try {
+    await withDatabase(async (sql) => {
+      await sql`
+        update products
+        set is_active = false, updated_at = now()
+        where id = ${record.product_id}
+      `;
+    });
+    const hiddenProductResponse = await page.goto(productPath);
+    expect(hiddenProductResponse?.status()).toBe(404);
+    await expect(page.getByText("Pizza de muestra")).toHaveCount(0);
+
+    await withDatabase(async (sql) => {
+      await sql`
+        update products
+        set is_active = true, updated_at = now()
+        where id = ${record.product_id}
+      `;
+      await sql`
+        update categories
+        set is_active = false, updated_at = now()
+        where id = ${record.category_id}
+      `;
+    });
+    const hiddenCategoryResponse = await page.goto(productPath);
+    expect(hiddenCategoryResponse?.status()).toBe(404);
+
+    const unavailableLocaleResponse = await page.goto(
+      `/ca/producto/${record.product_id}-pizza-de-muestra`,
+    );
+    expect(unavailableLocaleResponse?.status()).toBe(404);
+    const invalidIdentifierResponse = await page.goto(
+      "/es/producto/identificador-invalido",
+    );
+    expect(invalidIdentifierResponse?.status()).toBe(404);
+  } finally {
+    await withDatabase(async (sql) => {
+      await sql`
+        update products
+        set is_active = true, updated_at = now()
+        where id = ${record.product_id}
+      `;
+      await sql`
+        update categories
+        set is_active = true, updated_at = now()
+        where id = ${record.category_id}
+      `;
+    });
+  }
 });
 
 test("public menu restores its recent position in the same session", async ({
@@ -479,6 +698,26 @@ test("public menu remains responsive across supported viewports", async ({
     }));
     expect(dimensions.documentWidth).toBeLessThanOrEqual(
       dimensions.viewportWidth,
+    );
+
+    const productHref = await page
+      .getByRole("link", { name: "Burrata de muestra", exact: true })
+      .getAttribute("href");
+
+    if (!productHref) {
+      throw new Error("No se encontró la ficha responsive del producto.");
+    }
+
+    await page.goto(productHref);
+    await expect(
+      page.getByRole("heading", { name: "Burrata de muestra", level: 1 }),
+    ).toBeVisible();
+    const detailDimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(detailDimensions.documentWidth).toBeLessThanOrEqual(
+      detailDimensions.viewportWidth,
     );
   }
 });
@@ -1326,6 +1565,30 @@ test("menu settings normalize defaults and control the public menu", async ({
   await expect(publicPizza.getByText("Vegetariano")).toHaveCount(0);
   await expect(publicPizza.getByText("Alérgenos:")).toHaveCount(0);
   await expect(publicPizza.getByText(/Media ración/)).toHaveCount(0);
+  await publicPizza
+    .getByRole("link", { name: "Pizza de muestra", exact: true })
+    .click();
+  const hiddenBlocksDetail = page.getByTestId("product-detail");
+  await expect(
+    hiddenBlocksDetail.getByRole("button", { name: "Ampliar imagen" }),
+  ).toHaveCount(0);
+  await expect(
+    hiddenBlocksDetail.getByText(
+      "Tomate, mozzarella y albahaca usados solo para representar el diseño.",
+    ),
+  ).toHaveCount(0);
+  await expect(
+    hiddenBlocksDetail.getByText("Precio", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    hiddenBlocksDetail.getByText("Media ración", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    hiddenBlocksDetail.getByText("Etiquetas", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    hiddenBlocksDetail.getByText("Alérgenos", { exact: true }),
+  ).toHaveCount(0);
 
   await withDatabase(async (sql) => {
     await sql`

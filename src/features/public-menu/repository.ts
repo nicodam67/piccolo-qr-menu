@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
@@ -23,7 +23,9 @@ import { normalizeMenuDisplaySettings } from "@/features/menu-settings/config";
 import type {
   DayKey,
   DemoMenu,
+  DemoProduct,
   OpeningDay,
+  PublicProductDetail,
   ProductTag,
 } from "./types";
 
@@ -59,6 +61,127 @@ function getTagTone(color: string): ProductTag["tone"] {
   }
 
   return "gold";
+}
+
+type PublicProductRow = {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string;
+  fullPriceCents: number;
+  halfPriceCents: number | null;
+  isSoldOut: boolean;
+  imageUrl: string;
+};
+
+type PublicTagRow = {
+  productId: string;
+  name: string;
+  color: string;
+};
+
+type PublicAllergenRow = {
+  productId: string;
+  name: string;
+  icon: string;
+};
+
+function buildPublicProduct(
+  product: PublicProductRow,
+  tagRows: PublicTagRow[],
+  allergenRows: PublicAllergenRow[],
+): DemoProduct {
+  return {
+    id: product.id,
+    categoryId: product.categoryId,
+    name: product.name,
+    description: product.description,
+    imageUrl: product.imageUrl,
+    imageAlt: `Imagen de ${product.name}`,
+    fullPrice: product.fullPriceCents / 100,
+    halfPrice:
+      product.halfPriceCents === null
+        ? undefined
+        : product.halfPriceCents / 100,
+    tags: tagRows
+      .filter((tag) => tag.productId === product.id)
+      .map((tag) => ({
+        label: tag.name,
+        tone: getTagTone(tag.color),
+      })),
+    allergens: allergenRows
+      .filter((allergen) => allergen.productId === product.id)
+      .map((allergen) => ({
+        label: allergen.name,
+        icon: allergen.icon,
+      })),
+    isSoldOut: product.isSoldOut,
+  };
+}
+
+async function getPublicTaxonomyRows(
+  db: ReturnType<typeof getDatabase>["db"],
+  productIds: string[],
+  locale: string,
+) {
+  if (productIds.length === 0) {
+    return {
+      tagRows: [] as PublicTagRow[],
+      allergenRows: [] as PublicAllergenRow[],
+    };
+  }
+
+  const [tagRows, allergenRows] = await Promise.all([
+    db
+      .select({
+        productId: productTags.productId,
+        name: tagTranslations.name,
+        color: tags.color,
+      })
+      .from(productTags)
+      .innerJoin(tags, eq(productTags.tagId, tags.id))
+      .innerJoin(
+        tagTranslations,
+        and(
+          eq(tagTranslations.tagId, tags.id),
+          eq(tagTranslations.locale, locale),
+        ),
+      )
+      .where(
+        and(
+          inArray(productTags.productId, productIds),
+          eq(tags.isActive, true),
+        ),
+      )
+      .orderBy(asc(tags.sortOrder)),
+    db
+      .select({
+        productId: productAllergens.productId,
+        name: allergenTranslations.name,
+        icon: allergens.icon,
+      })
+      .from(productAllergens)
+      .innerJoin(
+        allergens,
+        eq(productAllergens.allergenId, allergens.id),
+      )
+      .innerJoin(
+        allergenTranslations,
+        and(
+          eq(allergenTranslations.allergenId, allergens.id),
+          eq(allergenTranslations.locale, locale),
+        ),
+      )
+      .where(
+        and(
+          inArray(productAllergens.productId, productIds),
+          eq(allergens.isActive, true),
+        ),
+      )
+      .orderBy(asc(allergens.sortOrder), asc(allergenTranslations.name)),
+  ]);
+
+  return { tagRows, allergenRows };
 }
 
 export async function getPublicMenu(locale: string): Promise<DemoMenu> {
@@ -137,67 +260,11 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
     ]);
 
     const productIds = productRows.map((product) => product.id);
-    let tagRows: Array<{ productId: string; name: string; color: string }> = [];
-    let allergenRows: Array<{
-      productId: string;
-      name: string;
-      icon: string;
-    }> = [];
-
-    if (productIds.length > 0) {
-      [tagRows, allergenRows] = await Promise.all([
-        db
-          .select({
-            productId: productTags.productId,
-            name: tagTranslations.name,
-            color: tags.color,
-          })
-          .from(productTags)
-          .innerJoin(tags, eq(productTags.tagId, tags.id))
-          .innerJoin(
-            tagTranslations,
-            and(
-              eq(tagTranslations.tagId, tags.id),
-              eq(tagTranslations.locale, locale),
-            ),
-          )
-          .where(
-            and(
-              inArray(productTags.productId, productIds),
-              eq(tags.isActive, true),
-            ),
-          )
-          .orderBy(asc(tags.sortOrder)),
-        db
-          .select({
-            productId: productAllergens.productId,
-            name: allergenTranslations.name,
-            icon: allergens.icon,
-          })
-          .from(productAllergens)
-          .innerJoin(
-            allergens,
-            eq(productAllergens.allergenId, allergens.id),
-          )
-          .innerJoin(
-            allergenTranslations,
-            and(
-              eq(allergenTranslations.allergenId, allergens.id),
-              eq(allergenTranslations.locale, locale),
-            ),
-          )
-          .where(
-            and(
-              inArray(productAllergens.productId, productIds),
-              eq(allergens.isActive, true),
-            ),
-          )
-          .orderBy(
-            asc(allergens.sortOrder),
-            asc(allergenTranslations.name),
-          ),
-      ]);
-    }
+    const { tagRows, allergenRows } = await getPublicTaxonomyRows(
+      db,
+      productIds,
+      locale,
+    );
 
     const hoursByDay = new Map(
       hoursRows.map((openingDay) => [openingDay.dayOfWeek, openingDay]),
@@ -248,33 +315,162 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         name: category.name,
         eyebrow: category.description,
       })),
-      products: productRows.map((product) => ({
-        id: product.id,
-        categoryId: product.categoryId,
-        name: product.name,
-        description: product.description,
-        imageUrl: product.imageUrl,
-        imageAlt: `Imagen de demostración de ${product.name}`,
-        fullPrice: product.fullPriceCents / 100,
-        halfPrice:
-          product.halfPriceCents === null
-            ? undefined
-            : product.halfPriceCents / 100,
-        tags: tagRows
-          .filter((tag) => tag.productId === product.id)
-          .map((tag) => ({
-            label: tag.name,
-            tone: getTagTone(tag.color),
-          })),
-        allergens: allergenRows
-          .filter((allergen) => allergen.productId === product.id)
-          .map((allergen) => ({
-            label: allergen.name,
-            icon: allergen.icon,
-          })),
-        isSoldOut: product.isSoldOut,
-      })),
+      products: productRows.map((product) =>
+        buildPublicProduct(product, tagRows, allergenRows),
+      ),
       openingHours: normalizedHours,
+      displaySettings: normalizeMenuDisplaySettings(
+        restaurant.menuDisplaySettings,
+      ),
+    };
+  } catch (error: unknown) {
+    throw new PublicMenuRepositoryError({ cause: error });
+  }
+}
+
+export async function getPublicProductDetail(
+  productId: string,
+  locale: string,
+): Promise<PublicProductDetail | null> {
+  try {
+    const { db } = getDatabase();
+    const [[product], [restaurant]] = await Promise.all([
+      db
+        .select({
+          id: products.id,
+          categoryId: products.categoryId,
+          name: productTranslations.name,
+          description: productTranslations.description,
+          fullPriceCents: products.fullPriceCents,
+          halfPriceCents: products.halfPriceCents,
+          isSoldOut: products.isSoldOut,
+          imageUrl: products.imageUrl,
+          categoryName: categoryTranslations.name,
+          categoryDescription: categoryTranslations.description,
+        })
+        .from(products)
+        .innerJoin(
+          categories,
+          and(
+            eq(products.categoryId, categories.id),
+            eq(categories.isActive, true),
+          ),
+        )
+        .innerJoin(
+          productTranslations,
+          and(
+            eq(productTranslations.productId, products.id),
+            eq(productTranslations.locale, locale),
+          ),
+        )
+        .innerJoin(
+          categoryTranslations,
+          and(
+            eq(categoryTranslations.categoryId, categories.id),
+            eq(categoryTranslations.locale, locale),
+          ),
+        )
+        .where(and(eq(products.id, productId), eq(products.isActive, true)))
+        .limit(1),
+      db
+        .select({
+          name: restaurantTranslations.name,
+          slogan: restaurantTranslations.slogan,
+          phone: restaurantSettings.phone,
+          address: restaurantSettings.address,
+          heroImageUrl: restaurantSettings.heroImageUrl,
+          currencyCode: restaurantSettings.currencyCode,
+          menuDisplaySettings: restaurantSettings.menuDisplaySettings,
+        })
+        .from(restaurantSettings)
+        .innerJoin(
+          restaurantTranslations,
+          and(
+            eq(
+              restaurantTranslations.restaurantId,
+              restaurantSettings.id,
+            ),
+            eq(restaurantTranslations.locale, locale),
+          ),
+        )
+        .limit(1),
+    ]);
+
+    if (!product || !restaurant) {
+      return null;
+    }
+
+    const relatedRows = await db
+      .select({
+        id: products.id,
+        categoryId: products.categoryId,
+        name: productTranslations.name,
+        description: productTranslations.description,
+        fullPriceCents: products.fullPriceCents,
+        halfPriceCents: products.halfPriceCents,
+        isSoldOut: products.isSoldOut,
+        imageUrl: products.imageUrl,
+      })
+      .from(products)
+      .innerJoin(
+        categories,
+        and(
+          eq(products.categoryId, categories.id),
+          eq(categories.isActive, true),
+        ),
+      )
+      .innerJoin(
+        productTranslations,
+        and(
+          eq(productTranslations.productId, products.id),
+          eq(productTranslations.locale, locale),
+        ),
+      )
+      .where(
+        and(
+          eq(products.categoryId, product.categoryId),
+          eq(products.isActive, true),
+          ne(products.id, product.id),
+        ),
+      )
+      .orderBy(asc(products.sortOrder))
+      .limit(4);
+    const allProductIds = [
+      product.id,
+      ...relatedRows.map((related) => related.id),
+    ];
+    const { tagRows, allergenRows } = await getPublicTaxonomyRows(
+      db,
+      allProductIds,
+      locale,
+    );
+    const publicProduct = buildPublicProduct(
+      product,
+      tagRows,
+      allergenRows,
+    );
+
+    return {
+      locale,
+      currencyCode: restaurant.currencyCode,
+      restaurant: {
+        name: restaurant.name,
+        slogan: restaurant.slogan,
+        phoneDisplay: restaurant.phone,
+        phoneHref: getPhoneHref(restaurant.phone),
+        address: restaurant.address,
+        heroImageUrl: restaurant.heroImageUrl,
+        heroImageAlt: `Imagen principal de ${restaurant.name}`,
+      },
+      category: {
+        id: product.categoryId,
+        name: product.categoryName,
+        eyebrow: product.categoryDescription,
+      },
+      product: publicProduct,
+      relatedProducts: relatedRows.map((related) =>
+        buildPublicProduct(related, tagRows, allergenRows),
+      ),
       displaySettings: normalizeMenuDisplaySettings(
         restaurant.menuDisplaySettings,
       ),

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { DemoProduct, ProductTag } from "@/features/public-menu/types";
 import { formatDemoPrice } from "@/features/public-menu/utils";
 import type { MenuDisplaySettings } from "@/features/menu-settings/config";
@@ -13,9 +15,16 @@ const tagTones: Record<ProductTag["tone"], string> = {
 type ProductCardProps = {
   product: DemoProduct;
   settings: MenuDisplaySettings;
+  href?: string;
+  viewProductLabel?: string;
 };
 
-export function ProductCard({ product, settings }: ProductCardProps) {
+export function ProductCard({
+  product,
+  settings,
+  href,
+  viewProductLabel,
+}: ProductCardProps) {
   const isList = settings.layout === "list";
 
   return (
@@ -38,11 +47,27 @@ export function ProductCard({ product, settings }: ProductCardProps) {
             isList ? "aspect-square" : "aspect-[16/10]"
           }`}
         >
-          <ProductImage
-            src={product.imageUrl}
-            alt={product.imageAlt}
-            isSoldOut={product.isSoldOut}
-          />
+          {href ? (
+            <Link
+              href={href}
+              aria-label={`${viewProductLabel ?? "Ver producto"}: ${
+                product.name
+              }`}
+              className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white"
+            >
+              <ProductImage
+                src={product.imageUrl}
+                alt={product.imageAlt}
+                isSoldOut={product.isSoldOut}
+              />
+            </Link>
+          ) : (
+            <ProductImage
+              src={product.imageUrl}
+              alt={product.imageAlt}
+              isSoldOut={product.isSoldOut}
+            />
+          )}
           <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[8px] font-extrabold tracking-[0.13em] text-white uppercase backdrop-blur-sm">
             Demo
           </span>
@@ -57,7 +82,16 @@ export function ProductCard({ product, settings }: ProductCardProps) {
       <div className={`px-0.5 ${isList ? "pt-0" : "pt-4"}`}>
         <div className="flex items-start justify-between gap-4">
           <h3 className="font-display text-[1.4rem] leading-tight text-[#173f35]">
-            {product.name}
+            {href ? (
+              <Link
+                href={href}
+                className="rounded-sm hover:text-[#a8392f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a8392f]"
+              >
+                {product.name}
+              </Link>
+            ) : (
+              product.name
+            )}
           </h3>
           {settings.showPrices ? (
             <div className="shrink-0 text-right">
@@ -131,6 +165,15 @@ export function ProductCard({ product, settings }: ProductCardProps) {
               ))}
             </div>
           </div>
+        ) : null}
+
+        {href && viewProductLabel ? (
+          <Link
+            href={href}
+            className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#173f35]/20 px-4 text-xs font-bold text-[#173f35] hover:bg-[#173f35] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
+          >
+            {viewProductLabel}
+          </Link>
         ) : null}
       </div>
     </article>

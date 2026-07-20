@@ -16,6 +16,7 @@ import { ProductCard } from "@/components/product-card";
 
 import type { DemoMenu, OpeningStatus } from "./types";
 import { getPublicMenuCopy } from "./copy";
+import { getPublicProductPath } from "./product-url";
 import { filterProducts, getOpeningStatus } from "./utils";
 
 const POSITION_MAX_AGE_MS = 30 * 60 * 1_000;
@@ -392,6 +393,12 @@ export function PublicMenuPage({
                           key={product.id}
                           product={product}
                           settings={menu.displaySettings}
+                          href={getPublicProductPath(
+                            menu.locale,
+                            product.id,
+                            product.name,
+                          )}
+                          viewProductLabel={copy.viewProduct}
                         />
                       ))}
                     </div>
