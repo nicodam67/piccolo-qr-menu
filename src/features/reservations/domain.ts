@@ -120,12 +120,23 @@ export function shiftReservationDate(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-function dateDifferenceMinutes(fromDate: string, toDate: string) {
-  return (
-    (Date.parse(`${toDate}T12:00:00Z`) -
-      Date.parse(`${fromDate}T12:00:00Z`)) /
-    60_000
-  );
+export function zonedLocalDateTimeToUtc(
+  date: string,
+  time: string,
+  timeZone: string,
+) {
+  const desired = Date.parse(`${date}T${time}:00Z`);
+  if (!Number.isFinite(desired)) return null;
+  let candidate = desired;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const observed = getLocalDateTime(new Date(candidate), timeZone);
+    const observedValue = Date.parse(`${observed.date}T${observed.time}:00Z`);
+    candidate += desired - observedValue;
+  }
+  const roundTrip = getLocalDateTime(new Date(candidate), timeZone);
+  return roundTrip.date === date && roundTrip.time === time
+    ? new Date(candidate)
+    : null;
 }
 
 export function getReservableDateRange(
@@ -163,8 +174,6 @@ export function generateReservationSlots({
   timeZone: string;
   minimumAdvanceMinutes: number;
 }) {
-  const localNow = getLocalDateTime(now, timeZone);
-  const dayOffsetMinutes = dateDifferenceMinutes(localNow.date, date);
   return intervals.flatMap((interval) => {
     const slots: ReservationSlot[] = [];
     for (
@@ -175,8 +184,10 @@ export function generateReservationSlots({
       const time = minutesToTime(start);
       const occupied = occupancy[time] ?? 0;
       const remaining = Math.max(0, slotCapacity - occupied);
+      const slotInstant = zonedLocalDateTimeToUtc(date, time, timeZone);
+      if (!slotInstant) continue;
       const minutesFromNow =
-        dayOffsetMinutes + start - localNow.minutes;
+        (slotInstant.getTime() - now.getTime()) / 60_000;
       if (
         minutesFromNow >= minimumAdvanceMinutes &&
         partySize <= remaining

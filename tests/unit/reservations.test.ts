@@ -12,6 +12,7 @@ import {
   normalizeEmail,
   normalizeGuestName,
   normalizePhone,
+  zonedLocalDateTimeToUtc,
 } from "../../src/features/reservations/domain";
 import { getOpeningIntervalsForDate } from "../../src/features/public-menu/schedule";
 import type {
@@ -198,6 +199,16 @@ describe("online reservations", () => {
         "Europe/Madrid",
       ).date,
       "2026-07-20",
+    );
+  });
+  it("convierte horas locales respetando horario de verano", () => {
+    assert.equal(
+      zonedLocalDateTimeToUtc(
+        "2026-07-20",
+        "13:00",
+        "Europe/Madrid",
+      )?.toISOString(),
+      "2026-07-20T11:00:00.000Z",
     );
   });
   it("valida claves de idempotencia", () => {
