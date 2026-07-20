@@ -29,6 +29,8 @@ export type AdminReservation = {
   origin: ReservationOrigin;
   locale: string;
   createdAt: string;
+  depositTotalCents:number; economicStatus:string; graceDeadlineAt:string;
+  arrivedAt:string; tpvApplicationStatus:string; remainingDepositCents:number;
 };
 
 export async function getAdminReservations({
@@ -109,6 +111,10 @@ export async function getAdminReservations({
       origin: row.origin as ReservationOrigin,
       locale: row.locale,
       createdAt: row.createdAt.toISOString(),
+      depositTotalCents:row.depositTotalCents,economicStatus:row.economicStatus,
+      graceDeadlineAt:row.graceDeadlineAt?.toISOString() ?? "",
+      arrivedAt:row.arrivedAt?.toISOString() ?? "",tpvApplicationStatus:row.tpvApplicationStatus,
+      remainingDepositCents:row.remainingDepositCents,
     })),
     summary: summary ?? {
       totalReservations: 0,

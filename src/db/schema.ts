@@ -424,6 +424,7 @@ export const reservationEconomicEvents = pgTable("reservation_economic_events", 
   restaurantId: uuid("restaurant_id").notNull().references(() => restaurantSettings.id, { onDelete: "restrict" }),
   reservationId: uuid("reservation_id").notNull().references(() => reservations.id, { onDelete: "restrict" }),
   paymentId: uuid("payment_id").references(() => reservationPayments.id, { onDelete: "restrict" }),
+  providerEventId: varchar("provider_event_id", { length: 160 }),
   eventType: varchar("event_type", { length: 50 }).notNull(),
   amountCents: integer("amount_cents"),
   reason: varchar("reason", { length: 500 }),
@@ -431,6 +432,7 @@ export const reservationEconomicEvents = pgTable("reservation_economic_events", 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("reservation_events_reservation_created_idx").on(table.reservationId, table.createdAt),
+  uniqueIndex("reservation_events_provider_event_uidx").on(table.providerEventId),
   check("reservation_events_amount_check", sql`${table.amountCents} is null or ${table.amountCents} >= 0`),
 ]);
 

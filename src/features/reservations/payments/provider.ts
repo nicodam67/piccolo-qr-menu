@@ -1,3 +1,4 @@
+import { StripePaymentProvider } from "./stripe-provider";
 export type PaymentMethod = "card" | "bizum" | "cash";
 
 export interface PaymentProvider {
@@ -16,7 +17,7 @@ export class PaymentProviderNotConfigured implements PaymentProvider {
   private unavailable(): never { throw new Error("Proveedor de pagos pendiente de autorización."); }
   async createPayment(): Promise<never> { return this.unavailable(); }
   async getPayment(): Promise<never> { return this.unavailable(); }
-  async verifyWebhook(_payload: string, _signature: string): Promise<boolean> { return false; }
+  async verifyWebhook(payload: string, signature: string): Promise<boolean> { void payload; void signature; return false; }
   async processWebhook(): Promise<never> { return this.unavailable(); }
   async refund(): Promise<never> { return this.unavailable(); }
   async getRefund(): Promise<never> { return this.unavailable(); }
@@ -24,5 +25,8 @@ export class PaymentProviderNotConfigured implements PaymentProvider {
 }
 
 export function getPaymentProvider(): PaymentProvider {
+  if (process.env.PAYMENT_PROVIDER === "stripe") {
+    return new StripePaymentProvider();
+  }
   return new PaymentProviderNotConfigured();
 }

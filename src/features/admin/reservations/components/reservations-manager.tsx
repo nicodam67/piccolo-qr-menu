@@ -8,6 +8,7 @@ import {
   createManualReservationAction,
   transitionReservationAction,
   updateReservationAction,
+  reservationEconomicAction,
 } from "../actions";
 import type { AdminReservation } from "../repository";
 import type { ReservationStatus } from "@/features/reservations/domain";
@@ -64,6 +65,25 @@ export function ReservationsManager({
       if (result.success) router.refresh();
     });
   };
+  const economic = (record: AdminReservation, action: string) => {
+    const data = new FormData();
+    if (action === "cash") {
+      const amount = window.prompt("Importe recibido en céntimos", String(record.depositTotalCents));
+      if (!amount) return;
+      data.set("amountCents", amount);
+      data.set("note", window.prompt("Observación", "Pago en efectivo") ?? "");
+    }
+    if (action === "grace") {
+      data.set("minutes", window.prompt("Minutos adicionales", "15") ?? "15");
+      data.set("reason", window.prompt("Motivo", "Cliente llamó") ?? "");
+    }
+    if (action === "no_show" && !window.confirm("¿Confirmar no presentación y retención?")) return;
+    startTransition(async () => {
+      const result = await reservationEconomicAction(record.id, action, data);
+      setFeedback(result.success ? "Operación registrada." : result.error);
+      if (result.success) router.refresh();
+    });
+  };
 
   return (
     <>
@@ -99,11 +119,17 @@ export function ReservationsManager({
             {record.customerNotes ? <p className="mt-3 text-xs text-stone-600">Cliente: {record.customerNotes}</p> : null}
             {record.internalNotes ? <p className="mt-1 text-xs font-bold text-stone-600">Interna: {record.internalNotes}</p> : null}
             <p className="mt-2 text-[10px] text-stone-400">Creada: {new Date(record.createdAt).toLocaleString("es-ES")}</p>
+            <p className="mt-2 text-xs font-bold text-stone-600">Adelanto {(record.depositTotalCents / 100).toFixed(2)} € · {record.economicStatus} · TPV {record.tpvApplicationStatus}</p>
+            <p className="text-[10px] text-stone-500">Cortesía: {record.graceDeadlineAt ? new Date(record.graceDeadlineAt).toLocaleString("es-ES") : "—"} · Llegada: {record.arrivedAt ? new Date(record.arrivedAt).toLocaleString("es-ES") : "No registrada"}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => setDialog(record)} className="flex min-h-11 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-bold"><Pencil className="size-4" />Editar</button>
               {(actions[record.status] ?? []).map((status) => (
                 <button key={status} type="button" onClick={() => transition(record, status)} className={`min-h-11 rounded-xl px-3 text-xs font-bold ${status === "cancelled" ? "bg-red-50 text-red-700" : "bg-[#173f35] text-white"}`}>{labels[status]}</button>
               ))}
+              {!record.arrivedAt ? <button type="button" onClick={() => economic(record, "arrival")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar llegada</button> : null}
+              <button type="button" onClick={() => economic(record, "grace")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Ampliar cortesía</button>
+              <button type="button" onClick={() => economic(record, "cash")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar efectivo</button>
+              <button type="button" onClick={() => economic(record, "no_show")} className="min-h-11 rounded-xl bg-red-50 px-3 text-xs font-bold text-red-700">No presentada</button>
             </div>
           </article>
         ))}
