@@ -9,6 +9,7 @@ import {
   updateSpecialHours,
   type SpecialHoursInput,
 } from "./repository";
+import { isSpecialHoursType } from "./utils";
 
 export type SpecialHoursActionResult = {
   success: boolean;
@@ -23,7 +24,15 @@ const timeToMinutes = (value: string) => {
 
 function parseForm(formData: FormData): SpecialHoursInput {
   const date = String(formData.get("date") ?? "");
-  const isClosed = formData.get("isClosed") === "true";
+  const exceptionTypeValue = String(
+    formData.get("exceptionType") ??
+      (formData.get("isClosed") === "true" ? "closed" : "special"),
+  );
+  if (!isSpecialHoursType(exceptionTypeValue)) {
+    throw new Error("El tipo de excepción no es válido.");
+  }
+  const exceptionType = exceptionTypeValue;
+  const isClosed = exceptionType === "closed";
   const reason = String(formData.get("reason") ?? "").trim();
   const firstOpensAt = String(formData.get("firstOpensAt") ?? "");
   const firstClosesAt = String(formData.get("firstClosesAt") ?? "");
@@ -78,6 +87,7 @@ function parseForm(formData: FormData): SpecialHoursInput {
 
   return {
     date,
+    exceptionType,
     isClosed,
     reason,
     firstOpensAt: isClosed ? "" : firstOpensAt,

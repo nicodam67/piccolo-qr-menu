@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CalendarDays,
+  Copy,
   LoaderCircle,
   Pencil,
   Plus,
@@ -18,15 +19,24 @@ import {
   updateSpecialHoursAction,
 } from "../actions";
 import type { SpecialHoursRecord } from "../repository";
+import {
+  filterSpecialHoursByDate,
+  getNextAvailableDuplicateDate,
+  type SpecialHoursType,
+} from "../utils";
+import { SpecialHoursCalendar } from "./special-hours-calendar";
 
 type Props = {
   records: SpecialHoursRecord[];
   timezone: string;
+  month: string;
 };
 
-export function SpecialHoursManager({ records, timezone }: Props) {
+export function SpecialHoursManager({ records, timezone, month }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState<SpecialHoursRecord | null | "new">(null);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [dateFilter, setDateFilter] = useState("");
   const [deleting, setDeleting] = useState<SpecialHoursRecord | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -37,14 +47,26 @@ export function SpecialHoursManager({ records, timezone }: Props) {
     setFeedback(null);
     startTransition(async () => {
       const result =
-        editing && editing !== "new"
+        editing && editing !== "new" && !isDuplicating
           ? await updateSpecialHoursAction(editing.id, formData)
           : await createSpecialHoursAction(formData);
       setFeedback(result.success ? "Excepción guardada." : result.error);
       if (result.success) {
         setEditing(null);
+        setIsDuplicating(false);
         router.refresh();
       }
+    });
+  };
+  const filteredRecords = filterSpecialHoursByDate(records, dateFilter);
+  const duplicate = (record: SpecialHoursRecord) => {
+    setIsDuplicating(true);
+    setEditing({
+      ...record,
+      date: getNextAvailableDuplicateDate(
+        record.date,
+        records.map(({ date }) => date),
+      ),
     });
   };
 
@@ -74,7 +96,10 @@ export function SpecialHoursManager({ records, timezone }: Props) {
         </div>
         <button
           type="button"
-          onClick={() => setEditing("new")}
+          onClick={() => {
+            setIsDuplicating(false);
+            setEditing("new");
+          }}
           className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#173f35] px-5 text-sm font-bold text-white"
         >
           <Plus className="size-4" /> Nueva excepción
@@ -89,22 +114,67 @@ export function SpecialHoursManager({ records, timezone }: Props) {
         ) : feedback}
       </div>
 
+      <div className="mb-5 grid gap-5 lg:grid-cols-[minmax(20rem,0.9fr)_minmax(0,1.1fr)]">
+        <SpecialHoursCalendar
+          month={month}
+          records={records}
+          onMonthChange={(nextMonth) =>
+            router.push(`/admin/special-hours?month=${nextMonth}`)
+          }
+          onSelect={(record) => {
+            setIsDuplicating(false);
+            setEditing(record);
+          }}
+        />
+        <section className="rounded-2xl border border-stone-200 bg-white p-4">
+          <label className="text-xs font-bold text-stone-600">
+            Filtrar por fecha
+            <input
+              type="date"
+              value={dateFilter}
+              min={`${month}-01`}
+              max={`${month}-31`}
+              onChange={(event) => setDateFilter(event.target.value)}
+              className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 px-3"
+            />
+          </label>
+          {dateFilter ? (
+            <button
+              type="button"
+              onClick={() => setDateFilter("")}
+              className="mt-3 min-h-11 rounded-xl border border-stone-200 px-4 text-xs font-bold"
+            >
+              Limpiar filtro
+            </button>
+          ) : null}
+          <p className="mt-4 text-xs text-stone-500">
+            {records.length} días configurados durante este mes.
+          </p>
+        </section>
+      </div>
+
       <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-        {records.length === 0 ? (
+        {filteredRecords.length === 0 ? (
           <div className="grid min-h-48 place-items-center text-center text-stone-400">
             <div><CalendarDays className="mx-auto size-7" /><p className="mt-2 text-sm">No hay excepciones configuradas.</p></div>
           </div>
-        ) : records.map((record) => (
+        ) : filteredRecords.map((record) => (
           <article key={record.id} className="grid gap-3 border-b border-stone-100 p-4 last:border-0 sm:grid-cols-[8rem_1fr_auto] sm:items-center">
             <div>
               <p className="text-sm font-bold text-[#173f35]">{record.date}</p>
               <p className="text-[10px] text-stone-400">{record.reason || "Sin motivo"}</p>
             </div>
             <div className="text-xs text-stone-600">
-              {record.isClosed ? (
+              {record.exceptionType === "closed" ? (
                 <span className="font-bold text-[#a8392f]">Cerrado</span>
               ) : (
                 <span>
+                  <strong>
+                    {record.exceptionType === "open"
+                      ? "Apertura extraordinaria"
+                      : "Horario especial"}
+                    :{" "}
+                  </strong>
                   {record.firstOpensAt}–{record.firstClosesAt}
                   {record.secondOpensAt
                     ? ` · ${record.secondOpensAt}–${record.secondClosesAt}`
@@ -113,7 +183,8 @@ export function SpecialHoursManager({ records, timezone }: Props) {
               )}
             </div>
             <div className="flex gap-1">
-              <button type="button" onClick={() => setEditing(record)} aria-label={`Editar ${record.date}`} className="grid size-11 place-items-center rounded-lg hover:bg-stone-100"><Pencil className="size-4" /></button>
+              <button type="button" onClick={() => { setIsDuplicating(false); setEditing(record); }} aria-label={`Editar ${record.date}`} className="grid size-11 place-items-center rounded-lg hover:bg-stone-100"><Pencil className="size-4" /></button>
+              <button type="button" onClick={() => duplicate(record)} aria-label={`Duplicar ${record.date}`} className="grid size-11 place-items-center rounded-lg hover:bg-stone-100"><Copy className="size-4" /></button>
               <button type="button" onClick={() => setDeleting(record)} aria-label={`Eliminar ${record.date}`} className="grid size-11 place-items-center rounded-lg text-red-700 hover:bg-red-50"><Trash2 className="size-4" /></button>
             </div>
           </article>
@@ -123,9 +194,13 @@ export function SpecialHoursManager({ records, timezone }: Props) {
       {editing ? (
         <SpecialHoursDialog
           record={editing === "new" ? undefined : editing}
+          isDuplicating={isDuplicating}
           pending={isPending}
           feedback={feedback}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            setIsDuplicating(false);
+          }}
           onSubmit={submit}
         />
       ) : null}
@@ -149,28 +224,47 @@ export function SpecialHoursManager({ records, timezone }: Props) {
 
 function SpecialHoursDialog({
   record,
+  isDuplicating,
   pending,
   feedback,
   onClose,
   onSubmit,
 }: {
   record?: SpecialHoursRecord;
+  isDuplicating: boolean;
   pending: boolean;
   feedback: string | null;
   onClose: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
-  const [closed, setClosed] = useState(record?.isClosed ?? false);
+  const [exceptionType, setExceptionType] = useState<SpecialHoursType>(
+    record?.exceptionType ?? "special",
+  );
+  const closed = exceptionType === "closed";
   return (
     <div className="fixed inset-0 z-[80] grid place-items-end bg-black/40 sm:place-items-center sm:p-5">
       <section role="dialog" aria-modal="true" aria-labelledby="special-hours-title" className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-3xl">
         <div className="flex justify-between gap-3">
-          <h2 id="special-hours-title" className="font-display text-2xl text-[#173f35]">{record ? "Editar excepción" : "Nueva excepción"}</h2>
+          <h2 id="special-hours-title" className="font-display text-2xl text-[#173f35]">{isDuplicating ? "Duplicar excepción" : record ? "Editar excepción" : "Nueva excepción"}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar formulario" className="grid size-11 place-items-center rounded-full bg-stone-100"><X className="size-5" /></button>
         </div>
         <form onSubmit={onSubmit} className="mt-5 space-y-4">
           <label className="block text-xs font-bold text-stone-600">Fecha<input name="date" type="date" required defaultValue={record?.date} className="mt-1 min-h-11 w-full rounded-xl border border-stone-200 px-3" /></label>
-          <label className="flex min-h-11 items-center justify-between rounded-xl border border-stone-200 px-3 text-xs font-bold">Día cerrado<input name="isClosed" type="checkbox" value="true" checked={closed} onChange={(e) => setClosed(e.target.checked)} /></label>
+          <label className="block text-xs font-bold text-stone-600">
+            Tipo
+            <select
+              name="exceptionType"
+              value={exceptionType}
+              onChange={(event) =>
+                setExceptionType(event.target.value as SpecialHoursType)
+              }
+              className="mt-1 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3"
+            >
+              <option value="special">Horario especial</option>
+              <option value="open">Apertura extraordinaria</option>
+              <option value="closed">Cerrado</option>
+            </select>
+          </label>
           <label className="block text-xs font-bold text-stone-600">Motivo opcional<input name="reason" maxLength={240} defaultValue={record?.reason} className="mt-1 min-h-11 w-full rounded-xl border border-stone-200 px-3" /></label>
           <div className="grid grid-cols-2 gap-3">
             {[

@@ -110,6 +110,7 @@ function getSpecialDateRange(timeZone: string) {
 function buildSpecialOpeningDays(
   rows: Array<{
     exceptionDate: string;
+    exceptionType: string;
     isClosed: boolean;
     reason: string | null;
     firstOpensAt: string | null;
@@ -120,6 +121,10 @@ function buildSpecialOpeningDays(
 ): SpecialOpeningDay[] {
   return rows.map((row) => ({
     date: row.exceptionDate,
+    exceptionType:
+      row.exceptionType === "open" || row.exceptionType === "closed"
+        ? row.exceptionType
+        : "special",
     isClosed: row.isClosed,
     ...(row.reason?.trim() ? { reason: row.reason.trim() } : {}),
     periods: row.isClosed

@@ -381,7 +381,7 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   ).toBeVisible();
   await expect(page.getByText("Cocina con sabor italiano")).toBeVisible();
   await expect(
-    page.getByText(/^(Abierto|Cerrado|Cerrado hoy|Abre próximamente|Cierra próximamente)$/),
+    page.getByText(/^(Abierto ahora|Cerrado|Cerrado hoy|Abre próximamente|Cierra próximamente)$/),
   ).toBeVisible();
 
   const callButton = page.getByRole("link", {
@@ -1402,12 +1402,32 @@ test("administrator manages special hours with public priority", async ({
 
   await loginAsAdmin(page);
   await page.goto("/admin/special-hours");
+  await page.getByRole("button", { name: "Mes anterior" }).click();
+  await expect(page).toHaveURL(/\/admin\/special-hours\?month=\d{4}-\d{2}/);
+  await page.getByRole("button", { name: "Mes siguiente" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/admin/special-hours\\?month=${dates.today.slice(0, 7)}$`),
+  );
   await page.getByRole("button", { name: "Nueva excepción" }).click();
   await page.getByLabel("Fecha").fill(dates.today);
-  await page.getByLabel("Día cerrado").check();
+  await page.getByLabel("Tipo").selectOption("closed");
   await page.getByLabel("Motivo opcional").fill("Vacaciones E2E");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText(dates.today, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `${dates.today}: closed` }),
+  ).toBeVisible();
+  await page.getByLabel("Filtrar por fecha").fill(dates.today);
+  await expect(page.getByText(dates.today, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Limpiar filtro" }).click();
+  await page.getByRole("button", { name: `Duplicar ${dates.today}` }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Duplicar excepción" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Fecha")).toHaveValue(dates.tomorrow);
+  await page.getByLabel("Motivo opcional").fill("Vacaciones duplicadas E2E");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText(dates.tomorrow, { exact: true })).toBeVisible();
 
   await page.goto("/es");
   await expect(
@@ -1418,6 +1438,10 @@ test("administrator manages special hours with public priority", async ({
     "Vacaciones E2E",
   );
   await page.keyboard.press("Escape");
+  await page.goto("/admin/print-menu");
+  await expect(page.locator("[data-print-menu]")).toContainText(
+    "Cerrado por Vacaciones E2E",
+  );
 
   const [catalanState] = await withDatabase(async (sql) => {
     return sql<Array<{ is_published: boolean }>>`
@@ -1433,7 +1457,7 @@ test("administrator manages special hours with public priority", async ({
 
   await page.goto("/admin/special-hours");
   await page.getByRole("button", { name: `Editar ${dates.today}` }).click();
-  await page.getByLabel("Día cerrado").uncheck();
+  await page.getByLabel("Tipo").selectOption("special");
   await page.getByLabel("Motivo opcional").fill("Horario especial E2E");
   await page.getByLabel("Apertura 1").fill("00:01");
   await page.getByLabel("Cierre 1").fill("12:00");
@@ -1458,6 +1482,11 @@ test("administrator manages special hours with public priority", async ({
   await page.keyboard.press("Escape");
 
   await page.goto("/admin/special-hours");
+  await page.getByRole("button", { name: `Eliminar ${dates.tomorrow}` }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
   await page.getByRole("button", { name: `Eliminar ${dates.today}` }).click();
   await page
     .getByRole("alertdialog")

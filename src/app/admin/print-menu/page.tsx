@@ -7,6 +7,7 @@ import { getAdminDashboardSummary } from "@/features/admin/repository";
 import { buildPublicMenuUrl } from "@/features/admin/qr/qr-url";
 import { getPublishedLocales } from "@/features/locales/repository";
 import { getPublicMenu } from "@/features/public-menu/repository";
+import { getRestaurantOpenStatus } from "@/features/public-menu/schedule";
 import { getPublicSiteUrl } from "@/features/public-menu/site-url";
 
 export const metadata: Metadata = {
@@ -35,6 +36,12 @@ export default async function AdminPrintMenuPage({ searchParams }: Props) {
     summary.locale,
   );
   const menu = await getPublicMenu(locale);
+  const initialOpeningStatus = getRestaurantOpenStatus({
+    now: new Date(),
+    weeklySchedule: menu.openingHours,
+    specialSchedule: menu.specialOpeningHours,
+    timeZone: menu.timeZone,
+  });
   const publicUrl = buildPublicMenuUrl(
     siteUrl.toString(),
     locale,
@@ -53,6 +60,7 @@ export default async function AdminPrintMenuPage({ searchParams }: Props) {
           currencyCode={menu.currencyCode}
           locales={locales}
           publicUrl={publicUrl}
+          initialOpeningStatus={initialOpeningStatus}
         />
       </div>
     </AdminLayout>

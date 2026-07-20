@@ -192,6 +192,9 @@ export const specialOpeningHours = pgTable(
       .notNull()
       .references(() => restaurantSettings.id, { onDelete: "cascade" }),
     exceptionDate: date("date").notNull(),
+    exceptionType: varchar("exception_type", { length: 20 })
+      .default("special")
+      .notNull(),
     isClosed: boolean("is_closed").default(false).notNull(),
     reason: varchar("reason", { length: 240 }),
     firstOpensAt: time("first_open_time"),
@@ -208,6 +211,14 @@ export const specialOpeningHours = pgTable(
     index("special_opening_hours_date_idx").on(
       table.restaurantId,
       table.exceptionDate,
+    ),
+    check(
+      "special_opening_hours_type_check",
+      sql`${table.exceptionType} in ('open', 'closed', 'special')`,
+    ),
+    check(
+      "special_opening_hours_type_closed_consistency",
+      sql`(${table.exceptionType} = 'closed' and ${table.isClosed}) or (${table.exceptionType} in ('open', 'special') and not ${table.isClosed})`,
     ),
     check(
       "special_opening_hours_first_period_check",

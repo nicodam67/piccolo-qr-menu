@@ -57,6 +57,13 @@
       "when": 1784583410212,
       "tag": "0007_bumpy_maestro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784585405052,
+      "tag": "0008_sour_sandman",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle, Printer } from "lucide-react";
 
 import type { PublishedLocale } from "@/features/locales/repository";
-import type { DemoMenu } from "@/features/public-menu/types";
+import type { DemoMenu, OpeningStatus } from "@/features/public-menu/types";
+import { getRestaurantOpenStatus } from "@/features/public-menu/schedule";
+import {
+  formatOpeningStatus,
+  getScheduleCopy,
+  getSpecialScheduleCopy,
+} from "@/features/public-menu/schedule-copy";
 import { generateQrPreviewDataUrl } from "@/features/admin/qr/qr-export";
 import { DEFAULT_QR_CUSTOMIZATION } from "@/features/admin/qr/qr-settings";
 import { getPrintMenuCopy } from "../print-copy";
@@ -20,6 +26,7 @@ type Props = {
   currencyCode: string;
   locales: PublishedLocale[];
   publicUrl: string;
+  initialOpeningStatus: OpeningStatus;
 };
 
 export function PrintMenuEditor({
@@ -27,10 +34,12 @@ export function PrintMenuEditor({
   currencyCode,
   locales,
   publicUrl,
+  initialOpeningStatus,
 }: Props) {
   const router = useRouter();
   const [settings, setSettings] = useState(DEFAULT_PRINT_MENU_SETTINGS);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [openingStatus, setOpeningStatus] = useState(initialOpeningStatus);
   const copy = getPrintMenuCopy(menu.locale);
 
   useEffect(() => {
@@ -48,6 +57,24 @@ export function PrintMenuEditor({
       cancelled = true;
     };
   }, [publicUrl, settings.showQr]);
+  useEffect(() => {
+    const refresh = () =>
+      setOpeningStatus(
+        getRestaurantOpenStatus({
+          now: new Date(),
+          weeklySchedule: menu.openingHours,
+          specialSchedule: menu.specialOpeningHours,
+          timeZone: menu.timeZone,
+        }),
+      );
+    const interval = window.setInterval(refresh, 60_000);
+    return () => window.clearInterval(interval);
+  }, [menu.openingHours, menu.specialOpeningHours, menu.timeZone]);
+  const formattedOpeningStatus = formatOpeningStatus(
+    openingStatus,
+    getScheduleCopy(menu.locale),
+    getSpecialScheduleCopy(menu.locale),
+  );
 
   const toggleOptions: Array<{
     key: keyof PrintMenuSettings;
@@ -167,6 +194,7 @@ export function PrintMenuEditor({
             settings={settings}
             qrDataUrl={qrDataUrl}
             copy={copy}
+            openingStatus={formattedOpeningStatus}
           />
         </section>
       </div>

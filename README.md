@@ -250,6 +250,13 @@ excepción sustituye completamente a `opening_hours` para ese día y también se
 considera desde el día siguiente cuando un turno cruza medianoche. Se consultan
 solo la fecha anterior, la actual y los siete días siguientes.
 
+Cada excepción tiene un tipo explícito: `open` (apertura extraordinaria),
+`closed` (cierre completo) o `special` (horario modificado). El panel ofrece
+calendario mensual, filtro por fecha, duplicación y CRUD. La consulta
+administrativa queda limitada al mes visible mediante el índice existente de
+restaurante y fecha. La carta imprimible reutiliza el mismo estado calculado
+que la cabecera pública.
+
 Los motivos son texto plano opcional. No existen festivos automáticos,
 recurrencias ni calendarios externos. JSON-LD conserva el horario semanal:
 Schema.org no permite representar de forma inequívoca todas las excepciones

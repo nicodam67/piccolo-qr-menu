@@ -1,0 +1,4 @@
+ALTER TABLE "special_opening_hours" ADD COLUMN "exception_type" varchar(20) DEFAULT 'special' NOT NULL;--> statement-breakpoint
+UPDATE "special_opening_hours" SET "exception_type" = 'closed' WHERE "is_closed" = true;--> statement-breakpoint
+ALTER TABLE "special_opening_hours" ADD CONSTRAINT "special_opening_hours_type_check" CHECK ("special_opening_hours"."exception_type" in ('open', 'closed', 'special'));--> statement-breakpoint
+ALTER TABLE "special_opening_hours" ADD CONSTRAINT "special_opening_hours_type_closed_consistency" CHECK (("special_opening_hours"."exception_type" = 'closed' and "special_opening_hours"."is_closed") or ("special_opening_hours"."exception_type" in ('open', 'special') and not "special_opening_hours"."is_closed"));

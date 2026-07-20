@@ -15,6 +15,7 @@ type Props = {
   settings: PrintMenuSettings;
   qrDataUrl: string | null;
   copy: PrintMenuCopy;
+  openingStatus: { label: string; detail: string };
 };
 
 function PrintableProductList({
@@ -101,6 +102,7 @@ export function PrintableMenu({
   settings,
   qrDataUrl,
   copy,
+  openingStatus,
 }: Props) {
   const sections = preparePrintableMenu(menu, settings);
   const allergens = [
@@ -148,6 +150,10 @@ export function PrintableMenu({
             <span>{menu.restaurant.phoneDisplay}</span>
           ) : null}
         </div>
+        <p className="mt-2 text-[9px] font-bold text-[#173f35]">
+          {openingStatus.label}
+          {openingStatus.detail ? ` · ${openingStatus.detail}` : ""}
+        </p>
       </header>
 
       <div

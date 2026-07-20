@@ -22,6 +22,7 @@ export type OpeningDay = {
 
 export type SpecialOpeningDay = {
   date: string;
+  exceptionType?: "open" | "closed" | "special";
   isClosed: boolean;
   reason?: string;
   periods: OpeningPeriod[];
