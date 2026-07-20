@@ -56,6 +56,37 @@ function getPhoneHref(phone: string) {
   return `tel:${normalizedPhone}`;
 }
 
+function buildOpeningDays(
+  rows: Array<{
+    dayOfWeek: number;
+    isClosed: boolean;
+    firstOpensAt: string | null;
+    firstClosesAt: string | null;
+    secondOpensAt: string | null;
+    secondClosesAt: string | null;
+  }>,
+): OpeningDay[] {
+  const hoursByDay = new Map(rows.map((row) => [row.dayOfWeek, row]));
+  return dayMetadata.map(({ day, label }, index) => {
+    const row = hoursByDay.get(index + 1);
+    if (!row || row.isClosed) return { day, label, periods: [] };
+    const periods = [];
+    if (row.firstOpensAt && row.firstClosesAt) {
+      periods.push({
+        opensAt: normalizeTime(row.firstOpensAt),
+        closesAt: normalizeTime(row.firstClosesAt),
+      });
+    }
+    if (row.secondOpensAt && row.secondClosesAt) {
+      periods.push({
+        opensAt: normalizeTime(row.secondOpensAt),
+        closesAt: normalizeTime(row.secondClosesAt),
+      });
+    }
+    return { day, label, periods };
+  });
+}
+
 function getTagTone(color: string): ProductTag["tone"] {
   if (color === "green" || color === "red" || color === "gold") {
     return color;
@@ -275,42 +306,13 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       locale,
     );
 
-    const hoursByDay = new Map(
-      hoursRows.map((openingDay) => [openingDay.dayOfWeek, openingDay]),
-    );
-    const normalizedHours: OpeningDay[] = dayMetadata.map(
-      ({ day, label }, index) => {
-        const openingDay = hoursByDay.get(index + 1);
-
-        if (!openingDay || openingDay.isClosed) {
-          return { day, label, periods: [] };
-        }
-
-        const periods = [];
-
-        if (openingDay.firstOpensAt && openingDay.firstClosesAt) {
-          periods.push({
-            opensAt: normalizeTime(openingDay.firstOpensAt),
-            closesAt: normalizeTime(openingDay.firstClosesAt),
-          });
-        }
-
-        if (openingDay.secondOpensAt && openingDay.secondClosesAt) {
-          periods.push({
-            opensAt: normalizeTime(openingDay.secondOpensAt),
-            closesAt: normalizeTime(openingDay.secondClosesAt),
-          });
-        }
-
-        return { day, label, periods };
-      },
-    );
+    const normalizedHours = buildOpeningDays(hoursRows);
 
     return {
       restaurant: {
         name: restaurant.name,
         slogan: restaurant.slogan,
-        phoneDisplay: `${restaurant.phone} · DEMO`,
+        phoneDisplay: restaurant.phone,
         phoneHref: getPhoneHref(restaurant.phone),
         address: restaurant.address,
         heroImageUrl: restaurant.heroImageUrl,
@@ -383,12 +385,14 @@ export async function getPublicProductDetail(
         .limit(1),
       db
         .select({
+          id: restaurantSettings.id,
           name: restaurantTranslations.name,
           slogan: restaurantTranslations.slogan,
           phone: restaurantSettings.phone,
           address: restaurantSettings.address,
           heroImageUrl: restaurantSettings.heroImageUrl,
           currencyCode: restaurantSettings.currencyCode,
+          timezone: restaurantSettings.timezone,
           menuDisplaySettings: restaurantSettings.menuDisplaySettings,
         })
         .from(restaurantSettings)
@@ -453,6 +457,11 @@ export async function getPublicProductDetail(
       )
       .orderBy(asc(products.sortOrder))
       .limit(4);
+    const detailHours = await db
+      .select()
+      .from(openingHours)
+      .where(eq(openingHours.restaurantId, restaurant.id))
+      .orderBy(asc(openingHours.dayOfWeek));
     const allProductIds = [
       product.id,
       ...relatedRows.map((related) => related.id),
@@ -492,6 +501,8 @@ export async function getPublicProductDetail(
       displaySettings: normalizeMenuDisplaySettings(
         restaurant.menuDisplaySettings,
       ),
+      openingHours: buildOpeningDays(detailHours),
+      timeZone: restaurant.timezone,
     };
   } catch (error: unknown) {
     throw new PublicMenuRepositoryError({ cause: error });

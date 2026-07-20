@@ -22,8 +22,20 @@ export type OpeningDay = {
 
 export type OpeningStatus = {
   isOpen: boolean;
-  label: string;
-  detail: string;
+  state:
+    | "open"
+    | "closed"
+    | "openingSoon"
+    | "closingSoon"
+    | "closedToday"
+    | "unavailable";
+  currentDay: DayKey | null;
+  closesAt?: string;
+  nextOpening?: {
+    day: DayKey;
+    dayOffset: number;
+    opensAt: string;
+  };
 };
 
 export type ProductTag = {
@@ -82,4 +94,6 @@ export type PublicProductDetail = {
   product: DemoProduct;
   relatedProducts: DemoProduct[];
   displaySettings: MenuDisplaySettings;
+  openingHours: OpeningDay[];
+  timeZone: string;
 };

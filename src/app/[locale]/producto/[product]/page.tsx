@@ -177,6 +177,10 @@ export default async function PublicProductPage({
     detail.displaySettings.showImages && detail.product.imageUrl
       ? makeAbsolutePublicUrl(detail.product.imageUrl, siteUrl)
       : null;
+  const schemaDays: Record<string, string> = {
+    monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday",
+    thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday",
+  };
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MenuItem",
@@ -201,6 +205,20 @@ export default async function PublicProductPage({
     provider: {
       "@type": "Restaurant",
       name: detail.restaurant.name,
+      ...(detail.restaurant.phoneDisplay
+        ? { telephone: detail.restaurant.phoneDisplay }
+        : {}),
+      ...(detail.restaurant.address
+        ? { address: detail.restaurant.address }
+        : {}),
+      openingHoursSpecification: detail.openingHours.flatMap((day) =>
+        day.periods.map((period) => ({
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: `https://schema.org/${schemaDays[day.day]}`,
+          opens: period.opensAt,
+          closes: period.closesAt,
+        })),
+      ),
     },
   };
   const formatPrice = (price: number) =>
@@ -213,8 +231,9 @@ export default async function PublicProductPage({
     <div className="min-h-screen bg-[#f7f3eb] pb-16">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
-      />
+      >
+        {safeJsonLd(jsonLd)}
+      </script>
 
       <header className="border-b border-white/10 bg-[#173f35] text-white">
         <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">

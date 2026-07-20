@@ -368,20 +368,37 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
     page.getByRole("heading", { name: "Piccolo La Ràpita", level: 1 }),
   ).toBeVisible();
   await expect(page.getByText("Cocina con sabor italiano")).toBeVisible();
-  await expect(page.getByText("Imagen demo")).toBeVisible();
-  await expect(page.getByText(/^(Abierto|Cerrado) ahora$/)).toBeVisible();
+  await expect(
+    page.getByText(/^(Abierto|Cerrado|Cerrado hoy|Abre próximamente|Cierra próximamente)$/),
+  ).toBeVisible();
 
   const callButton = page.getByRole("link", {
-    name: /llamar al teléfono de demostración/i,
+    name: /^Llamar:/,
   }).last();
   await expect(callButton).toBeVisible();
   await expect(callButton).toHaveAttribute("href", "tel:+34900000000");
 
-  await page.getByText("Horario de demostración").click();
-  await expect(page.getByText("Lunes", { exact: true })).toBeVisible();
+  const directions = page.getByRole("link", { name: /Cómo llegar/ });
+  await expect(directions).toHaveAttribute("target", "_blank");
+  await expect(directions).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(directions).toHaveAttribute(
+    "href",
+    /google\.com\/maps\/search\/\?api=1&query=/,
+  );
+
+  await page.getByRole("button", { name: "Horario" }).click();
+  const hoursDialog = page.getByRole("dialog", { name: "Horario" });
+  await expect(hoursDialog).toBeVisible();
+  await expect(hoursDialog.locator('[aria-current="date"]')).toContainText(
+    "Hoy",
+  );
+  await expect(hoursDialog).toContainText("Primer turno: 13:00–16:00");
+  await expect(hoursDialog).toContainText("Segundo turno: 19:30–23:00");
+  await expect(hoursDialog).toContainText("Cerrado");
+  await page.keyboard.press("Escape");
   await expect(
-    page.getByText("Horario no oficial · solo prototipo"),
-  ).toBeVisible();
+    page.getByRole("dialog", { name: "Horario" }),
+  ).toHaveCount(0);
 
   const search = page.getByRole("searchbox", {
     name: "Buscar platos en la carta",
@@ -460,6 +477,36 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
     path: testInfo.outputPath("piccolo-mobile-320.png"),
     fullPage: true,
   });
+});
+
+test("public contact actions disappear when data is absent", async ({ page }) => {
+  const [contact] = await withDatabase(async (sql) => {
+    return sql<Array<{ id: string; phone: string; address: string }>>`
+      select id, phone, address from restaurant_settings limit 1
+    `;
+  });
+  if (!contact) throw new Error("No se pudo respaldar el contacto.");
+
+  try {
+    await withDatabase(async (sql) => {
+      await sql`
+        update restaurant_settings
+        set phone = '', address = '', updated_at = now()
+        where id = ${contact.id}
+      `;
+    });
+    await page.goto("/es");
+    await expect(page.getByRole("link", { name: /^Llamar:/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Cómo llegar/ })).toHaveCount(0);
+  } finally {
+    await withDatabase(async (sql) => {
+      await sql`
+        update restaurant_settings
+        set phone = ${contact.phone}, address = ${contact.address}, updated_at = now()
+        where id = ${contact.id}
+      `;
+    });
+  }
 });
 
 test("product detail opens from menu and returns to saved position", async ({
@@ -1117,6 +1164,11 @@ test("administrator activates translates and publishes Catalan", async ({
   await expect(page.locator("html")).toHaveAttribute("lang", "ca");
   await expect(page.getByLabel("Idioma")).toHaveValue("ca");
   await expect(page.getByLabel("Idioma").locator("option")).toHaveCount(2);
+  await page.getByRole("button", { name: "Horari" }).click();
+  await expect(page.getByRole("dialog", { name: "Horari" })).toContainText(
+    "Primer torn",
+  );
+  await page.keyboard.press("Escape");
   await expect(page.locator('link[hreflang="ca"]')).toHaveCount(1);
   await expect(page.locator('link[hreflang="es"]')).toHaveCount(1);
   await expect(page.locator('link[hreflang="x-default"]')).toHaveAttribute(

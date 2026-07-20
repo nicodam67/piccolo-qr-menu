@@ -18,7 +18,9 @@ import type { DemoMenu, OpeningStatus } from "./types";
 import type { PublishedLocale } from "@/features/locales/repository";
 import { getPublicMenuCopy } from "./copy";
 import { getPublicProductPath } from "./product-url";
-import { filterProducts, getOpeningStatus } from "./utils";
+import { getRestaurantOpenStatus } from "./schedule";
+import { getScheduleCopy } from "./schedule-copy";
+import { filterProducts } from "./utils";
 
 const POSITION_MAX_AGE_MS = 30 * 60 * 1_000;
 
@@ -50,6 +52,7 @@ export function PublicMenuPage({
   const visibleCategoriesRef = useRef(menu.categories);
   const positionStorageKey = `piccolo-menu-position:${menu.locale}`;
   const copy = getPublicMenuCopy(menu.locale);
+  const scheduleCopy = getScheduleCopy(menu.locale);
 
   const filteredProducts = useMemo(
     () => filterProducts(menu.products, deferredQuery),
@@ -106,7 +109,11 @@ export function PublicMenuPage({
   useEffect(() => {
     const refreshStatus = () => {
       setOpeningStatus(
-        getOpeningStatus(new Date(), menu.openingHours, menu.timeZone),
+        getRestaurantOpenStatus({
+          now: new Date(),
+          weeklySchedule: menu.openingHours,
+          timeZone: menu.timeZone,
+        }),
       );
     };
 
@@ -462,10 +469,13 @@ export function PublicMenuPage({
         </footer>
       </main>
 
-      <FloatingCallButton
-        phoneDisplay={menu.restaurant.phoneDisplay}
-        phoneHref={menu.restaurant.phoneHref}
-      />
+      {menu.restaurant.phoneDisplay ? (
+        <FloatingCallButton
+          phoneDisplay={menu.restaurant.phoneDisplay}
+          phoneHref={menu.restaurant.phoneHref}
+          label={scheduleCopy.call}
+        />
+      ) : null}
     </>
   );
 }

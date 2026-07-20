@@ -12,7 +12,7 @@ import {
   getPublicSiteUrl,
   makeAbsolutePublicUrl,
 } from "@/features/public-menu/site-url";
-import { getOpeningStatus } from "@/features/public-menu/utils";
+import { getRestaurantOpenStatus } from "@/features/public-menu/schedule";
 
 type LocalePageProps = {
   params: Promise<{ locale: string }>;
@@ -80,17 +80,48 @@ export default async function LocalePage({ params }: LocalePageProps) {
     getPublicMenu(locale),
     getPublishedLocales(),
   ]);
-  const initialOpeningStatus = getOpeningStatus(
-    new Date(),
-    menu.openingHours,
-    menu.timeZone,
-  );
+  const initialOpeningStatus = getRestaurantOpenStatus({
+    now: new Date(),
+    weeklySchedule: menu.openingHours,
+    timeZone: menu.timeZone,
+  });
+  const schemaDays: Record<string, string> = {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+    saturday: "Saturday",
+    sunday: "Sunday",
+  };
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: menu.restaurant.name,
+    ...(menu.restaurant.phoneDisplay
+      ? { telephone: menu.restaurant.phoneDisplay }
+      : {}),
+    ...(menu.restaurant.address ? { address: menu.restaurant.address } : {}),
+    openingHoursSpecification: menu.openingHours.flatMap((day) =>
+      day.periods.map((period) => ({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: `https://schema.org/${schemaDays[day.day]}`,
+        opens: period.opensAt,
+        closes: period.closesAt,
+      })),
+    ),
+  };
 
   return (
-    <PublicMenuPage
-      menu={menu}
-      initialOpeningStatus={initialOpeningStatus}
-      publishedLocales={publishedLocales}
-    />
+    <>
+      <script type="application/ld+json">
+        {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
+      </script>
+      <PublicMenuPage
+        menu={menu}
+        initialOpeningStatus={initialOpeningStatus}
+        publishedLocales={publishedLocales}
+      />
+    </>
   );
 }
