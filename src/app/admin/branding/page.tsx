@@ -25,10 +25,7 @@ export default async function AdminBrandingPage() {
       databaseStatus={summary.databaseStatus}
     >
       <div className="mx-auto w-full max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
-        <BrandingEditor
-          key={JSON.stringify(branding)}
-          initialData={branding}
-        />
+        <BrandingEditor initialData={branding} />
       </div>
     </AdminLayout>
   );
