@@ -373,7 +373,10 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
     pizzaCardBeforeSearch.getByLabel("Ver producto: Pizza de muestra"),
   ).toBeVisible();
   await expect(
-    pizzaCardBeforeSearch.getByRole("link", { name: "Ver producto" }),
+    pizzaCardBeforeSearch.getByRole("link", {
+      name: "Ver producto",
+      exact: true,
+    }),
   ).toBeVisible();
   await search.fill("BURRÁTA");
   await expect(page.getByTestId("product-card")).toHaveCount(1);
@@ -435,6 +438,20 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
 test("product detail opens from menu and returns to saved position", async ({
   page,
 }) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydration|did not match|server rendered html/i.test(message.text())
+    ) {
+      hydrationErrors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => {
+    if (/hydration|did not match/i.test(error.message)) {
+      hydrationErrors.push(error.message);
+    }
+  });
   await page.goto("/es");
   await page.getByRole("button", { name: "Pizze · 2" }).click();
   await page.waitForTimeout(600);
@@ -490,6 +507,7 @@ test("product detail opens from menu and returns to saved position", async ({
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThanOrEqual(Math.max(0, previousScrollY - 120));
+  expect(hydrationErrors).toEqual([]);
 });
 
 test("product detail exposes share, SEO, JSON-LD and stable identifiers", async ({
@@ -599,9 +617,13 @@ test("hidden products, hidden categories and invalid locales return 404", async 
         where id = ${record.product_id}
       `;
     });
-    const hiddenProductResponse = await page.goto(productPath);
-    expect(hiddenProductResponse?.status()).toBe(404);
+    await page.goto(productPath);
+    await expect(page.getByText("404", { exact: true })).toBeVisible();
     await expect(page.getByText("Pizza de muestra")).toHaveCount(0);
+    await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute(
+      "content",
+      /noindex/,
+    );
 
     await withDatabase(async (sql) => {
       await sql`
@@ -615,17 +637,15 @@ test("hidden products, hidden categories and invalid locales return 404", async 
         where id = ${record.category_id}
       `;
     });
-    const hiddenCategoryResponse = await page.goto(productPath);
-    expect(hiddenCategoryResponse?.status()).toBe(404);
+    await page.goto(productPath);
+    await expect(page.getByText("404", { exact: true })).toBeVisible();
 
-    const unavailableLocaleResponse = await page.goto(
+    await page.goto(
       `/ca/producto/${record.product_id}-pizza-de-muestra`,
     );
-    expect(unavailableLocaleResponse?.status()).toBe(404);
-    const invalidIdentifierResponse = await page.goto(
-      "/es/producto/identificador-invalido",
-    );
-    expect(invalidIdentifierResponse?.status()).toBe(404);
+    await expect(page.getByText("404", { exact: true })).toBeVisible();
+    await page.goto("/es/producto/identificador-invalido");
+    await expect(page.getByText("404", { exact: true })).toBeVisible();
   } finally {
     await withDatabase(async (sql) => {
       await sql`

@@ -44,6 +44,7 @@ export function PublicMenuPage({
   const [openingStatus, setOpeningStatus] = useState(initialOpeningStatus);
   const activeCategoryRef = useRef(activeCategory);
   const queryRef = useRef(query);
+  const visibleCategoriesRef = useRef(menu.categories);
   const positionStorageKey = `piccolo-menu-position:${menu.locale}`;
   const copy = getPublicMenuCopy(menu.locale);
 
@@ -87,7 +88,8 @@ export function PublicMenuPage({
   useEffect(() => {
     activeCategoryRef.current = visibleActiveCategory;
     queryRef.current = query;
-  }, [query, visibleActiveCategory]);
+    visibleCategoriesRef.current = visibleCategories;
+  }, [query, visibleActiveCategory, visibleCategories]);
 
   useEffect(() => {
     const previousScrollRestoration = window.history.scrollRestoration;
@@ -183,6 +185,21 @@ export function PublicMenuPage({
 
       if (queryRef.current.trim()) {
         return;
+      }
+
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2
+      ) {
+        const lastCategory = visibleCategoriesRef.current.at(-1);
+
+        if (
+          lastCategory &&
+          activeCategoryRef.current !== lastCategory.id
+        ) {
+          activeCategoryRef.current = lastCategory.id;
+          setActiveCategory(lastCategory.id);
+        }
       }
 
       const position: StoredMenuPosition = {

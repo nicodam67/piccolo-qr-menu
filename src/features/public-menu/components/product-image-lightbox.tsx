@@ -31,6 +31,7 @@ export function ProductImageLightbox({
     }
 
     const previousOverflow = document.body.style.overflow;
+    const triggerElement = triggerRef.current;
     document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
 
@@ -51,7 +52,7 @@ export function ProductImageLightbox({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
-      triggerRef.current?.focus();
+      triggerElement?.focus();
     };
   }, [open]);
 

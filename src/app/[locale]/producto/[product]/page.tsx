@@ -61,13 +61,13 @@ export async function generateMetadata({
   const productId = parseProductIdFromSegment(segment);
 
   if (!productId) {
-    return { title: "Producto no encontrado" };
+    notFound();
   }
 
   const detail = await getCachedProduct(productId, locale);
 
   if (!detail) {
-    return { title: "Producto no encontrado" };
+    notFound();
   }
 
   const siteUrl = await getPublicSiteUrl();
@@ -137,12 +137,6 @@ export default async function PublicProductPage({
     detail.product.name,
   );
   const canonicalUrl = makeAbsolutePublicUrl(canonicalPath, siteUrl);
-  const description = getSeoDescription(
-    detail.product.name,
-    detail.product.description,
-    detail.category.name,
-    detail.restaurant.name,
-  );
   const absoluteImageUrl =
     detail.displaySettings.showImages && detail.product.imageUrl
       ? makeAbsolutePublicUrl(detail.product.imageUrl, siteUrl)
