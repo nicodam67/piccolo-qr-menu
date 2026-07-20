@@ -1409,7 +1409,7 @@ test("administrator manages special hours with public priority", async ({
     new RegExp(`/admin/special-hours\\?month=${dates.today.slice(0, 7)}$`),
   );
   await page.getByRole("button", { name: "Nueva excepción" }).click();
-  await page.getByLabel("Fecha").fill(dates.today);
+  await page.getByLabel("Fecha", { exact: true }).fill(dates.today);
   await page.getByLabel("Tipo").selectOption("closed");
   await page.getByLabel("Motivo opcional").fill("Vacaciones E2E");
   await page.getByRole("button", { name: "Guardar" }).click();
@@ -1424,7 +1424,9 @@ test("administrator manages special hours with public priority", async ({
   await expect(
     page.getByRole("dialog", { name: "Duplicar excepción" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Fecha")).toHaveValue(dates.tomorrow);
+  await expect(page.getByLabel("Fecha", { exact: true })).toHaveValue(
+    dates.tomorrow,
+  );
   await page.getByLabel("Motivo opcional").fill("Vacaciones duplicadas E2E");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText(dates.tomorrow, { exact: true })).toBeVisible();
