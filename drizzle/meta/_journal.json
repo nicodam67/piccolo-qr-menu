@@ -43,6 +43,13 @@
       "when": 1784555995696,
       "tag": "0005_tough_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784574044290,
+      "tag": "0006_premium_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

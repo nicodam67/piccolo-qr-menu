@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -178,6 +179,46 @@ export const openingHours = pgTable(
     check(
       "opening_hours_second_period_check",
       sql`(${table.secondOpensAt} is null and ${table.secondClosesAt} is null) or (${table.secondOpensAt} is not null and ${table.secondClosesAt} is not null)`,
+    ),
+  ],
+);
+
+export const specialOpeningHours = pgTable(
+  "special_opening_hours",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "cascade" }),
+    exceptionDate: date("date").notNull(),
+    isClosed: boolean("is_closed").default(false).notNull(),
+    reason: varchar("reason", { length: 240 }),
+    firstOpensAt: time("first_open_time"),
+    firstClosesAt: time("first_close_time"),
+    secondOpensAt: time("second_open_time"),
+    secondClosesAt: time("second_close_time"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("special_opening_hours_restaurant_date_uidx").on(
+      table.restaurantId,
+      table.exceptionDate,
+    ),
+    index("special_opening_hours_date_idx").on(
+      table.restaurantId,
+      table.exceptionDate,
+    ),
+    check(
+      "special_opening_hours_first_period_check",
+      sql`${table.isClosed} or (${table.firstOpensAt} is not null and ${table.firstClosesAt} is not null)`,
+    ),
+    check(
+      "special_opening_hours_second_period_check",
+      sql`(${table.secondOpensAt} is null and ${table.secondClosesAt} is null) or (${table.secondOpensAt} is not null and ${table.secondClosesAt} is not null)`,
+    ),
+    check(
+      "special_opening_hours_closed_has_no_periods",
+      sql`not ${table.isClosed} or (${table.firstOpensAt} is null and ${table.firstClosesAt} is null and ${table.secondOpensAt} is null and ${table.secondClosesAt} is null)`,
     ),
   ],
 );
