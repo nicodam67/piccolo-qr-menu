@@ -83,6 +83,7 @@ export default async function LocalePage({ params }: LocalePageProps) {
   const initialOpeningStatus = getRestaurantOpenStatus({
     now: new Date(),
     weeklySchedule: menu.openingHours,
+    specialSchedule: menu.specialOpeningHours,
     timeZone: menu.timeZone,
   });
   const schemaDays: Record<string, string> = {

@@ -67,7 +67,7 @@ export function OpeningHours({
               {copy.hours}
             </span>
             <span className="block text-[10px] text-stone-400">
-              {formattedStatus.detail || formattedStatus.label}
+              {formattedStatus.detail || timeZone}
             </span>
           </span>
         </span>

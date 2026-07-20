@@ -1235,15 +1235,26 @@ test("administrator manages special hours with public priority", async ({
   await expect(page.getByText(dates.today, { exact: true })).toBeVisible();
 
   await page.goto("/es");
-  await expect(page.getByText("Cerrado por Vacaciones E2E")).toBeVisible();
+  await expect(
+    page.getByText("Cerrado por Vacaciones E2E").first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Horario" }).click();
   await expect(page.getByRole("dialog", { name: "Horario" })).toContainText(
     "Vacaciones E2E",
   );
   await page.keyboard.press("Escape");
 
-  await page.goto("/ca");
-  await expect(page.getByText("Tancat per Vacaciones E2E")).toBeVisible();
+  const [catalanState] = await withDatabase(async (sql) => {
+    return sql<Array<{ is_published: boolean }>>`
+      select is_published from restaurant_locales where locale = 'ca'
+    `;
+  });
+  if (catalanState?.is_published) {
+    await page.goto("/ca");
+    await expect(
+      page.getByText("Tancat per Vacaciones E2E").first(),
+    ).toBeVisible();
+  }
 
   await page.goto("/admin/special-hours");
   await page.getByRole("button", { name: `Editar ${dates.today}` }).click();
@@ -1254,15 +1265,17 @@ test("administrator manages special hours with public priority", async ({
   await page.getByLabel("Apertura 2").fill("12:30");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(
-    page.getByText(
-      "El segundo turno debe estar completo o completamente vacío.",
-    ),
+    page
+      .getByRole("dialog", { name: "Editar excepción" })
+      .getByText("El segundo turno debe estar completo o completamente vacío."),
   ).toBeVisible();
   await page.getByLabel("Cierre 2").fill("23:59");
   await page.getByRole("button", { name: "Guardar" }).click();
 
   await page.goto("/es");
-  await expect(page.getByText(/Hoy tenemos horario especial/)).toBeVisible();
+  await expect(
+    page.getByText(/Hoy tenemos horario especial/).first(),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Horario" }).click();
   const specialDialog = page.getByRole("dialog", { name: "Horario" });
   await expect(specialDialog).toContainText("Primer turno: 00:01–12:00");

@@ -85,7 +85,7 @@ function getEffectiveDay(
   };
 }
 
-function validPeriods(day: OpeningDay | undefined) {
+function validPeriods(day: { periods: OpeningPeriod[] } | undefined) {
   return (day?.periods ?? []).filter(
     (period) =>
       timeToMinutes(period.opensAt) !== null &&

@@ -93,7 +93,7 @@ export function MenuHeader({
                   {formattedStatus.label}
               </p>
               <p className="truncate text-[11px] text-stone-500">
-                {formattedStatus.detail}
+                {formattedStatus.detail || scheduleCopy.hours}
               </p>
             </div>
           </div>

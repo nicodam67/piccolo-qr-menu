@@ -120,7 +120,7 @@ export function PublicMenuPage({
 
     const intervalId = window.setInterval(refreshStatus, 60_000);
     return () => window.clearInterval(intervalId);
-  }, [menu.openingHours, menu.timeZone]);
+  }, [menu.openingHours, menu.specialOpeningHours, menu.timeZone]);
 
   useEffect(() => {
     const navigationEntry = performance.getEntriesByType(
