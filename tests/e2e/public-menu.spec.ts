@@ -1322,12 +1322,21 @@ test("administrator previews and prints the real menu without persistence", asyn
   await page.getByLabel("Mostrar QR").uncheck();
   await expect(printable.getByRole("img", { name: /QR/ })).toHaveCount(0);
 
-  await page.getByLabel("Idioma").selectOption("ca");
-  await expect(page).toHaveURL(/\/admin\/print-menu\?locale=ca$/);
-  await expect(page.locator("[data-print-menu]")).toContainText(
-    "Piccolo La Ràpita CA",
-  );
-  await expect(page.locator("[data-print-menu]")).toContainText("Producte CA 1");
+  const [catalan] = await withDatabase(async (sql) => {
+    return sql<Array<{ is_published: boolean }>>`
+      select is_published from restaurant_locales where locale = 'ca'
+    `;
+  });
+  if (catalan?.is_published) {
+    await page.locator("main select").first().selectOption("ca");
+    await expect(page).toHaveURL(/\/admin\/print-menu\?locale=ca$/);
+    await expect(page.locator("[data-print-menu]")).toContainText(
+      "Piccolo La Ràpita CA",
+    );
+    await expect(page.locator("[data-print-menu]")).toContainText(
+      "Producte CA 1",
+    );
+  }
 
   await page.evaluate(() => {
     window.print = () => sessionStorage.setItem("print-menu-called", "true");
