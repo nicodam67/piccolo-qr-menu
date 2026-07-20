@@ -109,5 +109,12 @@ visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
 reutilizando exclusivamente las tablas actuales. No se crean migraciones ni se
 suben archivos.
 
-No contiene branding, QR, exportaciones, variantes, extras, combos,
-almacenamiento S3, publicación, pedidos ni integración con Piccolo TPV.
+`/admin/branding` permite editar identidad, contacto, portada y horarios con una
+vista previa en tiempo real. Utiliza `restaurant_settings`,
+`restaurant_translations` y `opening_hours` sin duplicar datos.
+
+Email, ciudad, código postal, provincia, país, redes sociales, logotipo, colores
+e imágenes adicionales están excluidos porque no existen en el esquema.
+
+No contiene QR, exportaciones, variantes, extras, combos, almacenamiento S3,
+publicación, pedidos ni integración con Piccolo TPV.

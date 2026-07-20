@@ -102,6 +102,76 @@ async function cleanupE2EProducts() {
   });
 }
 
+type BrandingBackup = {
+  restaurantId: string;
+  name: string;
+  slogan: string;
+  phone: string;
+  tuesdayFirstOpensAt: string;
+};
+
+let brandingBackup: BrandingBackup | null = null;
+
+async function captureBrandingBackup() {
+  const [backup] = await withDatabase(async (sql) => {
+    return sql<Array<BrandingBackup>>`
+      select
+        restaurant_settings.id as "restaurantId",
+        restaurant_translations.name,
+        restaurant_translations.slogan,
+        restaurant_settings.phone,
+        to_char(opening_hours.first_opens_at, 'HH24:MI') as "tuesdayFirstOpensAt"
+      from restaurant_settings
+      inner join restaurant_translations
+        on restaurant_translations.restaurant_id = restaurant_settings.id
+        and restaurant_translations.locale = 'es'
+      inner join opening_hours
+        on opening_hours.restaurant_id = restaurant_settings.id
+        and opening_hours.day_of_week = 2
+      limit 1
+    `;
+  });
+
+  if (!backup) {
+    throw new Error("No se pudo respaldar el branding para la prueba.");
+  }
+
+  brandingBackup = backup;
+  return backup;
+}
+
+async function restoreBrandingBackup() {
+  const backup = brandingBackup;
+
+  if (!backup) {
+    return;
+  }
+
+  await withDatabase(async (sql) => {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        update restaurant_settings
+        set phone = ${backup.phone}, updated_at = now()
+        where id = ${backup.restaurantId}
+      `;
+      await transaction`
+        update restaurant_translations
+        set
+          name = ${backup.name},
+          slogan = ${backup.slogan}
+        where restaurant_id = ${backup.restaurantId}
+          and locale = 'es'
+      `;
+      await transaction`
+        update opening_hours
+        set first_opens_at = ${backup.tuesdayFirstOpensAt}
+        where restaurant_id = ${backup.restaurantId}
+          and day_of_week = 2
+      `;
+    });
+  });
+}
+
 async function loginAsAdmin(page: Page) {
   const { email, password } = getAdminCredentials();
 
@@ -189,7 +259,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
     .getByRole("button", { name: "Abrir menú de administración" })
     .click();
   await expect(page.getByRole("navigation")).toBeVisible();
-  await expect(page.getByText("Disponible próximamente")).toHaveCount(4);
+  await expect(page.getByText("Disponible próximamente")).toHaveCount(3);
 
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -486,6 +556,63 @@ test("administrator manages products with existing schema fields", async ({
   await expect(page.getByText("Producto E2E actualizado")).toHaveCount(0);
 });
 
+test("administrator edits branding with live preview and persistence", async ({
+  page,
+}) => {
+  const backup = await captureBrandingBackup();
+  await loginAsAdmin(page);
+  await page.goto("/admin/branding");
+
+  await expect(
+    page.getByRole("heading", { name: "Branding", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Nombre del restaurante")).toHaveValue(
+    backup.name,
+  );
+
+  await page
+    .getByLabel("Nombre del restaurante")
+    .fill("Piccolo La Ràpita E2E");
+  await page.getByLabel("Eslogan").fill("Eslogan temporal E2E");
+  await page.getByLabel("Teléfono").fill("+34 900 000 001");
+  await page.getByLabel("Martes apertura 1").fill("13:05");
+  await expect(
+    page
+      .locator("aside")
+      .getByRole("heading", { name: "Piccolo La Ràpita E2E", level: 2 }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Branding guardado correctamente.",
+  );
+
+  await page.reload();
+  await expect(page.getByLabel("Nombre del restaurante")).toHaveValue(
+    "Piccolo La Ràpita E2E",
+  );
+  await expect(page.getByLabel("Eslogan")).toHaveValue("Eslogan temporal E2E");
+  await expect(page.getByLabel("Teléfono")).toHaveValue("+34 900 000 001");
+  await expect(page.getByLabel("Martes apertura 1")).toHaveValue("13:05");
+
+  await page.getByLabel("Nombre del restaurante").fill(backup.name);
+  await page.getByLabel("Eslogan").fill(backup.slogan);
+  await page.getByLabel("Teléfono").fill(backup.phone);
+  await page
+    .getByLabel("Martes apertura 1")
+    .fill(backup.tuesdayFirstOpensAt);
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Branding guardado correctamente.",
+  );
+
+  await page.goto("/es");
+  await expect(
+    page.getByRole("heading", { name: backup.name, level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByText(backup.slogan)).toBeVisible();
+});
+
 test("unauthenticated admin access redirects to login", async ({ page }) => {
   await page.goto("/admin");
 
@@ -705,6 +832,7 @@ test("five failures block login and a later success clears attempts", async ({
 });
 
 test.afterAll(async () => {
+  await restoreBrandingBackup();
   await cleanupE2EProducts();
   await cleanupE2ECategories();
 });

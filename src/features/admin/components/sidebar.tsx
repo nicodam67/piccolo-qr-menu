@@ -46,7 +46,12 @@ const navigationItems: NavigationItem[] = [
     available: true,
     href: "/admin/products",
   },
-  { label: "Branding", icon: Palette, available: false },
+  {
+    label: "Branding",
+    icon: Palette,
+    available: true,
+    href: "/admin/branding",
+  },
   { label: "QR & Share", icon: QrCode, available: false },
   { label: "Exportar", icon: Download, available: false },
   { label: "Configuración", icon: Settings, available: false },
