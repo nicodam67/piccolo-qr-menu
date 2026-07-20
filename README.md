@@ -110,6 +110,12 @@ layout de lista o tarjetas. La configuración se guarda en
 Zod y aplica defaults seguros si la columna es `NULL`, está incompleta o
 contiene propiedades desconocidas.
 
+La carta pública filtra los productos en memoria por nombre y descripción,
+muestra contadores por categoría y mantiene una navegación horizontal sticky.
+La última categoría y posición se conservan en `sessionStorage` durante treinta
+minutos para navegación de retorno; no se utilizan cookies ni persistencia en
+PostgreSQL.
+
 `/admin/products` gestiona productos, traducciones, precios, categoría,
 visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
 reutilizando exclusivamente las tablas actuales.

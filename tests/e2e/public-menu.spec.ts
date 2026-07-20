@@ -320,6 +320,20 @@ async function loginAsAdmin(page: Page) {
 }
 
 test("public menu works at 320px", async ({ page }, testInfo) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydration|did not match|server rendered html/i.test(message.text())
+    ) {
+      hydrationErrors.push(message.text());
+    }
+  });
+  page.on("pageerror", (error) => {
+    if (/hydration|did not match/i.test(error.message)) {
+      hydrationErrors.push(error.message);
+    }
+  });
   await page.goto("/");
 
   await expect(page).toHaveURL(/\/es$/);
@@ -343,22 +357,51 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   ).toBeVisible();
 
   const search = page.getByRole("searchbox", {
-    name: "Buscar en la carta de demostración",
+    name: "Buscar platos en la carta",
   });
-  await search.fill("VEGETÁRIANO");
-  await expect(page.getByTestId("product-card")).toHaveCount(2);
+  await expect(search).toHaveAttribute("placeholder", "Buscar platos...");
+  await expect(
+    page.getByRole("button", { name: "Antipasti · 2" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pizze · 2" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pasta · 1" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dolci · 1" })).toBeVisible();
+  await search.fill("BURRÁTA");
+  await expect(page.getByTestId("product-card")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Antipasti · 1" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Pizze/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Burrata de muestra", level: 3 }),
+  ).toBeVisible();
 
-  await search.fill("TAGLIATELLE");
+  await search.fill("SALSA ILUSTRÁTIVAS");
   await expect(page.getByTestId("product-card")).toHaveCount(1);
   await expect(
     page.getByRole("heading", { name: "Tagliatelle de muestra" }),
   ).toBeVisible();
 
-  await search.fill("");
+  await search.fill("producto que no existe");
+  await expect(page.getByTestId("product-card")).toHaveCount(0);
+  await expect(
+    page.getByText("No encontramos ningún plato"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Borrar búsqueda" }).click();
+  await expect(page.getByTestId("product-card")).toHaveCount(6);
   await page.getByRole("button", { name: "Pizze" }).click();
   await expect(
     page.getByRole("heading", { name: "Pizze", level: 2 }),
   ).toBeInViewport();
+  await expect(
+    page.getByRole("button", { name: "Pizze · 2" }),
+  ).toHaveAttribute("aria-current", "page");
+  await page
+    .getByRole("heading", { name: "Dolci", level: 2 })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByRole("button", { name: "Dolci · 1" }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(callButton).toBeVisible();
 
   const dimensions = await page.evaluate(() => ({
@@ -369,11 +412,70 @@ test("public menu works at 320px", async ({ page }, testInfo) => {
   expect(dimensions.documentWidth).toBeLessThanOrEqual(320);
 
   await expect(page.getByText(/productos destacados/i)).toHaveCount(0);
+  expect(hydrationErrors).toEqual([]);
 
   await page.screenshot({
     path: testInfo.outputPath("piccolo-mobile-320.png"),
     fullPage: true,
   });
+});
+
+test("public menu restores its recent position in the same session", async ({
+  page,
+}) => {
+  await page.goto("/es");
+  await page
+    .getByRole("heading", { name: "Pasta", level: 2 })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByRole("button", { name: "Pasta · 1" }),
+  ).toHaveAttribute("aria-current", "page");
+  const previousScrollY = await page.evaluate(() => window.scrollY);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const value = sessionStorage.getItem("piccolo-menu-position:es");
+        return value ? (JSON.parse(value) as { scrollY: number }).scrollY : 0;
+      }),
+    )
+    .toBeGreaterThan(0);
+
+  await page.goto("/login");
+  await page.goBack();
+  await expect(page).toHaveURL(/\/es$/);
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBeGreaterThanOrEqual(Math.max(0, previousScrollY - 120));
+  await expect(
+    page.getByRole("button", { name: "Pasta · 1" }),
+  ).toHaveAttribute("aria-current", "page");
+});
+
+test("public menu remains responsive across supported viewports", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 1_024 },
+    { width: 1_280, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/es");
+    await expect(
+      page.getByRole("searchbox", { name: "Buscar platos en la carta" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Categorías de la carta" }),
+    ).toBeVisible();
+    const dimensions = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }));
+    expect(dimensions.documentWidth).toBeLessThanOrEqual(
+      dimensions.viewportWidth,
+    );
+  }
 });
 
 test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {

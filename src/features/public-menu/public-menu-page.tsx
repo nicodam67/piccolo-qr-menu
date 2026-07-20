@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CategoryNavigation } from "@/components/category-navigation";
 import { FloatingCallButton } from "@/components/floating-call-button";
@@ -9,7 +15,16 @@ import { MenuSearch } from "@/components/menu-search";
 import { ProductCard } from "@/components/product-card";
 
 import type { DemoMenu, OpeningStatus } from "./types";
+import { getPublicMenuCopy } from "./copy";
 import { filterProducts, getOpeningStatus } from "./utils";
+
+const POSITION_MAX_AGE_MS = 30 * 60 * 1_000;
+
+type StoredMenuPosition = {
+  scrollY: number;
+  categoryId: string;
+  savedAt: number;
+};
 
 type PublicMenuPageProps = {
   menu: DemoMenu;
@@ -21,14 +36,19 @@ export function PublicMenuPage({
   initialOpeningStatus,
 }: PublicMenuPageProps) {
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [activeCategory, setActiveCategory] = useState(
     menu.categories[0]?.id ?? "",
   );
   const [openingStatus, setOpeningStatus] = useState(initialOpeningStatus);
+  const activeCategoryRef = useRef(activeCategory);
+  const queryRef = useRef(query);
+  const positionStorageKey = `piccolo-menu-position:${menu.locale}`;
+  const copy = getPublicMenuCopy(menu.locale);
 
   const filteredProducts = useMemo(
-    () => filterProducts(menu.products, query),
-    [menu.products, query],
+    () => filterProducts(menu.products, deferredQuery),
+    [menu.products, deferredQuery],
   );
 
   const visibleCategories = useMemo(
@@ -40,12 +60,42 @@ export function PublicMenuPage({
       ),
     [filteredProducts, menu.categories],
   );
+  const productCounts = useMemo(
+    () => {
+      const counts: Record<string, number> = Object.fromEntries(
+        visibleCategories.map((category) => [category.id, 0]),
+      );
+
+      for (const product of filteredProducts) {
+        if (product.categoryId in counts) {
+          counts[product.categoryId] += 1;
+        }
+      }
+
+      return counts;
+    },
+    [filteredProducts, visibleCategories],
+  );
 
   const visibleActiveCategory = visibleCategories.some(
     (category) => category.id === activeCategory,
   )
     ? activeCategory
     : (visibleCategories[0]?.id ?? "");
+
+  useEffect(() => {
+    activeCategoryRef.current = visibleActiveCategory;
+    queryRef.current = query;
+  }, [query, visibleActiveCategory]);
+
+  useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
 
   useEffect(() => {
     const refreshStatus = () => {
@@ -59,20 +109,131 @@ export function PublicMenuPage({
   }, [menu.openingHours, menu.timeZone]);
 
   useEffect(() => {
+    const navigationEntry = performance.getEntriesByType(
+      "navigation",
+    )[0] as PerformanceNavigationTiming | undefined;
+
+    if (navigationEntry?.type === "reload") {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    if (window.location.hash.startsWith("#category-")) {
+      const categoryId = decodeURIComponent(
+        window.location.hash.replace("#category-", ""),
+      );
+
+      if (menu.categories.some((category) => category.id === categoryId)) {
+        const hashFrame = window.requestAnimationFrame(() => {
+          activeCategoryRef.current = categoryId;
+          setActiveCategory(categoryId);
+        });
+        return () => window.cancelAnimationFrame(hashFrame);
+      }
+
+      return;
+    }
+
+    const storedValue = sessionStorage.getItem(positionStorageKey);
+
+    if (!storedValue) {
+      return;
+    }
+
+    let storedPosition: StoredMenuPosition;
+
+    try {
+      storedPosition = JSON.parse(storedValue) as StoredMenuPosition;
+    } catch {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    if (
+      !Number.isFinite(storedPosition.scrollY) ||
+      Date.now() - storedPosition.savedAt > POSITION_MAX_AGE_MS ||
+      !menu.categories.some(
+        (category) => category.id === storedPosition.categoryId,
+      )
+    ) {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    let scrollFrame = 0;
+    const stateFrame = window.requestAnimationFrame(() => {
+      setActiveCategory(storedPosition.categoryId);
+      scrollFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: storedPosition.scrollY, behavior: "auto" });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(stateFrame);
+      window.cancelAnimationFrame(scrollFrame);
+    };
+  }, [menu.categories, positionStorageKey]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const savePosition = () => {
+      animationFrame = 0;
+
+      if (queryRef.current.trim()) {
+        return;
+      }
+
+      const position: StoredMenuPosition = {
+        scrollY: window.scrollY,
+        categoryId: activeCategoryRef.current,
+        savedAt: Date.now(),
+      };
+      sessionStorage.setItem(positionStorageKey, JSON.stringify(position));
+    };
+
+    const scheduleSave = () => {
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(savePosition);
+      }
+    };
+
+    window.addEventListener("scroll", scheduleSave, { passive: true });
+    window.addEventListener("pagehide", savePosition);
+
+    return () => {
+      window.removeEventListener("scroll", scheduleSave);
+      window.removeEventListener("pagehide", savePosition);
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [positionStorageKey]);
+
+  useEffect(() => {
     if (visibleCategories.length === 0) {
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const visibleEntry = entries.find((entry) => entry.isIntersecting);
-        const categoryId = visibleEntry?.target.getAttribute("data-category");
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              Math.abs(left.boundingClientRect.top - 88) -
+              Math.abs(right.boundingClientRect.top - 88),
+          )[0];
+        const categoryId =
+          visibleEntry?.target.getAttribute("data-category");
 
-        if (categoryId) {
+        if (categoryId && categoryId !== activeCategoryRef.current) {
+          activeCategoryRef.current = categoryId;
           setActiveCategory(categoryId);
         }
       },
-      { rootMargin: "-25% 0px -65% 0px", threshold: 0 },
+      {
+        rootMargin: "-5rem 0px -60% 0px",
+        threshold: [0, 0.1, 0.25, 0.5],
+      },
     );
 
     visibleCategories.forEach((category) => {
@@ -86,10 +247,28 @@ export function PublicMenuPage({
   }, [visibleCategories]);
 
   const handleCategorySelect = (categoryId: string) => {
+    activeCategoryRef.current = categoryId;
     setActiveCategory(categoryId);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#category-${categoryId}`,
+    );
     document
       .getElementById(`category-${categoryId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+
+    if (value && window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
   };
 
   return (
@@ -128,7 +307,13 @@ export function PublicMenuPage({
             </div>
 
             <div className="mt-3">
-              <MenuSearch value={query} onChange={setQuery} />
+              <MenuSearch
+                value={query}
+                onChange={handleSearchChange}
+                placeholder={copy.searchPlaceholder}
+                label={copy.searchLabel}
+                clearLabel={copy.clearSearch}
+              />
             </div>
           </div>
 
@@ -136,8 +321,10 @@ export function PublicMenuPage({
             <div className="sticky top-0 z-40 border-y border-stone-200 bg-[#fffdfa]/95 backdrop-blur-lg">
               <CategoryNavigation
                 categories={visibleCategories}
+                productCounts={productCounts}
                 activeCategory={visibleActiveCategory}
                 onSelect={handleCategorySelect}
+                ariaLabel={copy.categoriesLabel}
               />
             </div>
           ) : null}
@@ -150,14 +337,17 @@ export function PublicMenuPage({
             {query ? (
               <p className="text-xs text-stone-500">
                 {filteredProducts.length === 1
-                  ? "1 resultado de demostración"
-                  : `${filteredProducts.length} resultados de demostración`}
+                  ? `1 ${copy.result}`
+                  : `${filteredProducts.length} ${copy.results}`}
               </p>
             ) : null}
           </div>
 
           {visibleCategories.length > 0 ? (
-            <div className="space-y-10 px-4 pt-6 sm:px-6">
+            <div
+              id="menu-product-sections"
+              className="space-y-10 px-4 pt-6 sm:px-6"
+            >
               {visibleCategories.map((category) => {
                 const categoryProducts = filteredProducts.filter(
                   (product) => product.categoryId === category.id,
@@ -177,6 +367,9 @@ export function PublicMenuPage({
                         className="font-display text-2xl text-[#a8392f]"
                       >
                         {category.name}
+                        <span className="ml-2 align-middle text-sm text-stone-400">
+                          · {productCounts[category.id] ?? 0}
+                        </span>
                       </h2>
                       <p className="pb-0.5 text-[9px] font-bold tracking-[0.1em] text-stone-400 uppercase">
                         {category.eyebrow}
@@ -203,19 +396,23 @@ export function PublicMenuPage({
               })}
             </div>
           ) : (
-            <div className="mx-4 mt-6 border-y border-stone-200 px-6 py-10 text-center sm:mx-6">
+            <div
+              id="menu-product-sections"
+              className="mx-4 mt-6 border-y border-stone-200 px-6 py-10 text-center sm:mx-6"
+            >
               <p className="font-display text-2xl text-[#173f35]">
-                No encontramos ese plato
+                {copy.noResultsTitle}
               </p>
               <p className="mt-2 text-sm text-stone-500">
-                Prueba con otro nombre, etiqueta o alérgeno.
+                {copy.noResultsHint}
               </p>
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => handleSearchChange("")}
+                aria-label={copy.clearSearch}
                 className="mt-5 min-h-11 rounded-full bg-[#173f35] px-5 text-sm font-bold text-white"
               >
-                Limpiar búsqueda
+                {copy.clearSearch}
               </button>
             </div>
           )}
