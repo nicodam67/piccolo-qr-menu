@@ -225,6 +225,8 @@ export const allergens = pgTable("allergens", {
   id: uuid("id").defaultRandom().primaryKey(),
   code: varchar("code", { length: 50 }).notNull().unique(),
   icon: varchar("icon", { length: 100 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").notNull(),
 });
 
 export const allergenTranslations = pgTable(
@@ -261,6 +263,8 @@ export const productAllergens = pgTable(
 export const tags = pgTable("tags", {
   id: uuid("id").defaultRandom().primaryKey(),
   color: varchar("color", { length: 30 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").notNull(),
 });
 
 export const tagTranslations = pgTable(
