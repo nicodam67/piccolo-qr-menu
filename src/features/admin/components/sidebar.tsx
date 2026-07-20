@@ -1,7 +1,10 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import {
   Download,
   LayoutDashboard,
+  PackageOpen,
   Palette,
   QrCode,
   Settings,
@@ -9,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 type SidebarProps = {
   collapsed: boolean;
@@ -20,11 +24,28 @@ type NavigationItem = {
   label: string;
   icon: LucideIcon;
   available: boolean;
+  href?: string;
 };
 
 const navigationItems: NavigationItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, available: true },
-  { label: "Menú", icon: UtensilsCrossed, available: false },
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    available: true,
+    href: "/admin",
+  },
+  {
+    label: "Categorías",
+    icon: UtensilsCrossed,
+    available: true,
+    href: "/admin/categories",
+  },
+  {
+    label: "Productos",
+    icon: PackageOpen,
+    available: true,
+    href: "/admin/products",
+  },
   { label: "Branding", icon: Palette, available: false },
   { label: "QR & Share", icon: QrCode, available: false },
   { label: "Exportar", icon: Download, available: false },
@@ -36,6 +57,7 @@ export function Sidebar({
   mobileOpen,
   onMobileClose,
 }: SidebarProps) {
+  const pathname = usePathname();
   const collapsedLabelClass = collapsed ? "md:hidden lg:block" : "";
 
   return (
@@ -82,15 +104,24 @@ export function Sidebar({
           {navigationItems.map((item) => {
             const Icon = item.icon;
 
-            if (item.available) {
+            if (item.available && item.href) {
+              const isCurrent =
+                item.href === "/admin"
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href);
+
               return (
                 <Link
                   key={item.label}
-                  href="/admin"
+                  href={item.href}
                   onClick={onMobileClose}
                   title={item.label}
-                  aria-current="page"
-                  className="flex min-h-12 items-center gap-3 rounded-xl bg-white px-3 font-bold text-[#173f35] shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  aria-current={isCurrent ? "page" : undefined}
+                  className={`flex min-h-12 items-center gap-3 rounded-xl px-3 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                    isCurrent
+                      ? "bg-white text-[#173f35] shadow-sm"
+                      : "text-white/70 hover:bg-white/10 hover:text-white"
+                  }`}
                 >
                   <Icon aria-hidden="true" className="size-5 shrink-0" />
                   <span className={collapsedLabelClass}>{item.label}</span>

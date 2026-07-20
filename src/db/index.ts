@@ -42,9 +42,7 @@ export function getDatabase(): DatabaseClient {
     sql,
   };
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForDatabase.piccoloDatabase = client;
-  }
+  globalForDatabase.piccoloDatabase = client;
 
   return client;
 }

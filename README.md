@@ -99,5 +99,15 @@ La página `/es` continúa consultando PostgreSQL mediante
 `src/features/public-menu/repository.ts`. `/admin` requiere iniciar sesión en
 `/login`. Las imágenes siguen siendo remotas y temporales.
 
-No contiene edición de productos o categorías, branding, QR, exportaciones,
+`/admin/categories` permite crear, traducir, editar, activar, reordenar y
+eliminar categorías vacías utilizando exclusivamente `categories` y
+`category_translations`. Icono, color e imagen están excluidos porque no existen
+en el esquema y no se autorizó una migración.
+
+`/admin/products` gestiona productos, traducciones, precios, categoría,
+visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
+reutilizando exclusivamente las tablas actuales. No se crean migraciones ni se
+suben archivos.
+
+No contiene branding, QR, exportaciones, variantes, extras, combos,
 almacenamiento S3, publicación, pedidos ni integración con Piccolo TPV.
