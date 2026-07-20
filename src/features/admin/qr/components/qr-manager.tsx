@@ -130,7 +130,9 @@ export function QrManager({
         publishedLocales: localeCodes,
       });
     } catch {
-      setGenerationError(copy.downloadError);
+      queueMicrotask(() => {
+        if (!cancelled) setGenerationError(copy.downloadError);
+      });
       return;
     }
 
