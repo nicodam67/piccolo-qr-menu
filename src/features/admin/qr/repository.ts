@@ -1,16 +1,13 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
-
 import { getDatabase } from "@/db";
-import {
-  restaurantSettings,
-  restaurantTranslations,
-} from "@/db/schema";
+import { restaurantSettings } from "@/db/schema";
+import { getPublishedLocales } from "@/features/locales/repository";
+import type { PublishedLocale } from "@/features/locales/repository";
 
 export type QrAdminData = {
   defaultLocale: string;
-  locales: string[];
+  locales: PublishedLocale[];
   restaurantNames: Record<string, string>;
 };
 
@@ -28,14 +25,7 @@ export async function getQrAdminData(): Promise<QrAdminData> {
     throw new Error("No existe un restaurante configurado.");
   }
 
-  const translations = await db
-    .select({
-      locale: restaurantTranslations.locale,
-      name: restaurantTranslations.name,
-    })
-    .from(restaurantTranslations)
-    .where(eq(restaurantTranslations.restaurantId, restaurant.id))
-    .orderBy(asc(restaurantTranslations.locale));
+  const translations = await getPublishedLocales();
 
   if (translations.length === 0) {
     throw new Error("El restaurante no tiene traducciones configuradas.");
@@ -43,9 +33,12 @@ export async function getQrAdminData(): Promise<QrAdminData> {
 
   return {
     defaultLocale: restaurant.defaultLocale,
-    locales: translations.map(({ locale }) => locale),
+    locales: translations,
     restaurantNames: Object.fromEntries(
-      translations.map(({ locale, name }) => [locale, name]),
+      translations.map(({ code, restaurantName }) => [
+        code,
+        restaurantName,
+      ]),
     ),
   };
 }

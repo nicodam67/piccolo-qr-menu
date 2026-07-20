@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Globe2, Ruler } from "lucide-react";
 
 import { generateQrPreviewDataUrl } from "../qr-export";
+import type { PublishedLocale } from "@/features/locales/repository";
 import { getQrAdminCopy } from "../qr-copy";
 import {
   buildPublicMenuUrl,
@@ -15,7 +16,7 @@ import { QrPreview } from "./qr-preview";
 type QrManagerProps = {
   baseUrl: string;
   configuredDomain: boolean;
-  locales: string[];
+  locales: PublishedLocale[];
   defaultLocale: string;
   restaurantNames: Record<string, string>;
 };
@@ -30,7 +31,9 @@ export function QrManager({
   restaurantNames,
 }: QrManagerProps) {
   const [locale, setLocale] = useState(
-    locales.includes(defaultLocale) ? defaultLocale : locales[0],
+    locales.some(({ code }) => code === defaultLocale)
+      ? defaultLocale
+      : (locales[0]?.code ?? defaultLocale),
   );
   const [size, setSize] = useState<QrDownloadSize>(1024);
   const [showRestaurantName, setShowRestaurantName] = useState(true);
@@ -38,14 +41,18 @@ export function QrManager({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const copy = getQrAdminCopy(locale);
+  const localeCodes = useMemo(
+    () => locales.map(({ code }) => code),
+    [locales],
+  );
   const restaurantName =
     restaurantNames[locale] ??
     restaurantNames[defaultLocale] ??
     Object.values(restaurantNames)[0] ??
     "Piccolo";
   const destinationUrl = useMemo(
-    () => buildPublicMenuUrl(baseUrl, locale, locales),
-    [baseUrl, locale, locales],
+    () => buildPublicMenuUrl(baseUrl, locale, localeCodes),
+    [baseUrl, locale, localeCodes],
   );
 
   useEffect(() => {
@@ -121,8 +128,12 @@ export function QrManager({
                   className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm uppercase outline-none focus:border-[#245849]"
                 >
                   {locales.map((availableLocale) => (
-                    <option key={availableLocale} value={availableLocale}>
-                      {availableLocale.toUpperCase()}
+                    <option
+                      key={availableLocale.code}
+                      value={availableLocale.code}
+                    >
+                      {availableLocale.nativeName} (
+                      {availableLocale.code.toUpperCase()})
                     </option>
                   ))}
                 </select>

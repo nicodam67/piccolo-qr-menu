@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Download,
+  Languages,
   LayoutDashboard,
   PackageOpen,
   Palette,
@@ -65,6 +66,12 @@ const navigationItems: NavigationItem[] = [
     icon: Palette,
     available: true,
     href: "/admin/branding",
+  },
+  {
+    label: "Idiomas",
+    icon: Languages,
+    available: true,
+    href: "/admin/languages",
   },
   {
     label: "Código QR",

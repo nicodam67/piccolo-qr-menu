@@ -15,6 +15,7 @@ import { MenuSearch } from "@/components/menu-search";
 import { ProductCard } from "@/components/product-card";
 
 import type { DemoMenu, OpeningStatus } from "./types";
+import type { PublishedLocale } from "@/features/locales/repository";
 import { getPublicMenuCopy } from "./copy";
 import { getPublicProductPath } from "./product-url";
 import { filterProducts, getOpeningStatus } from "./utils";
@@ -30,11 +31,13 @@ type StoredMenuPosition = {
 type PublicMenuPageProps = {
   menu: DemoMenu;
   initialOpeningStatus: OpeningStatus;
+  publishedLocales: PublishedLocale[];
 };
 
 export function PublicMenuPage({
   menu,
   initialOpeningStatus,
+  publishedLocales,
 }: PublicMenuPageProps) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -303,7 +306,11 @@ export function PublicMenuPage({
       </a>
 
       <main className="min-h-screen pb-20">
-        <MenuHeader menu={menu} openingStatus={openingStatus} />
+        <MenuHeader
+          menu={menu}
+          openingStatus={openingStatus}
+          publishedLocales={publishedLocales}
+        />
 
         <section
           id="menu-content"

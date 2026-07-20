@@ -1,3 +1,8 @@
+import {
+  getLocaleConfig,
+  type SupportedLocaleCode,
+} from "@/config/locales";
+
 type PublicMenuCopy = {
   searchPlaceholder: string;
   searchLabel: string;
@@ -21,9 +26,10 @@ type PublicMenuCopy = {
   allergens: string;
   tags: string;
   category: string;
+  productUnavailableInLanguage: string;
 };
 
-const copies: Record<string, PublicMenuCopy> = {
+const copies: Record<SupportedLocaleCode, PublicMenuCopy> = {
   es: {
     searchPlaceholder: "Buscar platos...",
     searchLabel: "Buscar platos en la carta",
@@ -47,6 +53,8 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Alérgenos",
     tags: "Etiquetas",
     category: "Categoría",
+    productUnavailableInLanguage:
+      "El producto no está disponible en este idioma. Se abrirá la carta principal.",
   },
   ca: {
     searchPlaceholder: "Buscar plats...",
@@ -71,6 +79,8 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Al·lèrgens",
     tags: "Etiquetes",
     category: "Categoria",
+    productUnavailableInLanguage:
+      "El producte no està disponible en aquest idioma. S'obrirà la carta principal.",
   },
   en: {
     searchPlaceholder: "Search dishes...",
@@ -95,6 +105,34 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Allergens",
     tags: "Tags",
     category: "Category",
+    productUnavailableInLanguage:
+      "This product is not available in that language. The main menu will open.",
+  },
+  ro: {
+    searchPlaceholder: "Caută preparate...",
+    searchLabel: "Caută preparate în meniu",
+    clearSearch: "Șterge căutarea",
+    noResultsTitle: "Nu am găsit niciun preparat",
+    noResultsHint: "Încearcă un alt nume sau o descriere.",
+    categoriesLabel: "Categoriile meniului",
+    result: "rezultat",
+    results: "rezultate",
+    viewProduct: "Vezi produsul",
+    backToMenu: "Înapoi la meniu",
+    share: "Distribuie",
+    linkCopied: "Link copiat",
+    copyError: "Linkul nu a putut fi copiat",
+    enlargeImage: "Mărește imaginea",
+    closeImage: "Închide imaginea",
+    relatedProducts: "Produse similare",
+    soldOut: "Produs epuizat",
+    price: "Preț",
+    halfPortion: "Jumătate de porție",
+    allergens: "Alergeni",
+    tags: "Etichete",
+    category: "Categorie",
+    productUnavailableInLanguage:
+      "Produsul nu este disponibil în această limbă. Se va deschide meniul principal.",
   },
   fr: {
     searchPlaceholder: "Rechercher des plats...",
@@ -119,6 +157,8 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Allergènes",
     tags: "Étiquettes",
     category: "Catégorie",
+    productUnavailableInLanguage:
+      "Ce produit n'est pas disponible dans cette langue. La carte principale va s'ouvrir.",
   },
   de: {
     searchPlaceholder: "Gerichte suchen...",
@@ -143,6 +183,60 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Allergene",
     tags: "Kennzeichnungen",
     category: "Kategorie",
+    productUnavailableInLanguage:
+      "Dieses Produkt ist in dieser Sprache nicht verfügbar. Die Hauptkarte wird geöffnet.",
+  },
+  nl: {
+    searchPlaceholder: "Gerechten zoeken...",
+    searchLabel: "Gerechten in het menu zoeken",
+    clearSearch: "Zoekopdracht wissen",
+    noResultsTitle: "Geen gerechten gevonden",
+    noResultsHint: "Probeer een andere naam of beschrijving.",
+    categoriesLabel: "Menucategorieën",
+    result: "resultaat",
+    results: "resultaten",
+    viewProduct: "Product bekijken",
+    backToMenu: "Terug naar het menu",
+    share: "Delen",
+    linkCopied: "Link gekopieerd",
+    copyError: "Link kon niet worden gekopieerd",
+    enlargeImage: "Afbeelding vergroten",
+    closeImage: "Afbeelding sluiten",
+    relatedProducts: "Gerelateerde producten",
+    soldOut: "Product uitverkocht",
+    price: "Prijs",
+    halfPortion: "Halve portie",
+    allergens: "Allergenen",
+    tags: "Labels",
+    category: "Categorie",
+    productUnavailableInLanguage:
+      "Dit product is niet beschikbaar in deze taal. Het hoofdmenu wordt geopend.",
+  },
+  eu: {
+    searchPlaceholder: "Platerak bilatu...",
+    searchLabel: "Platerak menuan bilatu",
+    clearSearch: "Bilaketa garbitu",
+    noResultsTitle: "Ez da platerik aurkitu",
+    noResultsHint: "Saiatu beste izen edo deskribapen batekin.",
+    categoriesLabel: "Menuko kategoriak",
+    result: "emaitza",
+    results: "emaitzak",
+    viewProduct: "Produktua ikusi",
+    backToMenu: "Itzuli menura",
+    share: "Partekatu",
+    linkCopied: "Esteka kopiatu da",
+    copyError: "Ezin izan da esteka kopiatu",
+    enlargeImage: "Irudia handitu",
+    closeImage: "Irudia itxi",
+    relatedProducts: "Lotutako produktuak",
+    soldOut: "Produktua agortuta",
+    price: "Prezioa",
+    halfPortion: "Errazio erdia",
+    allergens: "Alergenoak",
+    tags: "Etiketak",
+    category: "Kategoria",
+    productUnavailableInLanguage:
+      "Produktua ez dago hizkuntza honetan. Menu nagusia irekiko da.",
   },
   it: {
     searchPlaceholder: "Cerca piatti...",
@@ -167,9 +261,12 @@ const copies: Record<string, PublicMenuCopy> = {
     allergens: "Allergeni",
     tags: "Etichette",
     category: "Categoria",
+    productUnavailableInLanguage:
+      "Questo prodotto non è disponibile in questa lingua. Si aprirà il menu principale.",
   },
 };
 
 export function getPublicMenuCopy(locale: string) {
-  return copies[locale] ?? copies.es;
+  const config = getLocaleConfig(locale);
+  return config ? copies[config.code] : copies.es;
 }

@@ -170,5 +170,44 @@ margen silencioso y contraste blanco/oscuro. Permite descargar PNG o SVG en
 navegador. Comprueba siempre el código con un teléfono antes de imprimir muchas
 copias.
 
-No contiene exportación de carta/PDF, variantes, extras, combos, publicación,
-pedidos ni integración con Piccolo TPV.
+No contiene exportación de carta/PDF, variantes, extras, combos, pedidos ni
+integración con Piccolo TPV.
+
+## Idiomas y publicación
+
+`/admin/languages` administra los idiomas soportados desde una única
+configuración en `src/config/locales.ts`: español, catalán, inglés, rumano,
+francés, alemán, neerlandés (`nl`), euskera e italiano. Añadir un idioma futuro
+requiere una entrada en esa configuración y sus copias UI, no cambios repartidos
+por carta, SEO o QR.
+
+`restaurant_locales` diferencia cuatro conceptos:
+
+- **Soportado:** existe en la configuración de aplicación.
+- **Activado:** puede prepararse en administración.
+- **Publicado:** es accesible públicamente.
+- **Principal:** coincide con `restaurant_settings.default_locale`.
+
+Un idioma publicado debe estar activado. El principal no puede desactivarse ni
+despublicarse y solo puede cambiarse hacia un idioma completo y publicado.
+
+La cobertura suma un elemento por nombre del restaurante, categoría visible,
+producto visible, descripción obligatoria, etiqueta activa utilizada y alérgeno
+activo utilizado. Las descripciones solo son obligatorias si el texto principal
+existe y la carta las muestra. El porcentaje usa
+`floor(traducidos / obligatorios × 100)` salvo cobertura exacta, evitando mostrar
+100 % para contenido incompleto.
+
+No existe fallback parcial silencioso: solo se publica contenido obligatorio
+completo; campos opcionales sin traducción se omiten. Locales no publicados
+devuelven not-found. El selector, canonical, `hreflang`, `x-default`, Open Graph,
+detalle de producto y `/admin/qr` consumen únicamente idiomas publicados.
+
+Consultas aproximadas y constantes:
+
+- Listado y cobertura: 7 consultas agrupadas.
+- Editor de un idioma: reutiliza esas mismas 7 consultas.
+- Carta pública: 6 consultas, independientemente del número de productos.
+- Detalle de producto: 5 consultas agrupadas.
+
+No se implementa traducción automática ni se envían textos a servicios externos.

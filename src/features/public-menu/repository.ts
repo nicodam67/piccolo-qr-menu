@@ -13,6 +13,7 @@ import {
   productTags,
   productTranslations,
   products,
+  restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
   tagTranslations,
@@ -200,13 +201,21 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       })
       .from(restaurantSettings)
       .innerJoin(
+        restaurantLocales,
+        and(
+          eq(restaurantLocales.restaurantId, restaurantSettings.id),
+          eq(restaurantLocales.locale, locale),
+          eq(restaurantLocales.isEnabled, true),
+          eq(restaurantLocales.isPublished, true),
+        ),
+      )
+      .innerJoin(
         restaurantTranslations,
         and(
           eq(restaurantTranslations.restaurantId, restaurantSettings.id),
           eq(restaurantTranslations.locale, locale),
         ),
       )
-      .where(eq(restaurantSettings.defaultLocale, locale))
       .limit(1);
 
     if (!restaurant) {
@@ -383,6 +392,15 @@ export async function getPublicProductDetail(
           menuDisplaySettings: restaurantSettings.menuDisplaySettings,
         })
         .from(restaurantSettings)
+        .innerJoin(
+          restaurantLocales,
+          and(
+            eq(restaurantLocales.restaurantId, restaurantSettings.id),
+            eq(restaurantLocales.locale, locale),
+            eq(restaurantLocales.isEnabled, true),
+            eq(restaurantLocales.isPublished, true),
+          ),
+        )
         .innerJoin(
           restaurantTranslations,
           and(

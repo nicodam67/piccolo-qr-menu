@@ -4,8 +4,15 @@ import { cache } from "react";
 import { ChevronRight, MapPin, Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import { getLocaleConfig, isSupportedLocale } from "@/config/locales";
 import { ProductCard } from "@/components/product-card";
 import { TaxonomyIcon } from "@/components/taxonomy-icon";
+import { LanguageSelector } from "@/components/language-selector";
+import {
+  getPublishedLocales,
+  getPublishedProductLocales,
+  isLocalePublished,
+} from "@/features/locales/repository";
 import { ProductImageLightbox } from "@/features/public-menu/components/product-image-lightbox";
 import { ShareProductButton } from "@/features/public-menu/components/share-product-button";
 import { getPublicMenuCopy } from "@/features/public-menu/copy";
@@ -24,19 +31,6 @@ type ProductPageProps = {
 };
 
 const getCachedProduct = cache(getPublicProductDetail);
-
-function getOpenGraphLocale(locale: string) {
-  const localeMap: Record<string, string> = {
-    es: "es_ES",
-    ca: "ca_ES",
-    en: "en_GB",
-    fr: "fr_FR",
-    de: "de_DE",
-    it: "it_IT",
-  };
-
-  return localeMap[locale] ?? locale;
-}
 
 function getSeoDescription(
   productName: string,
@@ -60,7 +54,11 @@ export async function generateMetadata({
   const { locale, product: segment } = await params;
   const productId = parseProductIdFromSegment(segment);
 
-  if (!productId) {
+  if (
+    !productId ||
+    !isSupportedLocale(locale) ||
+    !(await isLocalePublished(locale))
+  ) {
     notFound();
   }
 
@@ -70,7 +68,10 @@ export async function generateMetadata({
     notFound();
   }
 
-  const siteUrl = await getPublicSiteUrl();
+  const [siteUrl, productLocales] = await Promise.all([
+    getPublicSiteUrl(),
+    getPublishedProductLocales(productId),
+  ]);
   const canonicalPath = getPublicProductPath(
     locale,
     detail.product.id,
@@ -88,18 +89,45 @@ export async function generateMetadata({
       ? makeAbsolutePublicUrl(detail.product.imageUrl, siteUrl)
       : null;
   const title = `${detail.product.name} | ${detail.restaurant.name}`;
+  const languageAlternates = Object.fromEntries(
+    productLocales.map((alternate) => [
+      alternate.code,
+      makeAbsolutePublicUrl(
+        getPublicProductPath(
+          alternate.code,
+          detail.product.id,
+          alternate.name,
+        ),
+        siteUrl,
+      ),
+    ]),
+  );
+  const primaryAlternate = productLocales.find(
+    (alternate) => alternate.isPrimary,
+  );
+  const localeConfig = getLocaleConfig(locale);
 
   return {
     title,
     description,
-    alternates: { canonical: canonicalUrl },
+    alternates: {
+      canonical: canonicalUrl,
+      languages: {
+        ...languageAlternates,
+        "x-default":
+          languageAlternates[primaryAlternate?.code ?? locale] ?? canonicalUrl,
+      },
+    },
     openGraph: {
       type: "website",
       url: canonicalUrl,
       title,
       description,
       siteName: detail.restaurant.name,
-      locale: getOpenGraphLocale(locale),
+      locale: localeConfig?.openGraphLocale,
+      alternateLocale: productLocales
+        .filter((alternate) => alternate.code !== locale)
+        .map((alternate) => alternate.openGraphLocale),
       images: imageUrl
         ? [{ url: imageUrl, alt: detail.product.imageAlt }]
         : undefined,
@@ -119,7 +147,11 @@ export default async function PublicProductPage({
   const { locale, product: segment } = await params;
   const productId = parseProductIdFromSegment(segment);
 
-  if (!productId) {
+  if (
+    !productId ||
+    !isSupportedLocale(locale) ||
+    !(await isLocalePublished(locale))
+  ) {
     notFound();
   }
 
@@ -130,7 +162,11 @@ export default async function PublicProductPage({
   }
 
   const copy = getPublicMenuCopy(locale);
-  const siteUrl = await getPublicSiteUrl();
+  const [siteUrl, publishedLocales, productLocales] = await Promise.all([
+    getPublicSiteUrl(),
+    getPublishedLocales(),
+    getPublishedProductLocales(productId),
+  ]);
   const canonicalPath = getPublicProductPath(
     locale,
     detail.product.id,
@@ -188,11 +224,20 @@ export default async function PublicProductPage({
           >
             ← {copy.backToMenu}
           </Link>
-          <div className="text-right">
-            <p className="font-display text-xl">{detail.restaurant.name}</p>
-            <p className="mt-0.5 text-[10px] text-[#d7ae6a]">
-              {detail.restaurant.slogan}
-            </p>
+          <div className="flex items-center gap-3">
+            <LanguageSelector
+              locales={publishedLocales}
+              currentLocale={locale}
+              productId={detail.product.id}
+              productLocales={productLocales}
+              unavailableMessage={copy.productUnavailableInLanguage}
+            />
+            <div className="hidden text-right sm:block">
+              <p className="font-display text-xl">{detail.restaurant.name}</p>
+              <p className="mt-0.5 text-[10px] text-[#d7ae6a]">
+                {detail.restaurant.slogan}
+              </p>
+            </div>
           </div>
         </div>
       </header>

@@ -7,6 +7,7 @@ import {
   allergens,
   categories,
   products,
+  restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
   tags,
@@ -39,7 +40,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
         locale: restaurantSettings.defaultLocale,
         categoryCount: sql<number>`(select count(*)::integer from ${categories} where ${categories.isActive} = true)`,
         productCount: sql<number>`(select count(*)::integer from ${products} where ${products.isActive} = true)`,
-        languageCount: sql<number>`(select count(distinct ${restaurantTranslations.locale})::integer from ${restaurantTranslations})`,
+        languageCount: sql<number>`(select count(*)::integer from ${restaurantLocales} where ${restaurantLocales.isEnabled} = true)`,
         allergenCount: sql<number>`(select count(*)::integer from ${allergens})`,
         tagCount: sql<number>`(select count(*)::integer from ${tags})`,
       })

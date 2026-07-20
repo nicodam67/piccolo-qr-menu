@@ -5,6 +5,11 @@ import postgres, { type Sql } from "postgres";
 import sharp from "sharp";
 
 import {
+  getLocaleConfig,
+  SUPPORTED_LOCALE_CODES,
+  SUPPORTED_LOCALES,
+} from "@/config/locales";
+import {
   buildPublicMenuUrl,
   getQrDownloadFilename,
 } from "@/features/admin/qr/qr-url";
@@ -314,6 +319,23 @@ async function restoreMenuSettingsBackup() {
   });
 }
 
+async function cleanupE2ELanguages() {
+  await withDatabase(async (sql) => {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        update restaurant_settings
+        set default_locale = 'es', updated_at = now()
+      `;
+      await transaction`delete from product_translations where locale = 'ca'`;
+      await transaction`delete from category_translations where locale = 'ca'`;
+      await transaction`delete from tag_translations where locale = 'ca'`;
+      await transaction`delete from allergen_translations where locale = 'ca'`;
+      await transaction`delete from restaurant_translations where locale = 'ca'`;
+      await transaction`delete from restaurant_locales where locale = 'ca'`;
+    });
+  });
+}
+
 async function loginAsAdmin(page: Page) {
   const { email, password } = getAdminCredentials();
 
@@ -554,6 +576,7 @@ test("product detail exposes share, SEO, JSON-LD and stable identifiers", async 
   expect(canonicalHref).toMatch(
     new RegExp(`^${canonicalOrigin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/es/producto/`),
   );
+  await expect(page.locator('link[hreflang="ca"]')).toHaveCount(0);
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
     "content",
     "Pizza de muestra | Piccolo La Ràpita",
@@ -974,6 +997,146 @@ test("QR administration is responsive across supported viewports", async ({
       dimensions.viewportWidth,
     );
   }
+});
+
+test("central locale configuration exposes the nine supported languages", () => {
+  expect(SUPPORTED_LOCALE_CODES).toEqual([
+    "es",
+    "ca",
+    "en",
+    "ro",
+    "fr",
+    "de",
+    "nl",
+    "eu",
+    "it",
+  ]);
+  expect(getLocaleConfig("nl")?.nativeName).toBe("Nederlands");
+  expect(getLocaleConfig("eu")?.nativeName).toBe("Euskara");
+  expect(SUPPORTED_LOCALES.every((locale) => locale.direction === "ltr")).toBe(
+    true,
+  );
+});
+
+test("administrator activates translates and publishes Catalan", async ({
+  page,
+}) => {
+  await cleanupE2ELanguages();
+  await loginAsAdmin(page);
+  await page.goto("/admin/languages");
+
+  for (const locale of SUPPORTED_LOCALES) {
+    await expect(
+      page.getByTestId(`language-${locale.code}`),
+    ).toContainText(locale.nativeName);
+  }
+
+  const spanishRow = page.getByTestId("language-es");
+  await expect(spanishRow).toContainText("Principal: Sí");
+  await expect(spanishRow).toContainText("Publicado: Sí");
+  await expect(
+    spanishRow.getByRole("button", { name: "Desactivar" }),
+  ).toBeDisabled();
+
+  const catalanRow = page.getByTestId("language-ca");
+  await expect(catalanRow).toContainText("Activado: No");
+  await catalanRow.getByRole("button", { name: "Activar" }).click();
+  await expect(catalanRow).toContainText("Activado: Sí");
+  await expect(
+    catalanRow.getByRole("button", { name: "Publicar" }),
+  ).toBeDisabled();
+
+  await page.goto("/ca");
+  await expect(page.getByText("404", { exact: true })).toBeVisible();
+
+  await page.goto("/admin/languages?edit=ca");
+  await page.locator('input[name="restaurant-name"]').fill("Piccolo La Ràpita CA");
+  await page.locator('input[name="restaurant-slogan"]').fill("Cuina italiana");
+  await page
+    .locator('textarea[name="restaurant-description"]')
+    .fill("Descripció del restaurant");
+  const categoryInputs = page.locator('input[name^="category-"]');
+  for (let index = 0; index < (await categoryInputs.count()); index += 1) {
+    await categoryInputs.nth(index).fill(`Categoria CA ${index + 1}`);
+  }
+  const productNameInputs = page.locator('input[name^="product-name-"]');
+  for (let index = 0; index < (await productNameInputs.count()); index += 1) {
+    await productNameInputs.nth(index).fill(`Producte CA ${index + 1}`);
+  }
+  const productDescriptionInputs = page.locator(
+    'textarea[name^="product-description-"]',
+  );
+  for (
+    let index = 0;
+    index < (await productDescriptionInputs.count());
+    index += 1
+  ) {
+    await productDescriptionInputs
+      .nth(index)
+      .fill(`Descripció CA ${index + 1}`);
+  }
+  const tagInputs = page.locator('input[name^="tag-"]');
+  for (let index = 0; index < (await tagInputs.count()); index += 1) {
+    await tagInputs.nth(index).fill(`Etiqueta CA ${index + 1}`);
+  }
+  const allergenInputs = page.locator('input[name^="allergen-"]');
+  for (let index = 0; index < (await allergenInputs.count()); index += 1) {
+    await allergenInputs.nth(index).fill(`Al·lergen CA ${index + 1}`);
+  }
+  await page.getByRole("button", { name: "Guardar traducciones" }).click();
+  await expect(page.getByText("Traducciones guardadas correctamente.")).toBeVisible();
+
+  await page.goto("/admin/languages");
+  const completedCatalanRow = page.getByTestId("language-ca");
+  await expect(completedCatalanRow).toContainText("100 %");
+  await completedCatalanRow.getByRole("button", { name: "Publicar" }).click();
+  await expect(completedCatalanRow).toContainText("Publicado: Sí");
+  page.once("dialog", (dialog) => dialog.accept());
+  await completedCatalanRow
+    .getByRole("button", { name: "Hacer principal" })
+    .click();
+  await expect(completedCatalanRow).toContainText("Principal: Sí");
+  const updatedSpanishRow = page.getByTestId("language-es");
+  page.once("dialog", (dialog) => dialog.accept());
+  await updatedSpanishRow
+    .getByRole("button", { name: "Hacer principal" })
+    .click();
+  await expect(updatedSpanishRow).toContainText("Principal: Sí");
+
+  await page.goto("/ca");
+  await expect(
+    page.getByRole("heading", { name: "Piccolo La Ràpita CA", level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "ca");
+  await expect(page.getByLabel("Idioma")).toHaveValue("ca");
+  await expect(page.getByLabel("Idioma").locator("option")).toHaveCount(2);
+  await expect(page.locator('link[hreflang="ca"]')).toHaveCount(1);
+  await expect(page.locator('link[hreflang="es"]')).toHaveCount(1);
+  await expect(page.locator('link[hreflang="x-default"]')).toHaveAttribute(
+    "href",
+    /\/es$/,
+  );
+
+  const productHref = await page
+    .getByRole("link", { name: "Producte CA 1", exact: true })
+    .getAttribute("href");
+  expect(productHref).toMatch(/^\/ca\/producto\/[0-9a-f-]{36}-producte-ca-1$/);
+  await page.goto(productHref ?? "/ca");
+  const productId = productHref?.split("/").at(-1)?.slice(0, 36);
+  await page.getByLabel("Idioma").selectOption("es");
+  await expect(page).toHaveURL(
+    new RegExp(`/es/producto/${productId}-burrata-de-muestra$`),
+  );
+
+  await page.goto("/admin/qr");
+  const qrLocale = page.getByLabel("Idioma", { exact: true });
+  await expect(qrLocale.locator("option")).toHaveCount(2);
+  const previousQr = await page.getByTestId("qr-preview-image").getAttribute("src");
+  await qrLocale.selectOption("ca");
+  await expect(page.locator("[data-qr-destination]")).toContainText("/ca");
+  await expect
+    .poll(() => page.getByTestId("qr-preview-image").getAttribute("src"))
+    .not.toBe(previousQr);
 });
 
 test("administrator manages categories without changing the schema", async ({
@@ -1845,6 +2008,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   );
   await page.goto("/admin/qr");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr$/);
+  await page.goto("/admin/languages");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
 });
 
 test("incorrect admin credentials show a clear error", async ({ page }) => {
@@ -2049,6 +2214,7 @@ test("five failures block login and a later success clears attempts", async ({
 });
 
 test.afterAll(async () => {
+  await cleanupE2ELanguages();
   await restoreMenuSettingsBackup();
   await restoreBrandingBackup();
   await cleanupE2EProducts();
