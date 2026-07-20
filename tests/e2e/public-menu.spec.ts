@@ -73,7 +73,10 @@ async function cleanupE2ECategories() {
         with ordered as (
           select
             id,
-            row_number() over (order by sort_order, id)::integer as next_order
+            row_number() over (
+              partition by parent_category_id
+              order by sort_order, id
+            )::integer as next_order
           from categories
         )
         update categories
@@ -841,6 +844,9 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   await expect(page.getByLabel("Base de datos conectada")).toBeVisible();
 
   await expect(page.getByTestId("admin-metric-categories")).toContainText("4");
+  await expect(page.getByTestId("admin-metric-subcategories")).toContainText(
+    "0",
+  );
   await expect(page.getByTestId("admin-metric-products")).toContainText("6");
   await expect(page.getByTestId("admin-metric-languages")).toContainText("1");
   await expect(page.getByTestId("admin-metric-allergens")).toContainText("3");
@@ -1458,7 +1464,7 @@ test("administrator manages special hours with public priority", async ({
   await expect(page.getByText(dates.today, { exact: true })).toHaveCount(0);
 });
 
-test("administrator manages categories without changing the schema", async ({
+test("administrator manages hierarchical categories safely", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
@@ -1488,6 +1494,79 @@ test("administrator manages categories without changing the schema", async ({
   await expect(
     page.getByRole("heading", { name: "Categoría E2E", level: 3 }),
   ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Crear subcategoría en Categoría E2E" })
+    .click();
+  await expect(page.getByLabel("Categoría principal")).toHaveValue(
+    /.+/,
+  );
+  await page.getByLabel("Nombre").fill("Subcategoría E2E");
+  await page.getByLabel("Descripción").fill("Segundo nivel E2E.");
+  await page.getByRole("button", { name: "Crear categoría" }).click();
+  const childCategoryRow = page
+    .getByTestId(/^category-row-/)
+    .filter({ hasText: "Subcategoría E2E" });
+  await expect(childCategoryRow).toBeVisible();
+  await expect(
+    page
+      .getByTestId(/^category-row-/)
+      .filter({ hasText: "Categoría E2E" })
+      .first(),
+  ).toContainText("1 subcategorías");
+
+  await page.getByRole("button", { name: "Nueva categoría" }).click();
+  await expect(
+    page.getByRole("option", {
+      name: "↳ Subcategoría E2E · no puede ser padre",
+    }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Cerrar formulario" }).click();
+
+  await childCategoryRow
+    .getByRole("button", { name: "Editar Subcategoría E2E" })
+    .click();
+  await page.getByLabel("Categoría principal").selectOption("");
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect
+    .poll(async () => {
+      const [row] = await withDatabase(async (sql) =>
+        sql<Array<{ parent_category_id: string | null }>>`
+          select categories.parent_category_id
+          from categories
+          inner join category_translations
+            on category_translations.category_id = categories.id
+          where category_translations.name = 'Subcategoría E2E'
+        `,
+      );
+      return row?.parent_category_id ?? null;
+    })
+    .toBeNull();
+
+  await page
+    .getByRole("button", { name: "Editar Subcategoría E2E" })
+    .click();
+  await page
+    .getByLabel("Categoría principal")
+    .selectOption({ label: "Categoría E2E" });
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+  await page.getByRole("button", { name: "Eliminar Categoría E2E" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(
+    page.getByText(/0 productos asociados y 1 subcategoría/),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Eliminar Subcategoría E2E" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
 
   await page
     .getByRole("button", { name: "Editar Categoría E2E" })
@@ -1584,6 +1663,123 @@ test("administrator manages categories without changing the schema", async ({
       level: 3,
     }),
   ).toHaveCount(0);
+});
+
+test("hierarchy is shared by products public detail search and print", async ({
+  page,
+}) => {
+  const fixture = await withDatabase(async (sql) =>
+    sql.begin(async (transaction) => {
+      const [root] = await transaction<Array<{ id: string }>>`
+        insert into categories (sort_order, is_active)
+        values (
+          (select coalesce(max(sort_order), 0) + 1 from categories where parent_category_id is null),
+          true
+        )
+        returning id
+      `;
+      const [child] = await transaction<Array<{ id: string }>>`
+        insert into categories (parent_category_id, sort_order, is_active)
+        values (${root.id}, 1, true)
+        returning id
+      `;
+      await transaction`
+        insert into category_translations (category_id, locale, name, description)
+        values
+          (${root.id}, 'es', 'Vinos E2E', 'Jerarquía E2E'),
+          (${child.id}, 'es', 'Vinos tintos E2E', 'Segundo nivel E2E'),
+          (${root.id}, 'ca', 'Vins E2E', 'Jerarquia E2E'),
+          (${child.id}, 'ca', 'Vins negres E2E', 'Segon nivell E2E')
+      `;
+      const [product] = await transaction<
+        Array<{ id: string; category_id: string }>
+      >`
+        select products.id, products.category_id
+        from products
+        inner join product_translations
+          on product_translations.product_id = products.id
+        where product_translations.locale = 'es'
+          and product_translations.name = 'Pizza picante de muestra'
+        limit 1
+      `;
+      await transaction`
+        update products set category_id = ${child.id}, sort_order = 1
+        where id = ${product.id}
+      `;
+      return {
+        rootId: root.id,
+        childId: child.id,
+        productId: product.id,
+        originalCategoryId: product.category_id,
+      };
+    }),
+  );
+
+  await loginAsAdmin(page);
+  await page.goto("/admin/products");
+  const productRow = page
+    .getByTestId(/^product-row-/)
+    .filter({ hasText: "Pizza picante de muestra" });
+  await productRow
+    .getByRole("button", { name: "Editar Pizza picante de muestra" })
+    .click();
+  await expect(page.getByLabel("Categoría")).toHaveValue(fixture.childId);
+  await expect(
+    page.getByLabel("Categoría").getByRole("option", {
+      name: "Vinos E2E > Vinos tintos E2E",
+    }),
+  ).toBeAttached();
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+
+  await page.goto("/es");
+  await expect(
+    page.getByRole("button", { name: "Vinos E2E · 1" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Vinos tintos E2E/ }),
+  ).toBeVisible();
+  await page.getByRole("searchbox").fill("PICÁNTE");
+  await expect(
+    page.getByRole("button", { name: "Vinos E2E · 1" }),
+  ).toBeVisible();
+  const publicProduct = page
+    .locator("article")
+    .filter({ hasText: "Pizza picante de muestra" });
+  await publicProduct
+    .getByRole("link", { name: "Ver producto", exact: true })
+    .click();
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb).toContainText("Vinos E2E");
+  await expect(breadcrumb).toContainText("Vinos tintos E2E");
+
+  await page.goto("/admin/print-menu");
+  const printable = page.locator("[data-print-menu]");
+  await expect(printable).toContainText("Vinos E2E");
+  await expect(printable).toContainText("Vinos tintos E2E");
+  await expect(printable).toContainText("Pizza picante de muestra");
+
+  await page.goto("/ca");
+  await expect(
+    page.getByRole("button", { name: "Vins E2E · 1" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Vins negres E2E/ })).toBeVisible();
+
+  await page.goto("/admin/qr-code");
+  await expect(
+    page.getByRole("heading", { name: "Código QR", level: 1 }),
+  ).toBeVisible();
+
+  await withDatabase(async (sql) => {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        update products
+        set category_id = ${fixture.originalCategoryId}
+        where id = ${fixture.productId}
+      `;
+      await transaction`delete from categories where id = ${fixture.childId}`;
+      await transaction`delete from categories where id = ${fixture.rootId}`;
+    });
+  });
 });
 
 test("administrator manages allergens and protects associated items", async ({

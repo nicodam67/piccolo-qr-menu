@@ -104,11 +104,15 @@ describe("printable menu", () => {
       ...DEFAULT_PRINT_MENU_SETTINGS,
       showSoldOut: false,
     });
-    assert.deepEqual(sections[0].products.map((product) => product.id), ["a"]);
+    assert.deepEqual(
+      sections[0].directProducts.map((product) => product.id),
+      ["a"],
+    );
   });
   it("muestra productos agotados por defecto", () => {
     assert.equal(
-      preparePrintableMenu(menu, DEFAULT_PRINT_MENU_SETTINGS)[0].products.length,
+      preparePrintableMenu(menu, DEFAULT_PRINT_MENU_SETTINGS)[0].directProducts
+        .length,
       2,
     );
   });

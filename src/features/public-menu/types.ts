@@ -75,6 +75,8 @@ export type DemoProduct = {
 
 export type DemoCategory = {
   id: string;
+  parentCategoryId?: string | null;
+  sortOrder?: number;
   name: string;
   eyebrow: string;
 };
@@ -104,6 +106,7 @@ export type PublicProductDetail = {
   currencyCode: string;
   restaurant: DemoMenu["restaurant"];
   category: DemoCategory;
+  parentCategory: DemoCategory | null;
   product: DemoProduct;
   relatedProducts: DemoProduct[];
   displaySettings: MenuDisplaySettings;

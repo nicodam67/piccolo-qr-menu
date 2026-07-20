@@ -50,6 +50,13 @@
       "when": 1784574044290,
       "tag": "0006_premium_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784583410212,
+      "tag": "0007_bumpy_maestro",
+      "breakpoints": true
     }
   ]
 }

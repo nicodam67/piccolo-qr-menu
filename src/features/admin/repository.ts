@@ -18,6 +18,7 @@ export type AdminDashboardSummary = {
   locale: string;
   databaseStatus: "connected";
   categoryCount: number;
+  subcategoryCount: number;
   productCount: number;
   languageCount: number;
   allergenCount: number;
@@ -38,7 +39,8 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
       .select({
         restaurantName: restaurantTranslations.name,
         locale: restaurantSettings.defaultLocale,
-        categoryCount: sql<number>`(select count(*)::integer from ${categories} where ${categories.isActive} = true)`,
+        categoryCount: sql<number>`(select count(*)::integer from ${categories} where ${categories.isActive} = true and ${categories.parentCategoryId} is null)`,
+        subcategoryCount: sql<number>`(select count(*)::integer from ${categories} where ${categories.isActive} = true and ${categories.parentCategoryId} is not null)`,
         productCount: sql<number>`(select count(*)::integer from ${products} where ${products.isActive} = true)`,
         languageCount: sql<number>`(select count(*)::integer from ${restaurantLocales} where ${restaurantLocales.isEnabled} = true)`,
         allergenCount: sql<number>`(select count(*)::integer from ${allergens})`,

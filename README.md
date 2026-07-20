@@ -187,6 +187,20 @@ Las preferencias no se persisten porque son distintas de
 `menu_display_settings`. Las alternativas futuras son una columna JSONB
 `print_menu_settings` o una tabla de plantillas imprimibles.
 
+## Categorías jerárquicas
+
+`categories.parent_category_id` permite una categoría principal y un único
+nivel de subcategorías. La clave foránea autorreferencial usa
+`ON DELETE RESTRICT`; el servidor rechaza padres inexistentes,
+autorreferencias, ciclos y terceros niveles. El orden es consecutivo e
+independiente entre categorías principales y entre las subcategorías de cada
+padre.
+
+Los datos existentes permanecen como categorías principales (`NULL`) y los
+productos conservan exclusivamente `products.category_id`. La carta pública,
+la ficha de producto y `/admin/print-menu` comparten la misma utilidad de
+jerarquía.
+
 No contiene PDF generado en servidor, variantes, extras, combos, pedidos ni
 integración con Piccolo TPV.
 

@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -227,12 +228,26 @@ export const categories = pgTable(
   "categories",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    parentCategoryId: uuid("parent_category_id"),
     sortOrder: integer("sort_order").default(0).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     ...timestamps,
   },
   (table) => [
     index("categories_active_order_idx").on(table.isActive, table.sortOrder),
+    index("categories_parent_order_idx").on(
+      table.parentCategoryId,
+      table.sortOrder,
+    ),
+    foreignKey({
+      columns: [table.parentCategoryId],
+      foreignColumns: [table.id],
+      name: "categories_parent_category_id_categories_id_fk",
+    }).onDelete("restrict"),
+    check(
+      "categories_parent_not_self_check",
+      sql`${table.parentCategoryId} is null or ${table.parentCategoryId} <> ${table.id}`,
+    ),
     check("categories_sort_order_check", sql`${table.sortOrder} >= 0`),
   ],
 );

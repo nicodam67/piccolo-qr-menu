@@ -13,8 +13,9 @@ import { FloatingCallButton } from "@/components/floating-call-button";
 import { MenuHeader } from "@/components/menu-header";
 import { MenuSearch } from "@/components/menu-search";
 import { ProductCard } from "@/components/product-card";
+import { buildMenuHierarchy } from "@/features/categories/hierarchy";
 
-import type { DemoMenu, OpeningStatus } from "./types";
+import type { DemoMenu, DemoProduct, OpeningStatus } from "./types";
 import type { PublishedLocale } from "@/features/locales/repository";
 import { getPublicMenuCopy } from "./copy";
 import { getPublicProductPath } from "./product-url";
@@ -35,6 +36,40 @@ type PublicMenuPageProps = {
   initialOpeningStatus: OpeningStatus;
   publishedLocales: PublishedLocale[];
 };
+
+function ProductGrid({
+  products,
+  menu,
+  viewProductLabel,
+}: {
+  products: DemoProduct[];
+  menu: DemoMenu;
+  viewProductLabel: string;
+}) {
+  return (
+    <div
+      className={
+        menu.displaySettings.layout === "cards"
+          ? "grid gap-7 sm:grid-cols-2 lg:grid-cols-3"
+          : "space-y-5"
+      }
+    >
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          settings={menu.displaySettings}
+          href={getPublicProductPath(
+            menu.locale,
+            product.id,
+            product.name,
+          )}
+          viewProductLabel={viewProductLabel}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function PublicMenuPage({
   menu,
@@ -59,30 +94,23 @@ export function PublicMenuPage({
     [menu.products, deferredQuery],
   );
 
-  const visibleCategories = useMemo(
-    () =>
-      menu.categories.filter((category) =>
-        filteredProducts.some(
-          (product) => product.categoryId === category.id,
-        ),
-      ),
+  const visibleHierarchy = useMemo(
+    () => buildMenuHierarchy(menu.categories, filteredProducts),
     [filteredProducts, menu.categories],
   );
+  const visibleCategories = useMemo(
+    () => visibleHierarchy.map(({ category }) => category),
+    [visibleHierarchy],
+  );
   const productCounts = useMemo(
-    () => {
-      const counts: Record<string, number> = Object.fromEntries(
-        visibleCategories.map((category) => [category.id, 0]),
-      );
-
-      for (const product of filteredProducts) {
-        if (product.categoryId in counts) {
-          counts[product.categoryId] += 1;
-        }
-      }
-
-      return counts;
-    },
-    [filteredProducts, visibleCategories],
+    () =>
+      Object.fromEntries(
+        visibleHierarchy.map(({ category, productCount }) => [
+          category.id,
+          productCount,
+        ]),
+      ),
+    [visibleHierarchy],
   );
 
   const visibleActiveCategory = visibleCategories.some(
@@ -385,12 +413,8 @@ export function PublicMenuPage({
               id="menu-product-sections"
               className="space-y-10 px-4 pt-6 sm:px-6"
             >
-              {visibleCategories.map((category) => {
-                const categoryProducts = filteredProducts.filter(
-                  (product) => product.categoryId === category.id,
-                );
-
-                return (
+              {visibleHierarchy.map(
+                ({ category, directProducts, subcategories }) => (
                   <section
                     id={`category-${category.id}`}
                     key={category.id}
@@ -413,30 +437,38 @@ export function PublicMenuPage({
                       </p>
                     </div>
 
-                    <div
-                      className={
-                        menu.displaySettings.layout === "cards"
-                          ? "grid gap-7 sm:grid-cols-2 lg:grid-cols-3"
-                          : "space-y-5"
-                      }
-                    >
-                      {categoryProducts.map((product) => (
-                        <ProductCard
-                          key={product.id}
-                          product={product}
-                          settings={menu.displaySettings}
-                          href={getPublicProductPath(
-                            menu.locale,
-                            product.id,
-                            product.name,
-                          )}
+                    {directProducts.length > 0 ? (
+                      <ProductGrid
+                        products={directProducts}
+                        menu={menu}
+                        viewProductLabel={copy.viewProduct}
+                      />
+                    ) : null}
+                    {subcategories.map((subcategory) => (
+                      <section
+                        key={subcategory.category.id}
+                        className="mt-8"
+                        aria-labelledby={`subcategory-title-${subcategory.category.id}`}
+                      >
+                        <h3
+                          id={`subcategory-title-${subcategory.category.id}`}
+                          className="font-display mb-4 border-b border-stone-200 pb-2 text-xl text-[#173f35]"
+                        >
+                          {subcategory.category.name}
+                          <span className="ml-2 text-xs text-stone-400">
+                            · {subcategory.products.length}
+                          </span>
+                        </h3>
+                        <ProductGrid
+                          products={subcategory.products}
+                          menu={menu}
                           viewProductLabel={copy.viewProduct}
                         />
-                      ))}
-                    </div>
+                      </section>
+                    ))}
                   </section>
-                );
-              })}
+                ),
+              )}
             </div>
           ) : (
             <div

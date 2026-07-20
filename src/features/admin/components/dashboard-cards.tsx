@@ -12,6 +12,7 @@ import type { AdminDashboardSummary } from "../repository";
 type DashboardCardsProps = Pick<
   AdminDashboardSummary,
   | "categoryCount"
+  | "subcategoryCount"
   | "productCount"
   | "languageCount"
   | "allergenCount"
@@ -28,6 +29,7 @@ type Metric = {
 
 export function DashboardCards({
   categoryCount,
+  subcategoryCount,
   productCount,
   languageCount,
   allergenCount,
@@ -36,10 +38,17 @@ export function DashboardCards({
   const metrics: Metric[] = [
     {
       id: "categories",
-      label: "Categorías activas",
+      label: "Categorías principales activas",
       value: categoryCount,
       icon: Tags,
       tone: "bg-amber-50 text-amber-700",
+    },
+    {
+      id: "subcategories",
+      label: "Subcategorías activas",
+      value: subcategoryCount,
+      icon: Tags,
+      tone: "bg-orange-50 text-orange-700",
     },
     {
       id: "products",
@@ -74,7 +83,7 @@ export function DashboardCards({
   return (
     <section
       aria-label="Resumen de la carta"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
     >
       {metrics.map((metric) => {
         const Icon = metric.icon;

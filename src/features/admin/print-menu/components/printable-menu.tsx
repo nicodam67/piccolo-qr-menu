@@ -1,7 +1,7 @@
 "use client";
 
 import { TaxonomyIcon } from "@/components/taxonomy-icon";
-import type { DemoMenu } from "@/features/public-menu/types";
+import type { DemoMenu, DemoProduct } from "@/features/public-menu/types";
 import {
   formatPrintPriceFromCents,
   preparePrintableMenu,
@@ -17,6 +17,84 @@ type Props = {
   copy: PrintMenuCopy;
 };
 
+function PrintableProductList({
+  products,
+  menu,
+  currencyCode,
+  settings,
+  copy,
+  spacingClass,
+}: {
+  products: DemoProduct[];
+  menu: DemoMenu;
+  currencyCode: string;
+  settings: PrintMenuSettings;
+  copy: PrintMenuCopy;
+  spacingClass: string;
+}) {
+  return (
+    <ul className={`mt-3 ${spacingClass}`}>
+      {products.map((product) => (
+        <li key={product.id} className="break-inside-avoid">
+          <div className="flex items-start justify-between gap-3">
+            <h4 className="font-bold text-[#173f35]">
+              {product.name}
+              {product.isSoldOut ? (
+                <span className="ml-2 text-[9px] font-bold uppercase text-[#a8392f]">
+                  {copy.soldOutLabel}
+                </span>
+              ) : null}
+            </h4>
+            <span className="shrink-0 font-extrabold">
+              {formatPrintPriceFromCents(
+                Math.round(product.fullPrice * 100),
+                currencyCode,
+                menu.locale,
+              )}
+            </span>
+          </div>
+          {settings.showDescriptions && product.description ? (
+            <p className="mt-1 leading-5 text-stone-600">
+              {product.description}
+            </p>
+          ) : null}
+          {settings.showHalfPortions && product.halfPrice !== undefined ? (
+            <p className="mt-1 text-[10px] font-semibold text-stone-500">
+              {copy.halfPortionLabel}:{" "}
+              {formatPrintPriceFromCents(
+                Math.round(product.halfPrice * 100),
+                currencyCode,
+                menu.locale,
+              )}
+            </p>
+          ) : null}
+          {settings.showTags && product.tags.length > 0 ? (
+            <p className="mt-1 text-[9px] text-stone-500">
+              {product.tags.map((tag) => tag.label).join(" · ")}
+            </p>
+          ) : null}
+          {settings.showAllergens && product.allergens.length > 0 ? (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-stone-500">
+              {product.allergens.map((allergen) => (
+                <span
+                  key={allergen.label}
+                  className="inline-flex items-center gap-1"
+                >
+                  <TaxonomyIcon
+                    icon={allergen.icon}
+                    label={allergen.label}
+                  />
+                  {allergen.label}
+                </span>
+              ))}
+            </p>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function PrintableMenu({
   menu,
   currencyCode,
@@ -28,7 +106,10 @@ export function PrintableMenu({
   const allergens = [
     ...new Map(
       sections
-        .flatMap((section) => section.products)
+        .flatMap((section) => [
+          ...section.directProducts,
+          ...section.subcategories.flatMap(({ products }) => products),
+        ])
         .flatMap((product) => product.allergens)
         .map((allergen) => [allergen.label, allergen]),
     ).values(),
@@ -75,7 +156,7 @@ export function PrintableMenu({
           settings.columns === 2 ? "grid-cols-2" : "grid-cols-1"
         }`}
       >
-        {sections.map(({ category, products }) => (
+        {sections.map(({ category, directProducts, subcategories }) => (
           <section
             key={category.id}
             className="break-inside-avoid"
@@ -87,60 +168,34 @@ export function PrintableMenu({
             >
               {category.name}
             </h2>
-            <ul className={`mt-3 ${spacingClass}`}>
-              {products.map((product) => (
-                <li key={product.id} className="break-inside-avoid">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-bold text-[#173f35]">
-                      {product.name}
-                      {product.isSoldOut ? (
-                        <span className="ml-2 text-[9px] font-bold uppercase text-[#a8392f]">
-                          {copy.soldOutLabel}
-                        </span>
-                      ) : null}
-                    </h3>
-                    <span className="shrink-0 font-extrabold">
-                      {formatPrintPriceFromCents(
-                        Math.round(product.fullPrice * 100),
-                        currencyCode,
-                        menu.locale,
-                      )}
-                    </span>
-                  </div>
-                  {settings.showDescriptions && product.description ? (
-                    <p className="mt-1 leading-5 text-stone-600">
-                      {product.description}
-                    </p>
-                  ) : null}
-                  {settings.showHalfPortions &&
-                  product.halfPrice !== undefined ? (
-                    <p className="mt-1 text-[10px] font-semibold text-stone-500">
-                      {copy.halfPortionLabel}:{" "}
-                      {formatPrintPriceFromCents(
-                        Math.round(product.halfPrice * 100),
-                        currencyCode,
-                        menu.locale,
-                      )}
-                    </p>
-                  ) : null}
-                  {settings.showTags && product.tags.length > 0 ? (
-                    <p className="mt-1 text-[9px] text-stone-500">
-                      {product.tags.map((tag) => tag.label).join(" · ")}
-                    </p>
-                  ) : null}
-                  {settings.showAllergens && product.allergens.length > 0 ? (
-                    <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-stone-500">
-                      {product.allergens.map((allergen) => (
-                        <span key={allergen.label} className="inline-flex items-center gap-1">
-                          <TaxonomyIcon icon={allergen.icon} label={allergen.label} />
-                          {allergen.label}
-                        </span>
-                      ))}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
+            {directProducts.length > 0 ? (
+              <PrintableProductList
+                products={directProducts}
+                menu={menu}
+                currencyCode={currencyCode}
+                settings={settings}
+                copy={copy}
+                spacingClass={spacingClass}
+              />
+            ) : null}
+            {subcategories.map((subcategory) => (
+              <div
+                key={subcategory.category.id}
+                className="mt-4 break-inside-avoid"
+              >
+                <h3 className="break-after-avoid font-display text-base text-[#173f35]">
+                  {subcategory.category.name}
+                </h3>
+                <PrintableProductList
+                  products={subcategory.products}
+                  menu={menu}
+                  currencyCode={currencyCode}
+                  settings={settings}
+                  copy={copy}
+                  spacingClass={spacingClass}
+                />
+              </div>
+            ))}
           </section>
         ))}
       </div>

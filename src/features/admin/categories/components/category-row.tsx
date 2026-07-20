@@ -5,8 +5,11 @@ import { useSortable } from "@dnd-kit/sortable";
 import {
   Eye,
   EyeOff,
+  ChevronDown,
+  ChevronRight,
   GripVertical,
   Pencil,
+  Plus,
   Trash2,
 } from "lucide-react";
 
@@ -19,6 +22,10 @@ type CategoryRowProps = {
   onEdit: (category: AdminCategory) => void;
   onToggle: (category: AdminCategory) => void;
   onDelete: (category: AdminCategory) => void;
+  depth: 0 | 1;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onCreateChild: (categoryId: string) => void;
 };
 
 export function CategoryRow({
@@ -28,6 +35,10 @@ export function CategoryRow({
   onEdit,
   onToggle,
   onDelete,
+  depth,
+  isExpanded,
+  onToggleExpanded,
+  onCreateChild,
 }: CategoryRowProps) {
   const {
     attributes,
@@ -46,7 +57,9 @@ export function CategoryRow({
         transition,
       }}
       data-testid={`category-row-${category.id}`}
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-stone-100 bg-white px-3 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1.5fr)_minmax(8rem,0.7fr)_5rem_auto] sm:px-4 ${
+      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-stone-100 px-3 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1.5fr)_minmax(8rem,0.7fr)_5rem_auto] sm:px-4 ${
+        depth === 1 ? "bg-stone-50 pl-8 sm:pl-12" : "bg-white"
+      } ${
         isDragging ? "relative z-20 rounded-xl shadow-xl ring-2 ring-[#d7ae6a]" : ""
       }`}
     >
@@ -63,6 +76,23 @@ export function CategoryRow({
 
       <div className="min-w-0">
         <div className="flex items-center gap-2">
+          {depth === 0 && category.childCount > 0 ? (
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${
+                translation?.name ?? "categoría"
+              }`}
+              aria-expanded={isExpanded}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-stone-500 focus-visible:outline-2 focus-visible:outline-[#173f35]"
+            >
+              {isExpanded ? (
+                <ChevronDown className="size-4" />
+              ) : (
+                <ChevronRight className="size-4" />
+              )}
+            </button>
+          ) : null}
           <h3 className="truncate text-sm font-extrabold text-[#173f35]">
             {translation?.name ?? "Sin traducción"}
           </h3>
@@ -75,7 +105,8 @@ export function CategoryRow({
         </p>
         <p className="mt-1 text-[9px] text-stone-400 sm:hidden">
           {category.isActive ? "Visible" : "No visible"} · Orden{" "}
-          {category.sortOrder} · {category.productCount} productos
+          {category.sortOrder} · {category.productCount} productos ·{" "}
+          {category.childCount} subcategorías
         </p>
       </div>
 
@@ -97,6 +128,7 @@ export function CategoryRow({
         <p className="mt-1 text-[9px] text-stone-400">
           {category.productCount}{" "}
           {category.productCount === 1 ? "producto" : "productos"}
+          {depth === 0 ? ` · ${category.childCount} subcategorías` : ""}
         </p>
       </div>
 
@@ -105,6 +137,17 @@ export function CategoryRow({
       </p>
 
       <div className="flex items-center justify-end gap-1">
+        {depth === 0 ? (
+          <button
+            type="button"
+            onClick={() => onCreateChild(category.id)}
+            disabled={isPending}
+            aria-label={`Crear subcategoría en ${translation?.name ?? "categoría"}`}
+            className="grid size-9 place-items-center rounded-lg text-stone-500 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-[#173f35]"
+          >
+            <Plus aria-hidden="true" className="size-4" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => onEdit(category)}

@@ -274,11 +274,21 @@ export default async function PublicProductPage({
           </Link>
           <ChevronRight aria-hidden="true" className="size-3.5" />
           <Link
-            href={`/${locale}#category-${detail.category.id}`}
+            href={`/${locale}#category-${
+              detail.parentCategory?.id ?? detail.category.id
+            }`}
             className="rounded-sm hover:text-[#173f35] focus-visible:outline-2 focus-visible:outline-[#173f35]"
           >
-            {detail.category.name}
+            {detail.parentCategory?.name ?? detail.category.name}
           </Link>
+          {detail.parentCategory ? (
+            <>
+              <ChevronRight aria-hidden="true" className="size-3.5" />
+              <span className="font-medium text-stone-600">
+                {detail.category.name}
+              </span>
+            </>
+          ) : null}
           <ChevronRight aria-hidden="true" className="size-3.5" />
           <span aria-current="page" className="font-semibold text-stone-700">
             {detail.product.name}
@@ -307,7 +317,10 @@ export default async function PublicProductPage({
             }
           >
             <p className="text-[10px] font-extrabold tracking-[0.16em] text-[#a8392f] uppercase">
-              {copy.category}: {detail.category.name}
+              {copy.category}:{" "}
+              {detail.parentCategory
+                ? `${detail.parentCategory.name} > ${detail.category.name}`
+                : detail.category.name}
             </p>
             <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
               <h1 className="font-display max-w-2xl text-4xl leading-none text-[#173f35] sm:text-5xl">

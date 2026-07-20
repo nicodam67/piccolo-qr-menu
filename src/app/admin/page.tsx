@@ -51,6 +51,7 @@ export default async function AdminPage() {
 
         <DashboardCards
           categoryCount={summary.categoryCount}
+          subcategoryCount={summary.subcategoryCount}
           productCount={summary.productCount}
           languageCount={summary.languageCount}
           allergenCount={summary.allergenCount}

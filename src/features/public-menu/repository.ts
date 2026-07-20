@@ -331,6 +331,8 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       db
         .select({
           id: categories.id,
+          parentCategoryId: categories.parentCategoryId,
+          sortOrder: categories.sortOrder,
           name: categoryTranslations.name,
           description: categoryTranslations.description,
         })
@@ -343,11 +345,15 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
           ),
         )
         .where(eq(categories.isActive, true))
-        .orderBy(asc(categories.sortOrder)),
+        .orderBy(
+          asc(categories.parentCategoryId),
+          asc(categories.sortOrder),
+        ),
       db
         .select({
           id: products.id,
           categoryId: products.categoryId,
+          parentCategoryId: categories.parentCategoryId,
           name: productTranslations.name,
           description: productTranslations.description,
           fullPriceCents: products.fullPriceCents,
@@ -393,6 +399,8 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       timeZone: restaurant.timezone,
       categories: categoryRows.map((category) => ({
         id: category.id,
+        parentCategoryId: category.parentCategoryId,
+        sortOrder: category.sortOrder,
         name: category.name,
         eyebrow: category.description,
       })),
@@ -421,6 +429,7 @@ export async function getPublicProductDetail(
         .select({
           id: products.id,
           categoryId: products.categoryId,
+          parentCategoryId: categories.parentCategoryId,
           name: productTranslations.name,
           description: productTranslations.description,
           fullPriceCents: products.fullPriceCents,
@@ -490,6 +499,35 @@ export async function getPublicProductDetail(
     ]);
 
     if (!product || !restaurant) {
+      return null;
+    }
+    const [parentCategory] = product.parentCategoryId
+      ? await db
+          .select({
+            id: categories.id,
+            parentCategoryId: categories.parentCategoryId,
+            sortOrder: categories.sortOrder,
+            name: categoryTranslations.name,
+            description: categoryTranslations.description,
+          })
+          .from(categories)
+          .innerJoin(
+            categoryTranslations,
+            and(
+              eq(categoryTranslations.categoryId, categories.id),
+              eq(categoryTranslations.locale, locale),
+            ),
+          )
+          .where(
+            and(
+              eq(categories.id, product.parentCategoryId),
+              eq(categories.isActive, true),
+            ),
+          )
+          .limit(1)
+      : [undefined];
+
+    if (product.parentCategoryId && !parentCategory) {
       return null;
     }
 
@@ -574,9 +612,19 @@ export async function getPublicProductDetail(
       },
       category: {
         id: product.categoryId,
+        parentCategoryId: product.parentCategoryId,
         name: product.categoryName,
         eyebrow: product.categoryDescription,
       },
+      parentCategory: parentCategory
+        ? {
+            id: parentCategory.id,
+            parentCategoryId: null,
+            sortOrder: parentCategory.sortOrder,
+            name: parentCategory.name,
+            eyebrow: parentCategory.description,
+          }
+        : null,
       product: publicProduct,
       relatedProducts: relatedRows.map((related) =>
         buildPublicProduct(related, tagRows, allergenRows),

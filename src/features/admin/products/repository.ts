@@ -3,6 +3,7 @@ import "server-only";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
+import { buildCategoryHierarchy } from "@/features/categories/hierarchy";
 import {
   allergenTranslations,
   allergens,
@@ -40,7 +41,9 @@ export type AdminProduct = {
 
 export type ProductCategoryOption = {
   id: string;
+  parentCategoryId: string | null;
   name: string;
+  path: string;
   productCount: number;
 };
 
@@ -233,6 +236,8 @@ export async function getAdminProductData(): Promise<AdminProductData> {
     db
       .select({
         id: categories.id,
+        parentCategoryId: categories.parentCategoryId,
+        sortOrder: categories.sortOrder,
         name: categoryTranslations.name,
         productCount: sql<number>`(
           select count(*)::integer
@@ -246,7 +251,10 @@ export async function getAdminProductData(): Promise<AdminProductData> {
         eq(categoryTranslations.categoryId, categories.id),
       )
       .where(eq(categoryTranslations.locale, defaultLocale))
-      .orderBy(asc(categories.sortOrder)),
+      .orderBy(
+        sql`${categories.parentCategoryId} nulls first`,
+        asc(categories.sortOrder),
+      ),
     db
       .select({
         id: tags.id,
@@ -318,8 +326,17 @@ export async function getAdminProductData(): Promise<AdminProductData> {
       ?.allergenIds.push(relation.allergenId);
   }
 
+  const categoryOptions = buildCategoryHierarchy(categoryRows).flatMap(
+    (category) => [
+      { ...category, path: category.name },
+      ...category.children.map((child) => ({
+        ...child,
+        path: `${category.name} > ${child.name}`,
+      })),
+    ],
+  );
   const categoryOrder = new Map(
-    categoryRows.map((category, index) => [category.id, index]),
+    categoryOptions.map((category, index) => [category.id, index]),
   );
   const orderedProducts = [...productsById.values()].sort(
     (left, right) =>
@@ -330,7 +347,7 @@ export async function getAdminProductData(): Promise<AdminProductData> {
 
   return {
     products: orderedProducts,
-    categories: categoryRows,
+    categories: categoryOptions,
     tags: tagRows,
     allergens: allergenRows,
     locales: localeRows.map(({ locale }) => locale),

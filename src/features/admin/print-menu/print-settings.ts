@@ -1,4 +1,5 @@
 import type { DemoMenu } from "@/features/public-menu/types";
+import { buildMenuHierarchy } from "@/features/categories/hierarchy";
 
 export type PrintMenuSettings = {
   orientation: "portrait" | "landscape";
@@ -63,14 +64,12 @@ export function preparePrintableMenu(
   settings: PrintMenuSettings,
 ) {
   validatePrintMenuSettings(settings);
-  return menu.categories.flatMap((category) => {
-    const products = menu.products.filter(
-      (product) =>
-        product.categoryId === category.id &&
-        (settings.showSoldOut || !product.isSoldOut),
-    );
-    return products.length > 0 ? [{ category, products }] : [];
-  });
+  return buildMenuHierarchy(
+    menu.categories,
+    menu.products.filter(
+      (product) => settings.showSoldOut || !product.isSoldOut,
+    ),
+  );
 }
 
 export function formatPrintPriceFromCents(
