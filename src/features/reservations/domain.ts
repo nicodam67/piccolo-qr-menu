@@ -25,6 +25,14 @@ export type ReservationSettingsData = {
   customerMessage: string;
   policyText: string;
   initialStatus: "pending" | "confirmed";
+  depositEnabled: boolean; depositPerGuestCents: number;
+  depositMinimumPartySize: number; gracePeriodMinutes: number;
+  paymentTimeoutMinutes: number; refundDeadlineHours: number;
+  allowFullRefund: boolean; allowPartialRefund: boolean;
+  cancellationPolicy: string; noShowPolicy: string; gracePolicy: string;
+  policyVersion: string; cardEnabled: boolean; bizumEnabled: boolean;
+  cashEnabled: boolean; manualDepositRequired: boolean;
+  confirmOnlyAfterPayment: boolean;
 };
 
 export const DEFAULT_RESERVATION_SETTINGS: ReservationSettingsData = {
@@ -39,6 +47,12 @@ export const DEFAULT_RESERVATION_SETTINGS: ReservationSettingsData = {
   customerMessage: "",
   policyText: "",
   initialStatus: "pending",
+  depositEnabled:false,depositPerGuestCents:0,depositMinimumPartySize:1,
+  gracePeriodMinutes:15,paymentTimeoutMinutes:15,refundDeadlineHours:24,
+  allowFullRefund:true,allowPartialRefund:false,cancellationPolicy:"",
+  noShowPolicy:"",gracePolicy:"",policyVersion:"1",cardEnabled:false,
+  bizumEnabled:false,cashEnabled:true,manualDepositRequired:false,
+  confirmOnlyAfterPayment:true,
 };
 
 export type ReservationSlot = {

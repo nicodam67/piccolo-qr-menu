@@ -278,3 +278,17 @@ Las reservas contienen datos personales. Antes de producción es obligatorio
 definir y publicar una política real de privacidad, plazos de conservación,
 base jurídica y procedimiento de atención de derechos. No deben copiarse datos
 personales a logs, URLs ni sistemas externos no autorizados.
+
+### Adelantos y proveedor de pagos
+
+El modelo económico admite tarjeta, Bizum y efectivo administrativo, importes
+en céntimos, eventos, devoluciones, cortesía, llegada, no-show y preparación
+para aplicar saldo una sola vez a Piccolo TPV. No existe todavía integración
+con cuentas o tickets del TPV.
+
+Proveedor real pendiente de autorización: Stripe publica 1,5 % + 0,25 € para
+tarjeta EEE y Bizum sin cuota mensual; Redsys depende del contrato bancario y
+no publica la tarifa de Piccolo; MONEI publica para Bizum online 1,34 % +
+0,34 € más 0,17 € de adquisición en MONEI X. La aplicación usa una interfaz
+intercambiable y `PAYMENT_PROVIDER=disabled`; ninguna redirección confirma un
+pago y Bizum no se simula.

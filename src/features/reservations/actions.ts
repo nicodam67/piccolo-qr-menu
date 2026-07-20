@@ -109,6 +109,10 @@ export async function createOnlineReservationAction(
         1000,
       ),
       idempotencyKey,
+      acceptedDepositTerms:
+        formData.get("acceptDeposit") === "true" &&
+        formData.get("acceptNoShow") === "true" &&
+        formData.get("acceptGrace") === "true",
     });
     return {
       success: true,

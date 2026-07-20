@@ -53,6 +53,23 @@ export async function saveReservationSettingsAction(formData: FormData) {
           4000,
         ) ?? "",
       initialStatus,
+      depositEnabled: formData.get("depositEnabled") === "true",
+      depositPerGuestCents: readInteger(formData,"depositPerGuestCents",0,100000),
+      depositMinimumPartySize: readInteger(formData,"depositMinimumPartySize",1,100),
+      gracePeriodMinutes: readInteger(formData,"gracePeriodMinutes",0,240),
+      paymentTimeoutMinutes: readInteger(formData,"paymentTimeoutMinutes",1,1440),
+      refundDeadlineHours: readInteger(formData,"refundDeadlineHours",0,8760),
+      allowFullRefund: formData.get("allowFullRefund") === "true",
+      allowPartialRefund: formData.get("allowPartialRefund") === "true",
+      cancellationPolicy: normalizeOptionalText(String(formData.get("cancellationPolicy") ?? ""),4000) ?? "",
+      noShowPolicy: normalizeOptionalText(String(formData.get("noShowPolicy") ?? ""),4000) ?? "",
+      gracePolicy: normalizeOptionalText(String(formData.get("gracePolicy") ?? ""),2000) ?? "",
+      policyVersion: String(formData.get("policyVersion") ?? "").trim().slice(0,40),
+      cardEnabled: formData.get("cardEnabled") === "true",
+      bizumEnabled: formData.get("bizumEnabled") === "true",
+      cashEnabled: formData.get("cashEnabled") === "true",
+      manualDepositRequired: formData.get("manualDepositRequired") === "true",
+      confirmOnlyAfterPayment: formData.get("confirmOnlyAfterPayment") === "true",
     };
     if (input.isEnabled && !input.policyText) {
       throw new Error(

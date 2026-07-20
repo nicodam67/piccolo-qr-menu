@@ -2679,6 +2679,12 @@ test("customers create reservations and administrators manage them", async ({
   await page
     .getByLabel("Política y condiciones")
     .fill("Política de privacidad E2E.");
+  await page.getByLabel("Activar adelanto").check();
+  await page.getByLabel("Importe por comensal (céntimos)").fill("1000");
+  await page.getByLabel("Mínimo de personas").fill("2");
+  await page.getByLabel("Política de cancelación").fill("Cancelación E2E");
+  await page.getByLabel("Política de no presentación").fill("No-show E2E");
+  await page.getByLabel("Texto de cortesía").fill("Cortesía E2E");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(
     page.getByText("Configuración guardada correctamente."),
@@ -2699,6 +2705,10 @@ test("customers create reservations and administrators manage them", async ({
   await page.getByLabel(/Correo electrónico/).fill("reserva-e2e@example.com");
   await page.getByLabel(/Observaciones/).fill("Observación pública E2E");
   await page.getByLabel(/Acepto la política/).check();
+  await expect(page.getByText(/Total 20.00 €/)).toBeVisible();
+  await page.locator('input[name="acceptDeposit"]').check();
+  await page.locator('input[name="acceptNoShow"]').check();
+  await page.locator('input[name="acceptGrace"]').check();
   await page.getByRole("button", { name: "Solicitar reserva" }).click();
   await expect(
     page.getByRole("heading", { name: "Reserva enviada correctamente" }),

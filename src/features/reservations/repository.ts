@@ -27,7 +27,9 @@ import {
   type ReservationSettingsData,
   type ReservationSlot,
   type ReservationStatus,
+  zonedLocalDateTimeToUtc,
 } from "./domain";
+import { calculateDeposit, calculateGraceDeadline } from "./payments/domain";
 
 type ReservationTransaction = Parameters<
   Parameters<ReturnType<typeof getDatabase>["db"]["transaction"]>[0]
@@ -49,6 +51,14 @@ function mapSettings(
         customerMessage: row.customerMessage,
         policyText: row.policyText,
         initialStatus: row.initialStatus as "pending" | "confirmed",
+        depositEnabled:row.depositEnabled,depositPerGuestCents:row.depositPerGuestCents,
+        depositMinimumPartySize:row.depositMinimumPartySize,gracePeriodMinutes:row.gracePeriodMinutes,
+        paymentTimeoutMinutes:row.paymentTimeoutMinutes,refundDeadlineHours:row.refundDeadlineHours,
+        allowFullRefund:row.allowFullRefund,allowPartialRefund:row.allowPartialRefund,
+        cancellationPolicy:row.cancellationPolicy,noShowPolicy:row.noShowPolicy,
+        gracePolicy:row.gracePolicy,policyVersion:row.policyVersion,
+        cardEnabled:row.cardEnabled,bizumEnabled:row.bizumEnabled,cashEnabled:row.cashEnabled,
+        manualDepositRequired:row.manualDepositRequired,confirmOnlyAfterPayment:row.confirmOnlyAfterPayment,
       }
     : DEFAULT_RESERVATION_SETTINGS;
 }
@@ -258,6 +268,7 @@ export type OnlineReservationInput = {
   guestEmail: string | null;
   customerNotes: string | null;
   idempotencyKey: string;
+  acceptedDepositTerms: boolean;
 };
 
 export async function createOnlineReservation(
@@ -305,6 +316,10 @@ export async function createOnlineReservation(
     if (!context) throw new Error("Las reservas no están disponibles.");
 
     const locator = await createUniqueLocator(tx);
+    const depositTotalCents = calculateDeposit(input.partySize,context.settings.depositPerGuestCents,context.settings.depositMinimumPartySize,context.settings.depositEnabled);
+    if (depositTotalCents > 0 && !input.acceptedDepositTerms) throw new Error("Debes aceptar las condiciones del adelanto.");
+    const reservationAt = zonedLocalDateTimeToUtc(input.date,input.time,context.restaurant.timezone);
+    if (!reservationAt) throw new Error("Fecha u hora no válida.");
 
     const [created] = await tx
       .insert(reservations)
@@ -318,10 +333,17 @@ export async function createOnlineReservation(
         guestPhone: input.guestPhone,
         guestEmail: input.guestEmail,
         customerNotes: input.customerNotes,
-        status: context.settings.initialStatus,
+        status: depositTotalCents > 0 && context.settings.confirmOnlyAfterPayment ? "pending" : context.settings.initialStatus,
         origin: "online",
         locale: input.locale,
         idempotencyKey: input.idempotencyKey,
+        depositRequired: depositTotalCents > 0,
+        depositTotalCents,
+        economicStatus: depositTotalCents > 0 ? "pending" : "exempt",
+        graceDeadlineAt: calculateGraceDeadline(reservationAt,context.settings.gracePeriodMinutes),
+        remainingDepositCents: 0,
+        acceptedPolicyVersion: context.settings.policyVersion,
+        policyAcceptedAt: now,
       })
       .returning({
         locator: reservations.locator,
@@ -337,7 +359,7 @@ export async function createOnlineReservation(
 
 export type ManualReservationInput = Omit<
   OnlineReservationInput,
-  "idempotencyKey"
+  "idempotencyKey" | "acceptedDepositTerms"
 > & {
   internalNotes: string | null;
   overrideWarning: boolean;
@@ -369,6 +391,8 @@ export async function createManualReservation(
     const context = availability.context ?? (await getContext(tx, input.locale));
     if (!context) throw new Error("No existe un restaurante configurado.");
     const locator = await createUniqueLocator(tx);
+    const depositTotalCents = calculateDeposit(input.partySize,context.settings.depositPerGuestCents,context.settings.depositMinimumPartySize,context.settings.depositEnabled && context.settings.manualDepositRequired);
+    const reservationAt = zonedLocalDateTimeToUtc(input.date,input.time,context.restaurant.timezone);
     const [created] = await tx
       .insert(reservations)
       .values({
@@ -385,6 +409,11 @@ export async function createManualReservation(
         status: "confirmed",
         origin: "manual",
         locale: input.locale,
+        depositRequired: depositTotalCents > 0,
+        depositTotalCents,
+        economicStatus: depositTotalCents > 0 ? "pending" : "exempt",
+        graceDeadlineAt: reservationAt ? calculateGraceDeadline(reservationAt,context.settings.gracePeriodMinutes) : null,
+        acceptedPolicyVersion: context.settings.policyVersion,
       })
       .returning({ id: reservations.id, locator: reservations.locator });
     if (!created) throw new Error("No se pudo guardar la reserva.");

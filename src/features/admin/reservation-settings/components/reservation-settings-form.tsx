@@ -60,6 +60,20 @@ export function ReservationSettingsForm({
         <label className="text-xs font-bold text-stone-700 sm:col-span-2 lg:col-span-3">Mensaje informativo<textarea name="customerMessage" maxLength={1000} rows={3} defaultValue={settings.customerMessage} className="mt-2 w-full rounded-xl border border-stone-200 px-3 py-3" /></label>
         <label className="text-xs font-bold text-stone-700 sm:col-span-2 lg:col-span-3">Política y condiciones<textarea name="policyText" maxLength={4000} rows={5} required={enabled} defaultValue={settings.policyText} className="mt-2 w-full rounded-xl border border-stone-200 px-3 py-3" /></label>
       </section>
+      <section className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-2 lg:grid-cols-3">
+        <h2 className="font-display text-2xl text-[#173f35] sm:col-span-2 lg:col-span-3">Adelanto y cortesía</h2>
+        {([["depositEnabled","Activar adelanto"],["cardEnabled","Tarjeta"],["bizumEnabled","Bizum"],["cashEnabled","Efectivo"],["manualDepositRequired","Exigir en reservas manuales"],["confirmOnlyAfterPayment","Confirmar solo tras pago"],["allowFullRefund","Permitir devolución total"],["allowPartialRefund","Permitir devolución parcial"]] as const).map(([name,label]) => <label key={name} className="flex min-h-11 items-center justify-between rounded-xl border border-stone-200 px-3 text-xs font-bold">{label}<input name={name} type="checkbox" value="true" defaultChecked={settings[name]} /></label>)}
+        <NumberField name="depositPerGuestCents" label="Importe por comensal (céntimos)" value={settings.depositPerGuestCents} min={0} max={100000} />
+        <NumberField name="depositMinimumPartySize" label="Mínimo de personas" value={settings.depositMinimumPartySize} min={1} max={100} />
+        <NumberField name="gracePeriodMinutes" label="Tiempo de cortesía (minutos)" value={settings.gracePeriodMinutes} min={0} max={240} />
+        <NumberField name="paymentTimeoutMinutes" label="Tiempo para pagar (minutos)" value={settings.paymentTimeoutMinutes} min={1} max={1440} />
+        <NumberField name="refundDeadlineHours" label="Horas para devolución" value={settings.refundDeadlineHours} min={0} max={8760} />
+        <label className="text-xs font-bold">Versión de política<input name="policyVersion" required maxLength={40} defaultValue={settings.policyVersion} className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 px-3" /></label>
+        <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de cancelación<textarea name="cancellationPolicy" defaultValue={settings.cancellationPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
+        <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de no presentación<textarea name="noShowPolicy" defaultValue={settings.noShowPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
+        <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Texto de cortesía<textarea name="gracePolicy" defaultValue={settings.gracePolicy} maxLength={2000} className="mt-2 w-full rounded-xl border p-3" /></label>
+        <p className="text-xs text-amber-700 sm:col-span-2 lg:col-span-3">Tarjeta y Bizum no se activarán en producción hasta autorizar y configurar un proveedor real.</p>
+      </section>
       <p aria-live="polite" className="min-h-5 text-xs font-bold text-stone-600">{feedback}</p>
     </form>
   );
