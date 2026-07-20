@@ -4,7 +4,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type RefObject,
 } from "react";
 import {
   ImageOff,
@@ -25,7 +24,7 @@ type ProductImageManagerProps = {
   value: string;
   initialValue: string;
   onChange: (url: string) => void;
-  commitRef: RefObject<boolean>;
+  commitState: { committed: boolean };
   disabled?: boolean;
 };
 
@@ -52,7 +51,7 @@ export function ProductImageManager({
   value,
   initialValue,
   onChange,
-  commitRef,
+  commitState,
   disabled = false,
 }: ProductImageManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,11 +79,11 @@ export function ProductImageManager({
         URL.revokeObjectURL(objectUrl.current);
       }
 
-      if (stagedUrl.current && !commitRef.current) {
+      if (stagedUrl.current && !commitState.committed) {
         void deleteStagedImage(stagedUrl.current);
       }
     };
-  }, [commitRef]);
+  }, [commitState]);
 
   const resetObjectPreview = () => {
     if (objectUrlRef.current) {

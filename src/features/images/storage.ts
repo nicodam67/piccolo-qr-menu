@@ -56,9 +56,10 @@ function getStorageConfig(): ImageStorageConfig {
   if (driver === "local") {
     return {
       driver,
-      directory: path.resolve(
-        process.cwd(),
-        process.env.IMAGE_LOCAL_DIRECTORY ?? ".data/uploads",
+      directory: path.join(
+        /* turbopackIgnore: true */ process.cwd(),
+        ".data",
+        "uploads",
       ),
     };
   }
@@ -112,10 +113,28 @@ export async function storeProductImage(
   const keys = getVariantKeys();
 
   if (config.driver === "local") {
-    await mkdir(path.join(config.directory, "products"), { recursive: true });
+    await mkdir(
+      path.join(
+        /* turbopackIgnore: true */ config.directory,
+        "products",
+      ),
+      { recursive: true },
+    );
     await Promise.all([
-      writeFile(path.join(config.directory, keys.desktop), image.desktop),
-      writeFile(path.join(config.directory, keys.mobile), image.mobile),
+      writeFile(
+        path.join(
+          /* turbopackIgnore: true */ config.directory,
+          keys.desktop,
+        ),
+        image.desktop,
+      ),
+      writeFile(
+        path.join(
+          /* turbopackIgnore: true */ config.directory,
+          keys.mobile,
+        ),
+        image.mobile,
+      ),
     ]);
 
     return {
@@ -184,7 +203,10 @@ export async function deleteManagedProductImage(url: string) {
   if (config.driver === "local") {
     await Promise.all(
       keys.map((key) =>
-        rm(path.join(config.directory, key), { force: true }),
+        rm(
+          path.join(/* turbopackIgnore: true */ config.directory, key),
+          { force: true },
+        ),
       ),
     );
     return;
@@ -217,5 +239,8 @@ export function getLocalImagePath(pathSegments: string[]) {
     return null;
   }
 
-  return path.join(config.directory, ...pathSegments);
+  return path.join(
+    /* turbopackIgnore: true */ config.directory,
+    ...pathSegments,
+  );
 }

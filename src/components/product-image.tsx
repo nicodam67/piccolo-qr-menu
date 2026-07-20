@@ -38,7 +38,6 @@ export function ProductImage({
           type="image/webp"
         />
         {/* Managed variants are already optimized and may live on any configured CDN. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} className={imageClassName} loading="lazy" />
       </picture>
     );

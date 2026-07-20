@@ -569,6 +569,15 @@ test("administrator manages products with existing schema fields", async ({
   expect(createdImage?.image_url).toMatch(
     /^\/uploads\/products\/.+\.desktop\.webp$/,
   );
+  const createdDesktopResponse = await page.request.get(
+    createdImage?.image_url ?? "",
+  );
+  const createdMobileResponse = await page.request.get(
+    createdImage?.image_url.replace(/\.desktop\.webp$/, ".mobile.webp") ?? "",
+  );
+  expect(createdDesktopResponse.ok()).toBe(true);
+  expect(createdMobileResponse.ok()).toBe(true);
+  expect(createdDesktopResponse.headers()["content-type"]).toBe("image/webp");
 
   await page.getByRole("button", { name: "Editar Producto E2E" }).click();
   const replacementImage = await sharp({
@@ -621,6 +630,13 @@ test("administrator manages products with existing schema fields", async ({
     /^\/uploads\/products\/.+\.desktop\.webp$/,
   );
   expect(replacementStoredImage?.image_url).not.toBe(createdImage?.image_url);
+  await expect
+    .poll(async () =>
+      createdImage?.image_url
+        ? (await page.request.get(createdImage.image_url)).status()
+        : 404,
+    )
+    .toBe(404);
 
   await testProductRow
     .getByRole("button", { name: "Editar Producto E2E actualizado" })
@@ -652,6 +668,13 @@ test("administrator manages products with existing schema fields", async ({
     `;
   });
   expect(imageAfterSave?.image_url).toBe("");
+  await expect
+    .poll(async () =>
+      replacementStoredImage?.image_url
+        ? (await page.request.get(replacementStoredImage.image_url)).status()
+        : 404,
+    )
+    .toBe(404);
 
   await testProductRow
     .getByRole("button", { name: "Mostrar Producto E2E actualizado" })

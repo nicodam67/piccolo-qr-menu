@@ -24,6 +24,16 @@ export type OptimizedProductImage = {
   height: number;
 };
 
+async function readImageMetadata(input: Buffer) {
+  try {
+    return await sharp(input, sharpInputOptions).metadata();
+  } catch {
+    throw new ImageValidationError(
+      "No se ha podido leer la imagen. Comprueba el archivo.",
+    );
+  }
+}
+
 export async function optimizeProductImage(
   input: Buffer,
 ): Promise<OptimizedProductImage> {
@@ -37,15 +47,7 @@ export async function optimizeProductImage(
     );
   }
 
-  let metadata: sharp.Metadata;
-
-  try {
-    metadata = await sharp(input, sharpInputOptions).metadata();
-  } catch {
-    throw new ImageValidationError(
-      "No se ha podido leer la imagen. Comprueba el archivo.",
-    );
-  }
+  const metadata = await readImageMetadata(input);
 
   if (!metadata.format || !acceptedSharpFormats.has(metadata.format)) {
     throw new ImageValidationError(

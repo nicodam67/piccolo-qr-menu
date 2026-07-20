@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { LoaderCircle, X } from "lucide-react";
 
 import {
@@ -73,7 +73,7 @@ export function ProductFormDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const uploadCommittedRef = useRef(false);
+  const [uploadCommitState] = useState(() => ({ committed: false }));
 
   const getMaxOrder = (nextCategoryId: string) => {
     const category = categories.find(({ id }) => id === nextCategoryId);
@@ -134,7 +134,7 @@ export function ProductFormDialog({
         return;
       }
 
-      uploadCommittedRef.current = true;
+      uploadCommitState.committed = true;
       onSaved();
     });
   };
@@ -327,7 +327,7 @@ export function ProductFormDialog({
               value={imageUrl}
               initialValue={product?.imageUrl ?? ""}
               onChange={setImageUrl}
-              commitRef={uploadCommittedRef}
+              commitState={uploadCommitState}
               disabled={isPending}
             />
           </div>
