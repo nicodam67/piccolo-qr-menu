@@ -84,7 +84,9 @@ a {
   }
 
   [data-qr-print-poster],
-  [data-qr-print-poster] * {
+  [data-qr-print-poster] *,
+  [data-print-menu],
+  [data-print-menu] * {
     visibility: visible !important;
   }
 
@@ -126,5 +128,26 @@ a {
     overflow-wrap: anywhere;
     font-size: 8pt;
     color: #444;
+  }
+
+  [data-print-menu] {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  [data-print-menu] section,
+  [data-print-menu] li {
+    break-inside: avoid;
+  }
+
+  [data-print-menu] h2 {
+    break-after: avoid;
   }
 }

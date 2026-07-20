@@ -90,6 +90,7 @@ export type DemoMenu = {
     heroImageAlt: string;
   };
   locale: string;
+  currencyCode: string;
   timeZone: string;
   categories: DemoCategory[];
   products: DemoProduct[];

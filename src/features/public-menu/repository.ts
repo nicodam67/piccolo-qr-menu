@@ -281,6 +281,7 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         phone: restaurantSettings.phone,
         address: restaurantSettings.address,
         timezone: restaurantSettings.timezone,
+        currencyCode: restaurantSettings.currencyCode,
         heroImageUrl: restaurantSettings.heroImageUrl,
         menuDisplaySettings: restaurantSettings.menuDisplaySettings,
         name: restaurantTranslations.name,
@@ -388,6 +389,7 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
           "Interior de restaurante usado únicamente como imagen de demostración",
       },
       locale,
+      currencyCode: restaurant.currencyCode,
       timeZone: restaurant.timezone,
       categories: categoryRows.map((category) => ({
         id: category.id,

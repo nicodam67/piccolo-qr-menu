@@ -175,7 +175,19 @@ autorización para una columna JSONB `qr_settings` o una tabla de presets. La ru
 anterior `/admin/qr` redirige por compatibilidad. Comprueba siempre el código
 con un teléfono antes de imprimir muchas copias.
 
-No contiene exportación de carta/PDF, variantes, extras, combos, pedidos ni
+## Carta imprimible
+
+`/admin/print-menu` genera una carta A4 desde los mismos datos públicos
+traducidos de PostgreSQL. Permite orientación, una/dos columnas, tamaño,
+densidad y visibilidad temporal de descripciones, taxonomías, media ración,
+agotados, contacto, eslogan y QR. El diálogo del navegador permite imprimir o
+guardar como PDF; no se genera ningún archivo en el servidor.
+
+Las preferencias no se persisten porque son distintas de
+`menu_display_settings`. Las alternativas futuras son una columna JSONB
+`print_menu_settings` o una tabla de plantillas imprimibles.
+
+No contiene PDF generado en servidor, variantes, extras, combos, pedidos ni
 integración con Piccolo TPV.
 
 ## Idiomas y publicación

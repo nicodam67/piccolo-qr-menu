@@ -851,7 +851,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
     .getByRole("button", { name: "Abrir menú de administración" })
     .click();
   await expect(page.getByRole("navigation")).toBeVisible();
-  await expect(page.getByText("Disponible próximamente")).toHaveCount(1);
+  await expect(page.getByText("Disponible próximamente")).toHaveCount(0);
 
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -1281,6 +1281,88 @@ test("administrator activates translates and publishes Catalan", async ({
   await expect(page.getByTestId("qr-preview-card")).toContainText(
     "Escaneja per veure la nostra carta",
   );
+});
+
+test("administrator previews and prints the real menu without persistence", async ({
+  page,
+}) => {
+  const [before] = await withDatabase(async (sql) => {
+    return sql<Array<{ fingerprint: string }>>`
+      select md5(coalesce(menu_display_settings::text, 'null') || updated_at::text) as fingerprint
+      from restaurant_settings limit 1
+    `;
+  });
+  await loginAsAdmin(page);
+  await page.goto("/admin/print-menu");
+
+  await expect(
+    page.getByRole("heading", { name: "Carta imprimible", level: 1 }),
+  ).toBeVisible();
+  const printable = page.locator("[data-print-menu]");
+  await expect(printable).toContainText("Piccolo La Ràpita");
+  await expect(printable).toContainText("Antipasti");
+  await expect(printable).toContainText("Burrata de muestra");
+  await expect(printable).toContainText("12,50");
+
+  await page.getByLabel("Columnas").selectOption("1");
+  await expect(printable.locator("[data-print-columns]")).toHaveAttribute(
+    "data-print-columns",
+    "1",
+  );
+  await page.getByLabel("Orientación").selectOption("landscape");
+  await expect(printable).toHaveAttribute("data-orientation", "landscape");
+  await page.getByLabel("Mostrar descripciones").uncheck();
+  await expect(printable).not.toContainText(
+    "Composición visual de tomate, burrata y albahaca.",
+  );
+  await page.getByLabel("Mostrar alérgenos").uncheck();
+  await page.getByLabel("Mostrar etiquetas").uncheck();
+  await page.getByLabel("Mostrar agotados").uncheck();
+  await expect(printable).not.toContainText("Focaccia de muestra");
+  await page.getByLabel("Mostrar QR").uncheck();
+  await expect(printable.getByRole("img", { name: /QR/ })).toHaveCount(0);
+
+  await page.getByLabel("Idioma").selectOption("ca");
+  await expect(page).toHaveURL(/\/admin\/print-menu\?locale=ca$/);
+  await expect(page.locator("[data-print-menu]")).toContainText(
+    "Piccolo La Ràpita CA",
+  );
+  await expect(page.locator("[data-print-menu]")).toContainText("Producte CA 1");
+
+  await page.evaluate(() => {
+    window.print = () => sessionStorage.setItem("print-menu-called", "true");
+  });
+  await page.getByRole("button", { name: /Imprimir|PDF/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem("print-menu-called")))
+    .toBe("true");
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator("[data-print-menu]")).toHaveCSS(
+    "visibility",
+    "visible",
+  );
+  await expect(page.locator("#admin-sidebar")).toHaveCSS(
+    "visibility",
+    "hidden",
+  );
+  await page.emulateMedia({ media: "screen" });
+
+  await page.reload();
+  await expect(page.getByLabel("Columnas")).toHaveValue("2");
+  await expect(page.getByLabel("Orientación")).toHaveValue("portrait");
+  const dimensions = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
+
+  const [after] = await withDatabase(async (sql) => {
+    return sql<Array<{ fingerprint: string }>>`
+      select md5(coalesce(menu_display_settings::text, 'null') || updated_at::text) as fingerprint
+      from restaurant_settings limit 1
+    `;
+  });
+  expect(after?.fingerprint).toBe(before?.fingerprint);
 });
 
 test("administrator manages special hours with public priority", async ({
@@ -2250,6 +2332,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
   await page.goto("/admin/special-hours");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fspecial-hours$/);
+  await page.goto("/admin/print-menu");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fprint-menu$/);
 });
 
 test("incorrect admin credentials show a clear error", async ({ page }) => {

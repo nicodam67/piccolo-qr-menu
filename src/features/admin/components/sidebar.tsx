@@ -86,7 +86,12 @@ const navigationItems: NavigationItem[] = [
     available: true,
     href: "/admin/qr-code",
   },
-  { label: "Exportar", icon: Download, available: false },
+  {
+    label: "Carta imprimible",
+    icon: Download,
+    available: true,
+    href: "/admin/print-menu",
+  },
   {
     label: "Carta pública",
     icon: Settings,
