@@ -261,3 +261,20 @@ Los motivos son texto plano opcional. No existen festivos automáticos,
 recurrencias ni calendarios externos. JSON-LD conserva el horario semanal:
 Schema.org no permite representar de forma inequívoca todas las excepciones
 fechadas sin convertirlas en reglas recurrentes falsas.
+
+## Reservas online
+
+`/[locale]/reservas` permite solicitar una reserva únicamente cuando el módulo
+está activado y correctamente configurado en
+`/admin/reservation-settings`. La disponibilidad combina horario semanal,
+excepciones, antelación, duración, capacidad y ocupación real. La inserción
+vuelve a comprobar la franja dentro de una transacción y utiliza idempotencia.
+
+`/admin/reservations` permite filtrar, crear reservas manuales, editar datos y
+aplicar transiciones de estado sin eliminar el historial. No incluye mesas,
+pagos, depósitos, lista de espera ni comunicaciones automáticas.
+
+Las reservas contienen datos personales. Antes de producción es obligatorio
+definir y publicar una política real de privacidad, plazos de conservación,
+base jurídica y procedimiento de atención de derechos. No deben copiarse datos
+personales a logs, URLs ni sistemas externos no autorizados.

@@ -56,6 +56,9 @@ export default async function AdminPage() {
           languageCount={summary.languageCount}
           allergenCount={summary.allergenCount}
           tagCount={summary.tagCount}
+          todayReservationCount={summary.todayReservationCount}
+          todayGuestCount={summary.todayGuestCount}
+          todayPendingCount={summary.todayPendingCount}
         />
 
         <section

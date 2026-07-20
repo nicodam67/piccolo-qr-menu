@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarClock,
+  CalendarCheck,
   Download,
   Languages,
   LayoutDashboard,
@@ -10,6 +11,7 @@ import {
   Palette,
   QrCode,
   Settings,
+  SlidersHorizontal,
   ShieldAlert,
   Tags,
   UtensilsCrossed,
@@ -73,6 +75,18 @@ const navigationItems: NavigationItem[] = [
     icon: CalendarClock,
     available: true,
     href: "/admin/special-hours",
+  },
+  {
+    label: "Reservas",
+    icon: CalendarCheck,
+    available: true,
+    href: "/admin/reservations",
+  },
+  {
+    label: "Configuración de reservas",
+    icon: SlidersHorizontal,
+    available: true,
+    href: "/admin/reservation-settings",
   },
   {
     label: "Idiomas",

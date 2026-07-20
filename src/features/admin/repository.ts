@@ -7,6 +7,7 @@ import {
   allergens,
   categories,
   products,
+  reservations,
   restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
@@ -23,6 +24,9 @@ export type AdminDashboardSummary = {
   languageCount: number;
   allergenCount: number;
   tagCount: number;
+  todayReservationCount: number;
+  todayGuestCount: number;
+  todayPendingCount: number;
 };
 
 export class AdminDashboardRepositoryError extends Error {
@@ -45,6 +49,24 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
         languageCount: sql<number>`(select count(*)::integer from ${restaurantLocales} where ${restaurantLocales.isEnabled} = true)`,
         allergenCount: sql<number>`(select count(*)::integer from ${allergens})`,
         tagCount: sql<number>`(select count(*)::integer from ${tags})`,
+        todayReservationCount: sql<number>`(
+          select count(*)::integer from ${reservations}
+          where ${reservations.restaurantId} = ${restaurantSettings.id}
+            and ${reservations.reservationDate} = (current_timestamp at time zone ${restaurantSettings.timezone})::date
+            and ${reservations.status} <> 'cancelled'
+        )`,
+        todayGuestCount: sql<number>`(
+          select coalesce(sum(${reservations.partySize}), 0)::integer from ${reservations}
+          where ${reservations.restaurantId} = ${restaurantSettings.id}
+            and ${reservations.reservationDate} = (current_timestamp at time zone ${restaurantSettings.timezone})::date
+            and ${reservations.status} not in ('cancelled', 'no_show')
+        )`,
+        todayPendingCount: sql<number>`(
+          select count(*)::integer from ${reservations}
+          where ${reservations.restaurantId} = ${restaurantSettings.id}
+            and ${reservations.reservationDate} = (current_timestamp at time zone ${restaurantSettings.timezone})::date
+            and ${reservations.status} = 'pending'
+        )`,
       })
       .from(restaurantSettings)
       .innerJoin(

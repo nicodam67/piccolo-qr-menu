@@ -1,10 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Languages,
+  CalendarCheck,
+  Clock3,
   Leaf,
   ShieldAlert,
   Tags,
   UtensilsCrossed,
+  Users,
 } from "lucide-react";
 
 import type { AdminDashboardSummary } from "../repository";
@@ -17,6 +20,9 @@ type DashboardCardsProps = Pick<
   | "languageCount"
   | "allergenCount"
   | "tagCount"
+  | "todayReservationCount"
+  | "todayGuestCount"
+  | "todayPendingCount"
 >;
 
 type Metric = {
@@ -34,8 +40,32 @@ export function DashboardCards({
   languageCount,
   allergenCount,
   tagCount,
+  todayReservationCount,
+  todayGuestCount,
+  todayPendingCount,
 }: DashboardCardsProps) {
   const metrics: Metric[] = [
+    {
+      id: "today-reservations",
+      label: "Reservas de hoy",
+      value: todayReservationCount,
+      icon: CalendarCheck,
+      tone: "bg-violet-50 text-violet-700",
+    },
+    {
+      id: "today-guests",
+      label: "Comensales previstos",
+      value: todayGuestCount,
+      icon: Users,
+      tone: "bg-cyan-50 text-cyan-700",
+    },
+    {
+      id: "today-pending",
+      label: "Reservas pendientes",
+      value: todayPendingCount,
+      icon: Clock3,
+      tone: "bg-yellow-50 text-yellow-700",
+    },
     {
       id: "categories",
       label: "Categorías principales activas",

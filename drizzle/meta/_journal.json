@@ -64,6 +64,13 @@
       "when": 1784585405052,
       "tag": "0008_sour_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784586900065,
+      "tag": "0009_awesome_warpath",
+      "breakpoints": true
     }
   ]
 }

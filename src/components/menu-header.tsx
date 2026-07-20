@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { MapPin, Phone } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, MapPin, Phone } from "lucide-react";
 
 import type {
   DemoMenu,
@@ -7,6 +8,7 @@ import type {
 } from "@/features/public-menu/types";
 import type { PublishedLocale } from "@/features/locales/repository";
 import { getPublicMenuCopy } from "@/features/public-menu/copy";
+import { getReservationCopy } from "@/features/reservations/copy";
 import {
   formatOpeningStatus,
   getScheduleCopy,
@@ -30,6 +32,7 @@ export function MenuHeader({
   const { restaurant } = menu;
   const copy = getPublicMenuCopy(menu.locale);
   const scheduleCopy = getScheduleCopy(menu.locale);
+  const reservationCopy = getReservationCopy(menu.locale);
   const formattedStatus = formatOpeningStatus(
     openingStatus,
     scheduleCopy,
@@ -98,16 +101,29 @@ export function MenuHeader({
             </div>
           </div>
 
-          {restaurant.phoneDisplay ? (
-            <a
-              href={restaurant.phoneHref}
-              aria-label={`${scheduleCopy.call}: ${restaurant.phoneDisplay}`}
-              className="flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-[#173f35] px-4 text-xs font-bold text-white transition-colors hover:bg-[#245849] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
-            >
-              <Phone aria-hidden="true" className="size-4" />
-              {scheduleCopy.call}
-            </a>
-          ) : null}
+          <div className="flex shrink-0 gap-2">
+            {menu.reservationsEnabled ? (
+              <Link
+                href={`/${menu.locale}/reservas`}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#a8392f] px-4 text-xs font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a8392f]"
+              >
+                <CalendarCheck aria-hidden="true" className="size-4" />
+                {reservationCopy.reserve}
+              </Link>
+            ) : null}
+            {restaurant.phoneDisplay ? (
+              <a
+                href={restaurant.phoneHref}
+                aria-label={`${scheduleCopy.call}: ${restaurant.phoneDisplay}`}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#173f35] px-4 text-xs font-bold text-white transition-colors hover:bg-[#245849] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
+              >
+                <Phone aria-hidden="true" className="size-4" />
+                <span className={menu.reservationsEnabled ? "sr-only sm:not-sr-only" : ""}>
+                  {scheduleCopy.call}
+                </span>
+              </a>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-3 grid border-y border-stone-200 sm:grid-cols-2">

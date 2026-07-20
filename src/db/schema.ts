@@ -235,6 +235,124 @@ export const specialOpeningHours = pgTable(
   ],
 );
 
+export const reservationSettings = pgTable(
+  "reservation_settings",
+  {
+    restaurantId: uuid("restaurant_id")
+      .primaryKey()
+      .references(() => restaurantSettings.id, { onDelete: "cascade" }),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    durationMinutes: integer("duration_minutes").default(90).notNull(),
+    slotIntervalMinutes: integer("slot_interval_minutes").default(30).notNull(),
+    minimumAdvanceMinutes: integer("minimum_advance_minutes")
+      .default(120)
+      .notNull(),
+    maximumAdvanceDays: integer("maximum_advance_days").default(30).notNull(),
+    maximumPartySize: integer("maximum_party_size").default(8).notNull(),
+    slotCapacity: integer("slot_capacity").default(20).notNull(),
+    largeGroupPhone: varchar("large_group_phone", { length: 40 }),
+    customerMessage: text("customer_message").default("").notNull(),
+    policyText: text("policy_text").default("").notNull(),
+    initialStatus: varchar("initial_status", { length: 20 })
+      .default("pending")
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      "reservation_settings_duration_check",
+      sql`${table.durationMinutes} between 15 and 480`,
+    ),
+    check(
+      "reservation_settings_interval_check",
+      sql`${table.slotIntervalMinutes} in (15, 30, 60)`,
+    ),
+    check(
+      "reservation_settings_minimum_advance_check",
+      sql`${table.minimumAdvanceMinutes} between 0 and 43200`,
+    ),
+    check(
+      "reservation_settings_maximum_advance_check",
+      sql`${table.maximumAdvanceDays} between 1 and 365`,
+    ),
+    check(
+      "reservation_settings_party_size_check",
+      sql`${table.maximumPartySize} between 1 and 100`,
+    ),
+    check(
+      "reservation_settings_capacity_check",
+      sql`${table.slotCapacity} between 1 and 1000`,
+    ),
+    check(
+      "reservation_settings_initial_status_check",
+      sql`${table.initialStatus} in ('pending', 'confirmed')`,
+    ),
+  ],
+);
+
+export const reservations = pgTable(
+  "reservations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    locator: varchar("locator", { length: 12 }).notNull(),
+    reservationDate: date("reservation_date").notNull(),
+    reservationTime: time("reservation_time").notNull(),
+    partySize: smallint("party_size").notNull(),
+    guestName: varchar("guest_name", { length: 160 }).notNull(),
+    guestPhone: varchar("guest_phone", { length: 40 }).notNull(),
+    guestEmail: varchar("guest_email", { length: 254 }),
+    customerNotes: varchar("customer_notes", { length: 1000 }),
+    internalNotes: varchar("internal_notes", { length: 1000 }),
+    status: varchar("status", { length: 20 }).notNull(),
+    origin: varchar("origin", { length: 20 }).notNull(),
+    locale: varchar("locale", { length: 10 }).notNull(),
+    idempotencyKey: varchar("idempotency_key", { length: 64 }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("reservations_locator_uidx").on(table.locator),
+    uniqueIndex("reservations_idempotency_uidx").on(
+      table.restaurantId,
+      table.idempotencyKey,
+    ),
+    index("reservations_restaurant_date_idx").on(
+      table.restaurantId,
+      table.reservationDate,
+    ),
+    index("reservations_restaurant_date_time_idx").on(
+      table.restaurantId,
+      table.reservationDate,
+      table.reservationTime,
+    ),
+    index("reservations_restaurant_status_date_idx").on(
+      table.restaurantId,
+      table.status,
+      table.reservationDate,
+    ),
+    index("reservations_restaurant_guest_name_idx").on(
+      table.restaurantId,
+      table.guestName,
+    ),
+    index("reservations_restaurant_phone_idx").on(
+      table.restaurantId,
+      table.guestPhone,
+    ),
+    check("reservations_party_size_check", sql`${table.partySize} > 0`),
+    check(
+      "reservations_status_check",
+      sql`${table.status} in ('pending', 'confirmed', 'seated', 'completed', 'cancelled', 'no_show')`,
+    ),
+    check(
+      "reservations_origin_check",
+      sql`${table.origin} in ('online', 'manual')`,
+    ),
+    check("reservations_locale_lowercase_check", sql`${table.locale} = lower(${table.locale})`),
+  ],
+);
+
 export const categories = pgTable(
   "categories",
   {

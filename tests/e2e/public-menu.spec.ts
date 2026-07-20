@@ -348,6 +348,77 @@ async function cleanupE2ESpecialHours() {
   });
 }
 
+type ReservationSettingsBackup = {
+  restaurant_id: string;
+  is_enabled: boolean;
+  duration_minutes: number;
+  slot_interval_minutes: number;
+  minimum_advance_minutes: number;
+  maximum_advance_days: number;
+  maximum_party_size: number;
+  slot_capacity: number;
+  large_group_phone: string | null;
+  customer_message: string;
+  policy_text: string;
+  initial_status: string;
+};
+let reservationSettingsBackup: ReservationSettingsBackup | null = null;
+let reservationSettingsCaptured = false;
+
+async function captureReservationSettingsBackup() {
+  const [row] = await withDatabase((sql) =>
+    sql<Array<ReservationSettingsBackup>>`
+      select * from reservation_settings limit 1
+    `,
+  );
+  reservationSettingsBackup = row ?? null;
+  reservationSettingsCaptured = true;
+}
+
+async function cleanupE2EReservations() {
+  await withDatabase((sql) => sql`
+    delete from reservations where guest_name like '%E2E%'
+  `);
+}
+
+async function restoreReservationSettingsBackup() {
+  if (!reservationSettingsCaptured) return;
+  await withDatabase(async (sql) => {
+    if (!reservationSettingsBackup) {
+      await sql`delete from reservation_settings`;
+      return;
+    }
+    const value = reservationSettingsBackup;
+    await sql`
+      insert into reservation_settings (
+        restaurant_id, is_enabled, duration_minutes, slot_interval_minutes,
+        minimum_advance_minutes, maximum_advance_days, maximum_party_size,
+        slot_capacity, large_group_phone, customer_message, policy_text,
+        initial_status
+      ) values (
+        ${value.restaurant_id}, ${value.is_enabled}, ${value.duration_minutes},
+        ${value.slot_interval_minutes}, ${value.minimum_advance_minutes},
+        ${value.maximum_advance_days}, ${value.maximum_party_size},
+        ${value.slot_capacity}, ${value.large_group_phone},
+        ${value.customer_message}, ${value.policy_text}, ${value.initial_status}
+      )
+      on conflict (restaurant_id) do update set
+        is_enabled = excluded.is_enabled,
+        duration_minutes = excluded.duration_minutes,
+        slot_interval_minutes = excluded.slot_interval_minutes,
+        minimum_advance_minutes = excluded.minimum_advance_minutes,
+        maximum_advance_days = excluded.maximum_advance_days,
+        maximum_party_size = excluded.maximum_party_size,
+        slot_capacity = excluded.slot_capacity,
+        large_group_phone = excluded.large_group_phone,
+        customer_message = excluded.customer_message,
+        policy_text = excluded.policy_text,
+        initial_status = excluded.initial_status,
+        updated_at = now()
+    `;
+  });
+}
+
 async function loginAsAdmin(page: Page) {
   const { email, password } = getAdminCredentials();
 
@@ -851,6 +922,9 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   await expect(page.getByTestId("admin-metric-languages")).toContainText("1");
   await expect(page.getByTestId("admin-metric-allergens")).toContainText("3");
   await expect(page.getByTestId("admin-metric-tags")).toContainText("5");
+  await expect(page.getByTestId("admin-metric-today-reservations")).toContainText("0");
+  await expect(page.getByTestId("admin-metric-today-guests")).toContainText("0");
+  await expect(page.getByTestId("admin-metric-today-pending")).toContainText("0");
   await expect(page.getByText("Sin actividad reciente")).toBeVisible();
 
   await page
@@ -2565,6 +2639,125 @@ test("menu settings normalize defaults and control the public menu", async ({
   ).toBeVisible();
 });
 
+test("customers create reservations and administrators manage them", async ({
+  page,
+}) => {
+  await captureReservationSettingsBackup();
+  await cleanupE2EReservations();
+  const [bookable] = await withDatabase((sql) => sql<Array<{ date: string }>>`
+    with restaurant_today as (
+      select id, (current_timestamp at time zone timezone)::date as today
+      from restaurant_settings limit 1
+    )
+    select to_char(day::date, 'YYYY-MM-DD') as date
+    from restaurant_today,
+      generate_series(today + 1, today + 30, interval '1 day') day
+    inner join opening_hours
+      on opening_hours.restaurant_id = restaurant_today.id
+      and opening_hours.day_of_week = extract(isodow from day)::integer
+      and opening_hours.is_closed = false
+    where not exists (
+      select 1 from special_opening_hours
+      where special_opening_hours.restaurant_id = restaurant_today.id
+        and special_opening_hours.date = day::date
+        and special_opening_hours.is_closed = true
+    )
+    order by day limit 1
+  `);
+  if (!bookable) throw new Error("No existe una fecha reservable E2E.");
+
+  await loginAsAdmin(page);
+  await page.goto("/admin/reservation-settings");
+  await page.getByLabel("Activar reservas online").check();
+  await page.getByLabel("Duración estimada (minutos)").fill("60");
+  await page.getByLabel("Intervalo entre horas").selectOption("60");
+  await page.getByLabel("Antelación mínima (minutos)").fill("0");
+  await page.getByLabel("Máximo de personas online").fill("6");
+  await page.getByLabel("Capacidad por franja").fill("2");
+  await page.getByLabel("Mensaje informativo").fill("Reserva online E2E");
+  await page
+    .getByLabel("Política y condiciones")
+    .fill("Política de privacidad E2E.");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(
+    page.getByText("Configuración guardada correctamente."),
+  ).toBeVisible();
+
+  await page.goto("/es");
+  await expect(page.getByRole("link", { name: /Llamar/ })).toBeVisible();
+  await page.getByRole("link", { name: "Reservar", exact: true }).click();
+  await expect(page).toHaveURL(/\/es\/reservas$/);
+  await page.getByLabel("Fecha").fill(bookable.date);
+  await page.getByLabel("Personas").fill("2");
+  const firstTime = page.locator('input[name="time"]').first();
+  await expect(firstTime).toBeAttached();
+  const selectedTime = await firstTime.inputValue();
+  await firstTime.check();
+  await page.getByLabel("Nombre").fill("Cliente Reserva E2E");
+  await page.getByLabel("Teléfono").fill("+34 600 123 456");
+  await page.getByLabel(/Correo electrónico/).fill("reserva-e2e@example.com");
+  await page.getByLabel(/Observaciones/).fill("Observación pública E2E");
+  await page.getByLabel(/Acepto la política/).check();
+  await page.getByRole("button", { name: "Solicitar reserva" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Reserva enviada correctamente" }),
+  ).toBeVisible();
+  const locator = (
+    await page.getByTestId("reservation-locator").textContent()
+  )?.trim();
+  expect(locator).toMatch(/^[23456789A-Z]{10}$/);
+
+  await page.goto(`/es/reservas`);
+  await page.getByLabel("Fecha").fill(bookable.date);
+  await page.getByLabel("Personas").fill("2");
+  await expect(
+    page.locator(`input[name="time"][value="${selectedTime}"]`),
+  ).toHaveCount(0);
+
+  await page.goto(`/admin/reservations?date=${bookable.date}`);
+  const reservationCard = page.getByTestId(`reservation-${locator}`);
+  await expect(reservationCard).toContainText("Cliente Reserva E2E");
+  await expect(reservationCard).toContainText("Pendiente");
+  await reservationCard.getByRole("button", { name: "Confirmada" }).click();
+  await expect(reservationCard).toContainText("Confirmada");
+  await page.getByLabel("Buscar").fill(locator ?? "");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect(page.getByTestId(`reservation-${locator}`)).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByTestId(`reservation-${locator}`)
+    .getByRole("button", { name: "Cancelada" })
+    .click();
+  await expect(page.getByTestId(`reservation-${locator}`)).toContainText(
+    "Cancelada",
+  );
+
+  await page.goto(`/admin/reservations?date=${bookable.date}`);
+  await page.getByRole("button", { name: "Reserva manual" }).click();
+  await page.getByLabel("Nombre").fill("Reserva Manual E2E");
+  await page.getByLabel("Teléfono").fill("+34 600 999 999");
+  await page.getByLabel("Hora").fill("10:00");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByRole("alert")).toContainText("fuera de horario");
+  await page
+    .getByLabel("Continuar si está fuera de horario o supera capacidad")
+    .check();
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText("Reserva Manual E2E")).toBeVisible();
+
+  await page.goto("/admin/reservation-settings");
+  await page.getByLabel("Activar reservas online").uncheck();
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await page.goto("/es");
+  await expect(
+    page.getByRole("link", { name: "Reservar", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Llamar/ })).toBeVisible();
+
+  await cleanupE2EReservations();
+  await restoreReservationSettingsBackup();
+});
+
 test("unauthenticated admin access redirects to login", async ({ page }) => {
   await page.goto("/admin");
 
@@ -2588,6 +2781,12 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
   await page.goto("/admin/special-hours");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fspecial-hours$/);
+  await page.goto("/admin/reservations");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Freservations$/);
+  await page.goto("/admin/reservation-settings");
+  await expect(page).toHaveURL(
+    /\/login\?next=%2Fadmin%2Freservation-settings$/,
+  );
   await page.goto("/admin/print-menu");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fprint-menu$/);
 });
@@ -2794,6 +2993,8 @@ test("five failures block login and a later success clears attempts", async ({
 });
 
 test.afterAll(async () => {
+  await cleanupE2EReservations();
+  await restoreReservationSettingsBackup();
   await cleanupE2ESpecialHours();
   await cleanupE2ELanguages();
   await restoreMenuSettingsBackup();

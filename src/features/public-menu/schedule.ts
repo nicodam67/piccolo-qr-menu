@@ -94,6 +94,66 @@ function validPeriods(day: { periods: OpeningPeriod[] } | undefined) {
   );
 }
 
+export type LocalOpeningInterval = {
+  startMinutes: number;
+  endMinutes: number;
+};
+
+export function getOpeningIntervalsForDate({
+  date,
+  weeklySchedule,
+  specialSchedule = [],
+}: {
+  date: string;
+  weeklySchedule: OpeningDay[];
+  specialSchedule?: SpecialOpeningDay[];
+}): LocalOpeningInterval[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== date
+  ) {
+    return [];
+  }
+  const dayIndex = (parsed.getUTCDay() + 6) % 7;
+  const previousDate = shiftDate(date, -1);
+  const previousIndex = (dayIndex + 6) % 7;
+  const current = getEffectiveDay(
+    date,
+    dayIndex,
+    weeklySchedule,
+    specialSchedule,
+  );
+  const previous = getEffectiveDay(
+    previousDate,
+    previousIndex,
+    weeklySchedule,
+    specialSchedule,
+  );
+  const intervals = current.periods.flatMap((period) => {
+    const opens = timeToMinutes(period.opensAt);
+    const closes = timeToMinutes(period.closesAt);
+    if (opens === null || closes === null) return [];
+    return [
+      {
+        startMinutes: opens,
+        endMinutes: closes <= opens ? 1_440 : closes,
+      },
+    ];
+  });
+  for (const period of previous.periods) {
+    const opens = timeToMinutes(period.opensAt);
+    const closes = timeToMinutes(period.closesAt);
+    if (opens !== null && closes !== null && closes <= opens && closes > 0) {
+      intervals.push({ startMinutes: 0, endMinutes: closes });
+    }
+  }
+  return intervals.sort(
+    (left, right) => left.startMinutes - right.startMinutes,
+  );
+}
+
 function getClosingMinutes(
   period: OpeningPeriod,
   currentMinutes: number,

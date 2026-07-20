@@ -94,6 +94,7 @@ export type DemoMenu = {
   };
   locale: string;
   currencyCode: string;
+  reservationsEnabled?: boolean;
   timeZone: string;
   categories: DemoCategory[];
   products: DemoProduct[];

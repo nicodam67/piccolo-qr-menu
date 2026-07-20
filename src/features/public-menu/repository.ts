@@ -13,6 +13,7 @@ import {
   productTags,
   productTranslations,
   products,
+  reservationSettings,
   restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
@@ -58,7 +59,7 @@ function getPhoneHref(phone: string) {
   return `tel:${normalizedPhone}`;
 }
 
-function buildOpeningDays(
+export function buildOpeningDays(
   rows: Array<{
     dayOfWeek: number;
     isClosed: boolean;
@@ -107,7 +108,7 @@ function getSpecialDateRange(timeZone: string) {
   return { from: shiftIsoDate(today, -1), to: shiftIsoDate(today, 7) };
 }
 
-function buildSpecialOpeningDays(
+export function buildSpecialOpeningDays(
   rows: Array<{
     exceptionDate: string;
     exceptionType: string;
@@ -291,6 +292,8 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         menuDisplaySettings: restaurantSettings.menuDisplaySettings,
         name: restaurantTranslations.name,
         slogan: restaurantTranslations.slogan,
+        reservationsEnabled: reservationSettings.isEnabled,
+        reservationPolicy: reservationSettings.policyText,
       })
       .from(restaurantSettings)
       .innerJoin(
@@ -308,6 +311,10 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
           eq(restaurantTranslations.restaurantId, restaurantSettings.id),
           eq(restaurantTranslations.locale, locale),
         ),
+      )
+      .leftJoin(
+        reservationSettings,
+        eq(reservationSettings.restaurantId, restaurantSettings.id),
       )
       .limit(1);
 
@@ -401,6 +408,9 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       },
       locale,
       currencyCode: restaurant.currencyCode,
+      reservationsEnabled: Boolean(
+        restaurant.reservationsEnabled && restaurant.reservationPolicy?.trim(),
+      ),
       timeZone: restaurant.timezone,
       categories: categoryRows.map((category) => ({
         id: category.id,
