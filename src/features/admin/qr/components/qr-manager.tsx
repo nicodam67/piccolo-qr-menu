@@ -50,8 +50,6 @@ export function QrManager({
 
   useEffect(() => {
     let cancelled = false;
-    setQrDataUrl(null);
-    setGenerationError(null);
 
     void generateQrPreviewDataUrl(destinationUrl)
       .then((dataUrl) => {
@@ -115,7 +113,11 @@ export function QrManager({
                 <select
                   id="qr-locale"
                   value={locale}
-                  onChange={(event) => setLocale(event.target.value)}
+                  onChange={(event) => {
+                    setQrDataUrl(null);
+                    setGenerationError(null);
+                    setLocale(event.target.value);
+                  }}
                   className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm uppercase outline-none focus:border-[#245849]"
                 >
                   {locales.map((availableLocale) => (

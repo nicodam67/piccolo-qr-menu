@@ -860,8 +860,10 @@ test("administrator generates downloads and print-ready QR", async ({
     "https://menu.piccolo.test/base/es",
   );
   await expect(destination).not.toContainText("//base");
-  await expect(page.getByLabel("Idioma")).toHaveValue("es");
-  await expect(page.getByLabel("Idioma").locator("option")).toHaveCount(1);
+  await expect(page.getByLabel("Idioma", { exact: true })).toHaveValue("es");
+  await expect(
+    page.getByLabel("Idioma", { exact: true }).locator("option"),
+  ).toHaveCount(1);
   await expect(page.getByTestId("qr-preview-card")).toContainText(
     "Piccolo La Ràpita",
   );
@@ -876,14 +878,19 @@ test("administrator generates downloads and print-ready QR", async ({
   await page.getByLabel("2048 px").check({ force: true });
   await expect(page.getByLabel("2048 px")).toBeChecked();
   await page.getByLabel("512 px").check({ force: true });
-  await page.getByLabel("Mostrar nombre del restaurante").uncheck();
+  const restaurantNameToggle = page.getByLabel(
+    "Mostrar nombre del restaurante",
+  );
+  await restaurantNameToggle.focus();
+  await page.keyboard.press("Space");
+  await expect(restaurantNameToggle).not.toBeChecked();
   await page.getByLabel("Mostrar texto de llamada").uncheck();
   const previewCard = page.getByTestId("qr-preview-card");
   await expect(previewCard.getByText("Piccolo La Ràpita")).toHaveCount(0);
   await expect(
     previewCard.getByText("Escanea para ver nuestra carta"),
   ).toHaveCount(0);
-  await page.getByLabel("Mostrar nombre del restaurante").check();
+  await restaurantNameToggle.check();
   await page.getByLabel("Mostrar texto de llamada").check();
 
   const pngDownloadPromise = page.waitForEvent("download");
@@ -937,9 +944,11 @@ test("administrator generates downloads and print-ready QR", async ({
   );
   await page.emulateMedia({ media: "screen" });
 
-  await expect(page.getByRole("status")).toHaveText(
-    "Código QR descargado",
-  );
+  await expect(
+    page.getByRole("status").filter({
+      hasText: "Código QR descargado",
+    }),
+  ).toHaveText("Código QR descargado");
   expect(clientErrors).toEqual([]);
 });
 
