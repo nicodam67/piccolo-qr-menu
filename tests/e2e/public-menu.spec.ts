@@ -336,6 +336,15 @@ async function cleanupE2ELanguages() {
   });
 }
 
+async function cleanupE2ESpecialHours() {
+  await withDatabase(async (sql) => {
+    await sql`
+      delete from special_opening_hours
+      where reason like '%E2E%'
+    `;
+  });
+}
+
 async function loginAsAdmin(page: Page) {
   const { email, password } = getAdminCredentials();
 
@@ -1196,6 +1205,77 @@ test("administrator activates translates and publishes Catalan", async ({
   await expect
     .poll(() => page.getByTestId("qr-preview-image").getAttribute("src"))
     .not.toBe(previousQr);
+});
+
+test("administrator manages special hours with public priority", async ({
+  page,
+}) => {
+  await cleanupE2ESpecialHours();
+  const [dates] = await withDatabase(async (sql) => {
+    return sql<Array<{ today: string; tomorrow: string }>>`
+      select
+        to_char(current_timestamp at time zone timezone, 'YYYY-MM-DD') as today,
+        to_char(
+          current_timestamp at time zone timezone + interval '1 day',
+          'YYYY-MM-DD'
+        ) as tomorrow
+      from restaurant_settings
+      limit 1
+    `;
+  });
+  if (!dates) throw new Error("No se pudo calcular la fecha local.");
+
+  await loginAsAdmin(page);
+  await page.goto("/admin/special-hours");
+  await page.getByRole("button", { name: "Nueva excepción" }).click();
+  await page.getByLabel("Fecha").fill(dates.today);
+  await page.getByLabel("Día cerrado").check();
+  await page.getByLabel("Motivo opcional").fill("Vacaciones E2E");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText(dates.today, { exact: true })).toBeVisible();
+
+  await page.goto("/es");
+  await expect(page.getByText("Cerrado por Vacaciones E2E")).toBeVisible();
+  await page.getByRole("button", { name: "Horario" }).click();
+  await expect(page.getByRole("dialog", { name: "Horario" })).toContainText(
+    "Vacaciones E2E",
+  );
+  await page.keyboard.press("Escape");
+
+  await page.goto("/ca");
+  await expect(page.getByText("Tancat per Vacaciones E2E")).toBeVisible();
+
+  await page.goto("/admin/special-hours");
+  await page.getByRole("button", { name: `Editar ${dates.today}` }).click();
+  await page.getByLabel("Día cerrado").uncheck();
+  await page.getByLabel("Motivo opcional").fill("Horario especial E2E");
+  await page.getByLabel("Apertura 1").fill("00:01");
+  await page.getByLabel("Cierre 1").fill("12:00");
+  await page.getByLabel("Apertura 2").fill("12:30");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(
+    page.getByText(
+      "El segundo turno debe estar completo o completamente vacío.",
+    ),
+  ).toBeVisible();
+  await page.getByLabel("Cierre 2").fill("23:59");
+  await page.getByRole("button", { name: "Guardar" }).click();
+
+  await page.goto("/es");
+  await expect(page.getByText(/Hoy tenemos horario especial/)).toBeVisible();
+  await page.getByRole("button", { name: "Horario" }).click();
+  const specialDialog = page.getByRole("dialog", { name: "Horario" });
+  await expect(specialDialog).toContainText("Primer turno: 00:01–12:00");
+  await expect(specialDialog).toContainText("Segundo turno: 12:30–23:59");
+  await page.keyboard.press("Escape");
+
+  await page.goto("/admin/special-hours");
+  await page.getByRole("button", { name: `Eliminar ${dates.today}` }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
+  await expect(page.getByText(dates.today, { exact: true })).toHaveCount(0);
 });
 
 test("administrator manages categories without changing the schema", async ({
@@ -2077,6 +2157,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr$/);
   await page.goto("/admin/languages");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
+  await page.goto("/admin/special-hours");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fspecial-hours$/);
 });
 
 test("incorrect admin credentials show a clear error", async ({ page }) => {
@@ -2281,6 +2363,7 @@ test("five failures block login and a later success clears attempts", async ({
 });
 
 test.afterAll(async () => {
+  await cleanupE2ESpecialHours();
   await cleanupE2ELanguages();
   await restoreMenuSettingsBackup();
   await restoreBrandingBackup();

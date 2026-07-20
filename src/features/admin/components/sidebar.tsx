@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  CalendarClock,
   Download,
   Languages,
   LayoutDashboard,
@@ -66,6 +67,12 @@ const navigationItems: NavigationItem[] = [
     icon: Palette,
     available: true,
     href: "/admin/branding",
+  },
+  {
+    label: "Horarios especiales",
+    icon: CalendarClock,
+    available: true,
+    href: "/admin/special-hours",
   },
   {
     label: "Idiomas",

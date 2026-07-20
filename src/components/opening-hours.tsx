@@ -2,15 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Clock3, X } from "lucide-react";
-import type { OpeningDay, OpeningStatus } from "@/features/public-menu/types";
+import type {
+  OpeningDay,
+  OpeningStatus,
+  SpecialOpeningDay,
+} from "@/features/public-menu/types";
 import {
   formatOpeningStatus,
   getScheduleCopy,
+  getSpecialScheduleCopy,
 } from "@/features/public-menu/schedule-copy";
 
 type OpeningHoursProps = {
   openingHours: OpeningDay[];
   status: OpeningStatus;
+  specialOpeningHours: SpecialOpeningDay[];
   locale: string;
   timeZone: string;
 };
@@ -18,6 +24,7 @@ type OpeningHoursProps = {
 export function OpeningHours({
   openingHours,
   status,
+  specialOpeningHours,
   locale,
   timeZone,
 }: OpeningHoursProps) {
@@ -25,7 +32,11 @@ export function OpeningHours({
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copy = getScheduleCopy(locale);
-  const formattedStatus = formatOpeningStatus(status, copy);
+  const formattedStatus = formatOpeningStatus(
+    status,
+    copy,
+    getSpecialScheduleCopy(locale),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -86,6 +97,11 @@ export function OpeningHours({
                 {formattedStatus.detail ? (
                   <p className="mt-1 text-xs text-stone-500">{formattedStatus.detail}</p>
                 ) : null}
+                {status.reason ? (
+                  <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    {status.reason}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-[10px] text-stone-400">{timeZone}</p>
               </div>
               <button
@@ -101,6 +117,17 @@ export function OpeningHours({
             <dl className="mt-5 divide-y divide-stone-100">
               {openingHours.map((day) => {
                 const isToday = status.currentDay === day.day;
+                const special =
+                  isToday && status.specialDate
+                    ? specialOpeningHours.find(
+                        (item) => item.date === status.specialDate,
+                      )
+                    : undefined;
+                const periods = special
+                  ? special.isClosed
+                    ? []
+                    : special.periods
+                  : day.periods;
                 return (
                   <div
                     key={day.day}
@@ -114,10 +141,10 @@ export function OpeningHours({
                       {isToday ? ` · ${copy.today}` : ""}
                     </dt>
                     <dd className="space-y-1 text-right tabular-nums text-stone-500">
-                      {day.periods.length === 0 ? (
+                      {periods.length === 0 ? (
                         <span>{copy.closed}</span>
                       ) : (
-                        day.periods.map((period, index) => (
+                        periods.map((period, index) => (
                           <span key={`${period.opensAt}-${period.closesAt}`} className="block">
                             {index === 0 ? copy.firstShift : copy.secondShift}:{" "}
                             {period.opensAt}–{period.closesAt}

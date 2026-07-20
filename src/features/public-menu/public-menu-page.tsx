@@ -112,6 +112,7 @@ export function PublicMenuPage({
         getRestaurantOpenStatus({
           now: new Date(),
           weeklySchedule: menu.openingHours,
+          specialSchedule: menu.specialOpeningHours,
           timeZone: menu.timeZone,
         }),
       );

@@ -211,3 +211,15 @@ Consultas aproximadas y constantes:
 - Detalle de producto: 5 consultas agrupadas.
 
 No se implementa traducción automática ni se envían textos a servicios externos.
+
+## Horarios especiales
+
+`/admin/special-hours` gestiona cierres y aperturas excepcionales por fecha. Una
+excepción sustituye completamente a `opening_hours` para ese día y también se
+considera desde el día siguiente cuando un turno cruza medianoche. Se consultan
+solo la fecha anterior, la actual y los siete días siguientes.
+
+Los motivos son texto plano opcional. No existen festivos automáticos,
+recurrencias ni calendarios externos. JSON-LD conserva el horario semanal:
+Schema.org no permite representar de forma inequívoca todas las excepciones
+fechadas sin convertirlas en reglas recurrentes falsas.

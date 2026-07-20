@@ -3,6 +3,7 @@ import type {
   OpeningDay,
   OpeningPeriod,
   OpeningStatus,
+  SpecialOpeningDay,
 } from "./types";
 
 const dayKeys: DayKey[] = [
@@ -37,6 +38,9 @@ function getZonedTime(now: Date, timeZone: string) {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone,
       weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
@@ -50,10 +54,35 @@ function getZonedTime(now: Date, timeZone: string) {
     return {
       dayIndex,
       minutes: Number(values.hour) * 60 + Number(values.minute),
+      localDate: `${values.year}-${values.month}-${values.day}`,
     };
   } catch {
     return null;
   }
+}
+
+function shiftDate(value: string, dayOffset: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+function getEffectiveDay(
+  localDate: string,
+  dayIndex: number,
+  weeklySchedule: OpeningDay[],
+  specialSchedule: SpecialOpeningDay[],
+) {
+  const special = specialSchedule.find((item) => item.date === localDate);
+  const weekly = weeklySchedule.find((item) => item.day === dayKeys[dayIndex]);
+  return {
+    periods: special
+      ? special.isClosed
+        ? []
+        : validPeriods(special)
+      : validPeriods(weekly),
+    special,
+  };
 }
 
 function validPeriods(day: OpeningDay | undefined) {
@@ -83,16 +112,22 @@ export function getRestaurantOpenStatus({
   now,
   timeZone,
   weeklySchedule,
+  specialSchedule = [],
   soonThresholdMinutes = 60,
 }: {
   now: Date;
   timeZone: string;
   weeklySchedule: OpeningDay[];
+  specialSchedule?: SpecialOpeningDay[];
   soonThresholdMinutes?: number;
 }): OpeningStatus {
   const zoned = getZonedTime(now, timeZone);
 
-  if (!zoned || weeklySchedule.every((day) => validPeriods(day).length === 0)) {
+  if (
+    !zoned ||
+    (weeklySchedule.every((day) => validPeriods(day).length === 0) &&
+      specialSchedule.every((day) => validPeriods(day).length === 0))
+  ) {
     return {
       isOpen: false,
       state: "unavailable",
@@ -100,19 +135,26 @@ export function getRestaurantOpenStatus({
     };
   }
 
-  const currentDay = weeklySchedule.find(
-    (day) => day.day === dayKeys[zoned.dayIndex],
+  const currentDay = getEffectiveDay(
+    zoned.localDate,
+    zoned.dayIndex,
+    weeklySchedule,
+    specialSchedule,
   );
   const previousIndex = (zoned.dayIndex + 6) % 7;
-  const previousDay = weeklySchedule.find(
-    (day) => day.day === dayKeys[previousIndex],
+  const previousDate = shiftDate(zoned.localDate, -1);
+  const previousDay = getEffectiveDay(
+    previousDate,
+    previousIndex,
+    weeklySchedule,
+    specialSchedule,
   );
-  const previousOvernight = validPeriods(previousDay).find((period) => {
+  const previousOvernight = previousDay.periods.find((period) => {
     const opens = timeToMinutes(period.opensAt) ?? 0;
     const closes = timeToMinutes(period.closesAt) ?? 0;
     return closes <= opens && zoned.minutes < closes;
   });
-  const currentPeriod = validPeriods(currentDay).find((period) => {
+  const currentPeriod = currentDay.periods.find((period) => {
     const opens = timeToMinutes(period.opensAt) ?? 0;
     const closes = timeToMinutes(period.closesAt) ?? 0;
     return closes <= opens
@@ -133,6 +175,14 @@ export function getRestaurantOpenStatus({
         minutesToClose <= soonThresholdMinutes ? "closingSoon" : "open",
       currentDay: dayKeys[zoned.dayIndex],
       closesAt: openPeriod.closesAt,
+      isSpecial: Boolean(
+        previousOvernight ? previousDay.special : currentDay.special,
+      ),
+      reason: (previousOvernight
+        ? previousDay.special?.reason
+        : currentDay.special?.reason
+      )?.trim(),
+      specialDate: previousOvernight ? previousDate : zoned.localDate,
     };
   }
 
@@ -141,8 +191,14 @@ export function getRestaurantOpenStatus({
 
   for (let dayOffset = 0; dayOffset <= 7; dayOffset += 1) {
     const dayIndex = (zoned.dayIndex + dayOffset) % 7;
-    const day = weeklySchedule.find((item) => item.day === dayKeys[dayIndex]);
-    const candidate = validPeriods(day)
+    const candidateDate = shiftDate(zoned.localDate, dayOffset);
+    const day = getEffectiveDay(
+      candidateDate,
+      dayIndex,
+      weeklySchedule,
+      specialSchedule,
+    );
+    const candidate = day.periods
       .map((period) => ({
         period,
         minutes: timeToMinutes(period.opensAt) ?? 0,
@@ -162,7 +218,14 @@ export function getRestaurantOpenStatus({
     }
   }
 
-  const closedToday = validPeriods(currentDay).length === 0;
+  const closedToday = currentDay.periods.length === 0;
+  const reopensToday =
+    nextOpening?.dayOffset === 0 &&
+    currentDay.periods.some((period) => {
+      const opens = timeToMinutes(period.opensAt) ?? 0;
+      const closes = timeToMinutes(period.closesAt) ?? 0;
+      return closes > opens && closes <= zoned.minutes;
+    });
   return {
     isOpen: false,
     state:
@@ -173,6 +236,10 @@ export function getRestaurantOpenStatus({
           ? "closedToday"
           : "closed",
     currentDay: dayKeys[zoned.dayIndex],
+    isSpecial: Boolean(currentDay.special),
+    reason: currentDay.special?.reason?.trim(),
+    specialDate: currentDay.special ? zoned.localDate : undefined,
+    reopensToday,
     ...(nextOpening ? { nextOpening } : {}),
   };
 }

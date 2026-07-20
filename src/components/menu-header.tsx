@@ -10,6 +10,7 @@ import { getPublicMenuCopy } from "@/features/public-menu/copy";
 import {
   formatOpeningStatus,
   getScheduleCopy,
+  getSpecialScheduleCopy,
 } from "@/features/public-menu/schedule-copy";
 
 import { LanguageSelector } from "./language-selector";
@@ -29,7 +30,11 @@ export function MenuHeader({
   const { restaurant } = menu;
   const copy = getPublicMenuCopy(menu.locale);
   const scheduleCopy = getScheduleCopy(menu.locale);
-  const formattedStatus = formatOpeningStatus(openingStatus, scheduleCopy);
+  const formattedStatus = formatOpeningStatus(
+    openingStatus,
+    scheduleCopy,
+    getSpecialScheduleCopy(menu.locale),
+  );
 
   return (
     <header className="bg-[#fffdfa]">
@@ -108,6 +113,7 @@ export function MenuHeader({
         <div className="mt-3 grid border-y border-stone-200 sm:grid-cols-2">
           <OpeningHours
             openingHours={menu.openingHours}
+            specialOpeningHours={menu.specialOpeningHours}
             status={openingStatus}
             locale={menu.locale}
             timeZone={menu.timeZone}

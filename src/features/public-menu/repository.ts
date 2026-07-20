@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
@@ -16,6 +16,7 @@ import {
   restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
+  specialOpeningHours,
   tagTranslations,
   tags,
 } from "@/db/schema";
@@ -28,6 +29,7 @@ import type {
   OpeningDay,
   PublicProductDetail,
   ProductTag,
+  SpecialOpeningDay,
 } from "./types";
 
 export class PublicMenuRepositoryError extends Error {
@@ -85,6 +87,60 @@ function buildOpeningDays(
     }
     return { day, label, periods };
   });
+}
+
+function shiftIsoDate(value: string, offset: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function getSpecialDateRange(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
+  return { from: shiftIsoDate(today, -1), to: shiftIsoDate(today, 7) };
+}
+
+function buildSpecialOpeningDays(
+  rows: Array<{
+    exceptionDate: string;
+    isClosed: boolean;
+    reason: string | null;
+    firstOpensAt: string | null;
+    firstClosesAt: string | null;
+    secondOpensAt: string | null;
+    secondClosesAt: string | null;
+  }>,
+): SpecialOpeningDay[] {
+  return rows.map((row) => ({
+    date: row.exceptionDate,
+    isClosed: row.isClosed,
+    ...(row.reason?.trim() ? { reason: row.reason.trim() } : {}),
+    periods: row.isClosed
+      ? []
+      : [
+          row.firstOpensAt && row.firstClosesAt
+            ? {
+                opensAt: normalizeTime(row.firstOpensAt),
+                closesAt: normalizeTime(row.firstClosesAt),
+              }
+            : null,
+          row.secondOpensAt && row.secondClosesAt
+            ? {
+                opensAt: normalizeTime(row.secondOpensAt),
+                closesAt: normalizeTime(row.secondClosesAt),
+              }
+            : null,
+        ].filter((period): period is { opensAt: string; closesAt: string } =>
+          Boolean(period),
+        ),
+  }));
 }
 
 function getTagTone(color: string): ProductTag["tone"] {
@@ -253,12 +309,24 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
       throw new Error(`No existe contenido público para el locale "${locale}".`);
     }
 
-    const [hoursRows, categoryRows, productRows] = await Promise.all([
+    const specialRange = getSpecialDateRange(restaurant.timezone);
+    const [hoursRows, specialRows, categoryRows, productRows] = await Promise.all([
       db
         .select()
         .from(openingHours)
         .where(eq(openingHours.restaurantId, restaurant.id))
         .orderBy(asc(openingHours.dayOfWeek)),
+      db
+        .select()
+        .from(specialOpeningHours)
+        .where(
+          and(
+            eq(specialOpeningHours.restaurantId, restaurant.id),
+            gte(specialOpeningHours.exceptionDate, specialRange.from),
+            lte(specialOpeningHours.exceptionDate, specialRange.to),
+          ),
+        )
+        .orderBy(asc(specialOpeningHours.exceptionDate)),
       db
         .select({
           id: categories.id,
@@ -330,6 +398,7 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         buildPublicProduct(product, tagRows, allergenRows),
       ),
       openingHours: normalizedHours,
+      specialOpeningHours: buildSpecialOpeningDays(specialRows),
       displaySettings: normalizeMenuDisplaySettings(
         restaurant.menuDisplaySettings,
       ),
@@ -462,6 +531,18 @@ export async function getPublicProductDetail(
       .from(openingHours)
       .where(eq(openingHours.restaurantId, restaurant.id))
       .orderBy(asc(openingHours.dayOfWeek));
+    const specialRange = getSpecialDateRange(restaurant.timezone);
+    const detailSpecialHours = await db
+      .select()
+      .from(specialOpeningHours)
+      .where(
+        and(
+          eq(specialOpeningHours.restaurantId, restaurant.id),
+          gte(specialOpeningHours.exceptionDate, specialRange.from),
+          lte(specialOpeningHours.exceptionDate, specialRange.to),
+        ),
+      )
+      .orderBy(asc(specialOpeningHours.exceptionDate));
     const allProductIds = [
       product.id,
       ...relatedRows.map((related) => related.id),
@@ -502,6 +583,7 @@ export async function getPublicProductDetail(
         restaurant.menuDisplaySettings,
       ),
       openingHours: buildOpeningDays(detailHours),
+      specialOpeningHours: buildSpecialOpeningDays(detailSpecialHours),
       timeZone: restaurant.timezone,
     };
   } catch (error: unknown) {

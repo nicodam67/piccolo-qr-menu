@@ -32,13 +32,39 @@ export function getScheduleCopy(locale: string) {
   return copies[locale as SupportedLocaleCode] ?? copies.es;
 }
 
+export type SpecialScheduleCopy = {
+  specialToday: string;
+  closedForReason: string;
+  reopensTodayAt: string;
+};
+
+const specialCopies: Record<SupportedLocaleCode, SpecialScheduleCopy> = {
+  es: { specialToday: "Hoy tenemos horario especial", closedForReason: "Cerrado por {reason}", reopensTodayAt: "Vuelve a abrir hoy a las {time}" },
+  ca: { specialToday: "Avui tenim horari especial", closedForReason: "Tancat per {reason}", reopensTodayAt: "Torna a obrir avui a les {time}" },
+  en: { specialToday: "Special hours today", closedForReason: "Closed for {reason}", reopensTodayAt: "Reopens today at {time}" },
+  ro: { specialToday: "Program special astăzi", closedForReason: "Închis pentru {reason}", reopensTodayAt: "Se redeschide astăzi la {time}" },
+  fr: { specialToday: "Horaires spéciaux aujourd’hui", closedForReason: "Fermé pour {reason}", reopensTodayAt: "Rouvre aujourd’hui à {time}" },
+  de: { specialToday: "Heute gelten Sonderöffnungszeiten", closedForReason: "Geschlossen wegen {reason}", reopensTodayAt: "Öffnet heute wieder um {time}" },
+  nl: { specialToday: "Vandaag gelden speciale openingstijden", closedForReason: "Gesloten wegens {reason}", reopensTodayAt: "Opent vandaag opnieuw om {time}" },
+  eu: { specialToday: "Gaur ordutegi berezia dugu", closedForReason: "{reason} dela eta itxita", reopensTodayAt: "Gaur {time}(e)tan irekiko da berriro" },
+  it: { specialToday: "Oggi abbiamo un orario speciale", closedForReason: "Chiuso per {reason}", reopensTodayAt: "Riapre oggi alle {time}" },
+};
+
+export function getSpecialScheduleCopy(locale: string) {
+  return specialCopies[locale as SupportedLocaleCode] ?? specialCopies.es;
+}
+
 const fill = (template: string, values: Record<string, string>) =>
   Object.entries(values).reduce(
     (text, [key, value]) => text.replace(`{${key}}`, value),
     template,
   );
 
-export function formatOpeningStatus(status: OpeningStatus, copy: ScheduleCopy) {
+export function formatOpeningStatus(
+  status: OpeningStatus,
+  copy: ScheduleCopy,
+  specialCopy: SpecialScheduleCopy = specialCopies.es,
+) {
   const label =
     status.state === "open" ? copy.open :
     status.state === "closingSoon" ? copy.closingSoon :
@@ -46,6 +72,18 @@ export function formatOpeningStatus(status: OpeningStatus, copy: ScheduleCopy) {
     status.state === "closedToday" ? copy.closedToday :
     status.state === "unavailable" ? copy.unavailable : copy.closed;
   let detail = "";
+  if (status.isSpecial && status.reason && !status.isOpen) {
+    return {
+      label: fill(specialCopy.closedForReason, { reason: status.reason }),
+      detail: status.nextOpening
+        ? status.reopensToday
+          ? fill(specialCopy.reopensTodayAt, {
+              time: status.nextOpening.opensAt,
+            })
+          : ""
+        : "",
+    };
+  }
   if (status.closesAt) detail = fill(copy.closesAt, { time: status.closesAt });
   else if (status.nextOpening) {
     const values = {
@@ -53,9 +91,15 @@ export function formatOpeningStatus(status: OpeningStatus, copy: ScheduleCopy) {
       day: copy.days[status.nextOpening.day],
     };
     detail =
+      status.reopensToday ? fill(specialCopy.reopensTodayAt, values) :
       status.nextOpening.dayOffset === 0 ? fill(copy.opensTodayAt, values) :
       status.nextOpening.dayOffset === 1 ? fill(copy.opensTomorrowAt, values) :
       fill(copy.opensOnDayAt, values);
+  }
+  if (status.isSpecial && (status.isOpen || !status.reason)) {
+    detail = detail
+      ? `${specialCopy.specialToday}. ${detail}`
+      : specialCopy.specialToday;
   }
   return { label, detail };
 }

@@ -20,6 +20,13 @@ export type OpeningDay = {
   periods: OpeningPeriod[];
 };
 
+export type SpecialOpeningDay = {
+  date: string;
+  isClosed: boolean;
+  reason?: string;
+  periods: OpeningPeriod[];
+};
+
 export type OpeningStatus = {
   isOpen: boolean;
   state:
@@ -30,6 +37,10 @@ export type OpeningStatus = {
     | "closedToday"
     | "unavailable";
   currentDay: DayKey | null;
+  isSpecial?: boolean;
+  reason?: string;
+  specialDate?: string;
+  reopensToday?: boolean;
   closesAt?: string;
   nextOpening?: {
     day: DayKey;
@@ -83,6 +94,7 @@ export type DemoMenu = {
   categories: DemoCategory[];
   products: DemoProduct[];
   openingHours: OpeningDay[];
+  specialOpeningHours: SpecialOpeningDay[];
   displaySettings: MenuDisplaySettings;
 };
 
@@ -95,5 +107,6 @@ export type PublicProductDetail = {
   relatedProducts: DemoProduct[];
   displaySettings: MenuDisplaySettings;
   openingHours: OpeningDay[];
+  specialOpeningHours: SpecialOpeningDay[];
   timeZone: string;
 };
