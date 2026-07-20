@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   smallint,
@@ -36,6 +37,7 @@ export const restaurantSettings = pgTable("restaurant_settings", {
     .default("es")
     .notNull(),
   heroImageUrl: text("hero_image_url").notNull(),
+  menuDisplaySettings: jsonb("menu_display_settings"),
   ...timestamps,
 });
 

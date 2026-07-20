@@ -29,6 +29,13 @@
       "when": 1784536344665,
       "tag": "0003_good_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784539153960,
+      "tag": "0004_giant_fabian_cortez",
+      "breakpoints": true
     }
   ]
 }
