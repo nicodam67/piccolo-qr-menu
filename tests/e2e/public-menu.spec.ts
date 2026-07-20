@@ -533,7 +533,9 @@ test("administrator manages allergens and protects associated items", async ({
   await search.fill("");
 
   await page.getByRole("button", { name: "Nuevo alérgeno" }).click();
-  await page.getByLabel("Nombre").fill(" Alérgeno E2E");
+  await page
+    .getByLabel("Nombre", { exact: true })
+    .fill(" Alérgeno E2E");
   await page.getByLabel("Código").fill("allergen_e2e");
   await page.getByLabel("Icono").fill("fish");
   await page.getByRole("button", { name: "Crear alérgeno" }).click();
@@ -543,10 +545,12 @@ test("administrator manages allergens and protects associated items", async ({
     }),
   ).toBeVisible();
 
-  await page.getByLabel("Nombre").fill("Alérgeno E2E");
+  await page.getByLabel("Nombre", { exact: true }).fill("Alérgeno E2E");
   await page.getByRole("button", { name: "Crear alérgeno" }).click();
   await page.getByRole("button", { name: "Editar Alérgeno E2E" }).click();
-  await page.getByLabel("Nombre").fill("Alérgeno E2E actualizado");
+  await page
+    .getByLabel("Nombre", { exact: true })
+    .fill("Alérgeno E2E actualizado");
   await page.getByRole("button", { name: "Guardar cambios" }).click();
 
   const allergenRow = page
@@ -628,11 +632,13 @@ test("administrator manages dietary tags and protects associations", async ({
   await page.goto("/admin/tags");
 
   await page.getByRole("button", { name: "Nueva etiqueta" }).click();
-  await page.getByLabel("Nombre").fill("Etiqueta E2E");
-  await page.getByLabel("Color").fill("purple");
+  await page.getByLabel("Nombre", { exact: true }).fill("Etiqueta E2E");
+  await page.getByLabel("Color", { exact: true }).fill("purple");
   await page.getByRole("button", { name: "Crear etiqueta" }).click();
   await page.getByRole("button", { name: "Editar Etiqueta E2E" }).click();
-  await page.getByLabel("Nombre").fill("Etiqueta E2E actualizada");
+  await page
+    .getByLabel("Nombre", { exact: true })
+    .fill("Etiqueta E2E actualizada");
   await page.getByRole("button", { name: "Guardar cambios" }).click();
 
   const tagRow = page
