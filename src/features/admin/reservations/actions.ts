@@ -10,10 +10,12 @@ import {
   normalizeOptionalText,
   normalizePhone,
 } from "@/features/reservations/domain";
-import { createManualReservation } from "@/features/reservations/repository";
+import {
+  createManualReservation,
+  updateAdminReservation,
+} from "@/features/reservations/repository";
 import {
   transitionReservationStatus,
-  updateReservationDetails,
 } from "./repository";
 
 const revalidate = () => {
@@ -84,7 +86,19 @@ export async function updateReservationAction(
 ) {
   await requireAdminSession();
   try {
-    await updateReservationDetails(id, {
+    const date = String(formData.get("date") ?? "");
+    const time = String(formData.get("time") ?? "");
+    const partySize = Number(formData.get("partySize"));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Fecha no válida.");
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Hora no válida.");
+    if (!Number.isInteger(partySize) || partySize < 1 || partySize > 100) {
+      throw new Error("Número de personas no válido.");
+    }
+    await updateAdminReservation({
+      id,
+      date,
+      time,
+      partySize,
       guestName: normalizeGuestName(String(formData.get("guestName") ?? "")),
       guestPhone: normalizePhone(String(formData.get("guestPhone") ?? "")),
       guestEmail: normalizeEmail(String(formData.get("guestEmail") ?? "")),
@@ -96,6 +110,7 @@ export async function updateReservationAction(
         String(formData.get("internalNotes") ?? ""),
         1000,
       ),
+      overrideWarning: formData.get("overrideWarning") === "true",
     });
     revalidate();
     return { success: true, error: null };

@@ -145,21 +145,3 @@ export async function transitionReservationStatus(
   });
 }
 
-export async function updateReservationDetails(
-  id: string,
-  values: {
-    guestName: string;
-    guestPhone: string;
-    guestEmail: string | null;
-    customerNotes: string | null;
-    internalNotes: string | null;
-  },
-) {
-  const { db } = getDatabase();
-  const [updated] = await db
-    .update(reservations)
-    .set({ ...values, updatedAt: new Date() })
-    .where(eq(reservations.id, id))
-    .returning({ id: reservations.id });
-  if (!updated) throw new Error("La reserva ya no existe.");
-}

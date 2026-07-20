@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
@@ -98,11 +98,13 @@ async function calculateAvailability(
     date,
     partySize,
     now,
+    excludeReservationId,
   }: {
     locale: string;
     date: string;
     partySize: number;
     now: Date;
+    excludeReservationId?: string;
   },
 ) {
   const context = await getContext(tx, locale);
@@ -125,6 +127,14 @@ async function calculateAvailability(
   );
   if (date < range.minDate || date > range.maxDate) {
     return { kind: "out_of_range" as const, slots: [], context, range };
+  }
+  const occupancyConditions = [
+    eq(reservations.restaurantId, restaurant.id),
+    eq(reservations.reservationDate, date),
+    inArray(reservations.status, ["pending", "confirmed", "seated"]),
+  ];
+  if (excludeReservationId) {
+    occupancyConditions.push(ne(reservations.id, excludeReservationId));
   }
   const [weeklyRows, specialRows, occupancyRows] = await Promise.all([
     tx
@@ -152,11 +162,7 @@ async function calculateAvailability(
       })
       .from(reservations)
       .where(
-        and(
-          eq(reservations.restaurantId, restaurant.id),
-          eq(reservations.reservationDate, date),
-          inArray(reservations.status, ["pending", "confirmed", "seated"]),
-        ),
+        and(...occupancyConditions),
       )
       .groupBy(reservations.reservationTime),
   ]);
@@ -383,6 +389,70 @@ export async function createManualReservation(
       .returning({ id: reservations.id, locator: reservations.locator });
     if (!created) throw new Error("No se pudo guardar la reserva.");
     return created;
+  });
+}
+
+export type UpdateReservationInput = Omit<
+  ManualReservationInput,
+  "locale" | "overrideWarning"
+> & {
+  id: string;
+  overrideWarning: boolean;
+};
+
+export async function updateAdminReservation(
+  input: UpdateReservationInput,
+  now = new Date(),
+) {
+  const { db } = getDatabase();
+  await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        restaurantId: reservations.restaurantId,
+        locale: reservations.locale,
+      })
+      .from(reservations)
+      .where(eq(reservations.id, input.id))
+      .for("update")
+      .limit(1);
+    if (!current) throw new Error("La reserva ya no existe.");
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${input.date}:${input.time}`}))`,
+    );
+    const availability = await calculateAvailability(tx, {
+      locale: current.locale,
+      date: input.date,
+      partySize: input.partySize,
+      now,
+      excludeReservationId: input.id,
+    });
+    const isAvailable =
+      availability.kind === "available" &&
+      availability.slots.some(({ time }) => time === input.time);
+    if (!isAvailable && !input.overrideWarning) {
+      throw new Error(
+        "El cambio queda fuera de horario o supera la capacidad. Autoriza explícitamente para continuar.",
+      );
+    }
+    await tx
+      .update(reservations)
+      .set({
+        reservationDate: input.date,
+        reservationTime: input.time,
+        partySize: input.partySize,
+        guestName: input.guestName,
+        guestPhone: input.guestPhone,
+        guestEmail: input.guestEmail,
+        customerNotes: input.customerNotes,
+        internalNotes: input.internalNotes,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(reservations.id, input.id),
+          eq(reservations.restaurantId, current.restaurantId),
+        ),
+      );
   });
 }
 

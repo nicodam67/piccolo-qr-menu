@@ -159,18 +159,16 @@ function ReservationDialog({
       <section role="dialog" aria-modal="true" aria-labelledby="reservation-dialog-title" className="max-h-[94vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 sm:max-w-xl sm:rounded-3xl">
         <div className="flex justify-between"><h2 id="reservation-dialog-title" className="font-display text-2xl text-[#173f35]">{record ? `Editar ${record.locator}` : "Nueva reserva manual"}</h2><button type="button" onClick={onClose} aria-label="Cerrar formulario" className="grid size-11 place-items-center rounded-full bg-stone-100"><X className="size-5" /></button></div>
         <form onSubmit={submit} className="mt-5 grid gap-4 sm:grid-cols-2">
-          {!record ? <>
-            <input type="hidden" name="locale" value={locale} />
-            <Field name="date" label="Fecha" type="date" value={date} />
-            <Field name="time" label="Hora" type="time" value="20:00" />
-            <Field name="partySize" label="Personas" type="number" value="2" />
-          </> : null}
+          {!record ? <input type="hidden" name="locale" value={locale} /> : null}
+          <Field name="date" label="Fecha" type="date" value={record?.date ?? date} />
+          <Field name="time" label="Hora" type="time" value={record?.time ?? "20:00"} />
+          <Field name="partySize" label="Personas" type="number" value={String(record?.partySize ?? 2)} />
           <Field name="guestName" label="Nombre" value={record?.guestName} />
           <Field name="guestPhone" label="Teléfono" type="tel" value={record?.guestPhone} />
           <Field name="guestEmail" label="Email" type="email" value={record?.guestEmail} required={false} />
           <label className="text-xs font-bold text-stone-700 sm:col-span-2">Observaciones del cliente<textarea name="customerNotes" maxLength={1000} defaultValue={record?.customerNotes} rows={3} className="mt-1 w-full rounded-xl border border-stone-200 p-3" /></label>
           <label className="text-xs font-bold text-stone-700 sm:col-span-2">Notas internas<textarea name="internalNotes" maxLength={1000} defaultValue={record?.internalNotes} rows={3} className="mt-1 w-full rounded-xl border border-stone-200 p-3" /></label>
-          {!record ? <label className="flex min-h-11 items-center gap-3 text-xs font-bold sm:col-span-2"><input name="overrideWarning" type="checkbox" value="true" />Continuar si está fuera de horario o supera capacidad</label> : null}
+          <label className="flex min-h-11 items-center gap-3 text-xs font-bold sm:col-span-2"><input name="overrideWarning" type="checkbox" value="true" />Continuar si está fuera de horario o supera capacidad</label>
           <p role={error ? "alert" : undefined} className="min-h-5 text-xs font-bold text-red-700 sm:col-span-2">{error}</p>
           <div className="flex gap-3 sm:col-span-2"><button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-xl border border-stone-200">Cancelar</button><button type="submit" disabled={pending} className="min-h-11 flex-1 rounded-xl bg-[#173f35] font-bold text-white">Guardar</button></div>
         </form>

@@ -2719,6 +2719,10 @@ test("customers create reservations and administrators manage them", async ({
   const reservationCard = page.getByTestId(`reservation-${locator}`);
   await expect(reservationCard).toContainText("Cliente Reserva E2E");
   await expect(reservationCard).toContainText("Pendiente");
+  await reservationCard.getByRole("button", { name: "Editar" }).click();
+  await page.getByLabel("Notas internas").fill("Nota interna E2E");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(reservationCard).toContainText("Nota interna E2E");
   await reservationCard.getByRole("button", { name: "Confirmada" }).click();
   await expect(reservationCard).toContainText("Confirmada");
   await page.getByLabel("Buscar").fill(locator ?? "");
