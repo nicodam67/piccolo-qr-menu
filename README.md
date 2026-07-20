@@ -156,5 +156,19 @@ vista previa en tiempo real. Utiliza `restaurant_settings`,
 Email, ciudad, código postal, provincia, país, redes sociales, logotipo, colores
 e imágenes adicionales están excluidos porque no existen en el esquema.
 
-No contiene QR, exportaciones, variantes, extras, combos, almacenamiento S3,
-publicación, pedidos ni integración con Piccolo TPV.
+## Código QR de la carta
+
+`/admin/qr` genera el QR oficial para `NEXT_PUBLIC_SITE_URL/{locale}` usando
+únicamente locales presentes en `restaurant_translations` — actualmente `es`.
+Configura `NEXT_PUBLIC_SITE_URL` con un origen absoluto de producción y sin el
+locale final. Si falta, la interfaz muestra una advertencia y utiliza el origen
+actual solo como vista temporal.
+
+El QR se genera íntegramente en el navegador, con corrección de errores alta,
+margen silencioso y contraste blanco/oscuro. Permite descargar PNG o SVG en
+512, 1024 y 2048 px e imprimir un cartel A4 mediante el diálogo normal del
+navegador. Comprueba siempre el código con un teléfono antes de imprimir muchas
+copias.
+
+No contiene exportación de carta/PDF, variantes, extras, combos, publicación,
+pedidos ni integración con Piccolo TPV.

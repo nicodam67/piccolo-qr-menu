@@ -66,7 +66,12 @@ const navigationItems: NavigationItem[] = [
     available: true,
     href: "/admin/branding",
   },
-  { label: "QR & Share", icon: QrCode, available: false },
+  {
+    label: "Código QR",
+    icon: QrCode,
+    available: true,
+    href: "/admin/qr",
+  },
   { label: "Exportar", icon: Download, available: false },
   {
     label: "Carta pública",

@@ -68,3 +68,63 @@ a {
     animation-iteration-count: 1 !important;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  [data-qr-print-poster],
+  [data-qr-print-poster] * {
+    visibility: visible !important;
+  }
+
+  [data-qr-print-poster] {
+    position: fixed;
+    inset: 0;
+    display: flex !important;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10mm;
+    background: white;
+    color: #173f35;
+    text-align: center;
+  }
+
+  [data-qr-print-poster] h1 {
+    max-width: 170mm;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26pt;
+  }
+
+  [data-qr-print-poster] img {
+    width: 145mm;
+    height: 145mm;
+    object-fit: contain;
+  }
+
+  [data-qr-print-poster] p {
+    max-width: 170mm;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20pt;
+  }
+
+  [data-qr-print-poster] small {
+    max-width: 170mm;
+    overflow-wrap: anywhere;
+    font-size: 8pt;
+    color: #444;
+  }
+}

@@ -20,10 +20,12 @@ function parseConfiguredUrl(value: string | undefined) {
   return null;
 }
 
+export function getConfiguredPublicSiteUrl() {
+  return parseConfiguredUrl(process.env.NEXT_PUBLIC_SITE_URL);
+}
+
 export async function getPublicSiteUrl() {
-  const configuredUrl = parseConfiguredUrl(
-    process.env.NEXT_PUBLIC_SITE_URL,
-  );
+  const configuredUrl = getConfiguredPublicSiteUrl();
 
   if (configuredUrl) {
     return configuredUrl;
