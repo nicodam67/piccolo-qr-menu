@@ -183,9 +183,19 @@ export function PublicMenuPage({
                       </p>
                     </div>
 
-                    <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+                    <div
+                      className={
+                        menu.displaySettings.layout === "cards"
+                          ? "grid gap-7 sm:grid-cols-2 lg:grid-cols-3"
+                          : "space-y-5"
+                      }
+                    >
                       {categoryProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          settings={menu.displaySettings}
+                        />
                       ))}
                     </div>
                   </section>

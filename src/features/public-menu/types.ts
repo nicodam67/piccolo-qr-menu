@@ -1,3 +1,5 @@
+import type { MenuDisplaySettings } from "@/features/menu-settings/config";
+
 export type DayKey =
   | "monday"
   | "tuesday"
@@ -69,4 +71,5 @@ export type DemoMenu = {
   categories: DemoCategory[];
   products: DemoProduct[];
   openingHours: OpeningDay[];
+  displaySettings: MenuDisplaySettings;
 };

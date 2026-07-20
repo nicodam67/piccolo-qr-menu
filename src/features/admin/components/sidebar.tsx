@@ -68,7 +68,12 @@ const navigationItems: NavigationItem[] = [
   },
   { label: "QR & Share", icon: QrCode, available: false },
   { label: "Exportar", icon: Download, available: false },
-  { label: "Configuración", icon: Settings, available: false },
+  {
+    label: "Carta pública",
+    icon: Settings,
+    available: true,
+    href: "/admin/menu-settings",
+  },
 ];
 
 export function Sidebar({

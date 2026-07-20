@@ -18,6 +18,7 @@ import {
   tagTranslations,
   tags,
 } from "@/db/schema";
+import { normalizeMenuDisplaySettings } from "@/features/menu-settings/config";
 
 import type {
   DayKey,
@@ -70,6 +71,7 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         address: restaurantSettings.address,
         timezone: restaurantSettings.timezone,
         heroImageUrl: restaurantSettings.heroImageUrl,
+        menuDisplaySettings: restaurantSettings.menuDisplaySettings,
         name: restaurantTranslations.name,
         slogan: restaurantTranslations.slogan,
       })
@@ -273,6 +275,9 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         isSoldOut: product.isSoldOut,
       })),
       openingHours: normalizedHours,
+      displaySettings: normalizeMenuDisplaySettings(
+        restaurant.menuDisplaySettings,
+      ),
     };
   } catch (error: unknown) {
     throw new PublicMenuRepositoryError({ cause: error });

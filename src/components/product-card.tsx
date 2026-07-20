@@ -1,5 +1,6 @@
 import type { DemoProduct, ProductTag } from "@/features/public-menu/types";
 import { formatDemoPrice } from "@/features/public-menu/utils";
+import type { MenuDisplaySettings } from "@/features/menu-settings/config";
 import { ProductImage } from "./product-image";
 import { TaxonomyIcon } from "./taxonomy-icon";
 
@@ -11,50 +12,74 @@ const tagTones: Record<ProductTag["tone"], string> = {
 
 type ProductCardProps = {
   product: DemoProduct;
+  settings: MenuDisplaySettings;
 };
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, settings }: ProductCardProps) {
+  const isList = settings.layout === "list";
+
   return (
     <article
       data-testid="product-card"
-      className="group border-b border-stone-200 pb-7"
+      data-layout={settings.layout}
+      className={`group border-b border-stone-200 pb-7 ${
+        isList
+          ? `grid items-start gap-4 ${
+              settings.showImages
+                ? "grid-cols-[6.5rem_minmax(0,1fr)]"
+                : "grid-cols-1"
+            }`
+          : ""
+      }`}
     >
-      <div className="relative aspect-[16/10] overflow-hidden rounded-[1.1rem] bg-stone-200">
-        <ProductImage
-          src={product.imageUrl}
-          alt={product.imageAlt}
-          isSoldOut={product.isSoldOut}
-        />
-        <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[8px] font-extrabold tracking-[0.13em] text-white uppercase backdrop-blur-sm">
-          Demo
-        </span>
-        {product.isSoldOut ? (
-          <span className="absolute top-2.5 right-2.5 rounded-full bg-[#a8392f] px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white uppercase">
-            Agotado
+      {settings.showImages ? (
+        <div
+          className={`relative overflow-hidden rounded-[1.1rem] bg-stone-200 ${
+            isList ? "aspect-square" : "aspect-[16/10]"
+          }`}
+        >
+          <ProductImage
+            src={product.imageUrl}
+            alt={product.imageAlt}
+            isSoldOut={product.isSoldOut}
+          />
+          <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[8px] font-extrabold tracking-[0.13em] text-white uppercase backdrop-blur-sm">
+            Demo
           </span>
-        ) : null}
-      </div>
+          {product.isSoldOut ? (
+            <span className="absolute top-2.5 right-2.5 rounded-full bg-[#a8392f] px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white uppercase">
+              Agotado
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
-      <div className="px-0.5 pt-4">
+      <div className={`px-0.5 ${isList ? "pt-0" : "pt-4"}`}>
         <div className="flex items-start justify-between gap-4">
           <h3 className="font-display text-[1.4rem] leading-tight text-[#173f35]">
             {product.name}
           </h3>
-          <div className="shrink-0 text-right">
-            <p className="text-base font-extrabold text-[#173f35]">
-              {formatDemoPrice(product.fullPrice)}
-            </p>
-            <p className="text-[8px] font-semibold tracking-wide text-stone-400 uppercase">
-              Demo
-            </p>
-          </div>
+          {settings.showPrices ? (
+            <div className="shrink-0 text-right">
+              <p className="text-base font-extrabold text-[#173f35]">
+                {formatDemoPrice(product.fullPrice)}
+              </p>
+              <p className="text-[8px] font-semibold tracking-wide text-stone-400 uppercase">
+                Demo
+              </p>
+            </div>
+          ) : null}
         </div>
 
-        <p className="mt-2 text-[13px] leading-5 text-stone-600">
-          {product.description}
-        </p>
+        {settings.showDescriptions ? (
+          <p className="mt-2 text-[13px] leading-5 text-stone-600">
+            {product.description}
+          </p>
+        ) : null}
 
-        {product.halfPrice ? (
+        {settings.showPrices &&
+        settings.showHalfPortions &&
+        product.halfPrice ? (
           <div className="mt-3 flex items-center justify-between border-y border-stone-200 py-2">
             <span className="text-[10px] font-bold tracking-[0.08em] text-stone-500 uppercase">
               Media ración · demo
@@ -65,7 +90,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : null}
 
-        {product.tags.length > 0 ? (
+        {settings.showTags && product.tags.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1" aria-label="Etiquetas">
             {product.tags.map((tag) => (
               <span
@@ -78,7 +103,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : null}
 
-        {product.allergens.length > 0 ? (
+        {settings.showAllergens && product.allergens.length > 0 ? (
           <div className="mt-3 flex items-center gap-2 text-[10px] text-stone-500">
             <span className="font-bold text-stone-600">Alérgenos:</span>
             <div className="flex flex-wrap gap-1.5">

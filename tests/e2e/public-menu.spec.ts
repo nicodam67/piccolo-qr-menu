@@ -207,6 +207,8 @@ type BrandingBackup = {
 };
 
 let brandingBackup: BrandingBackup | null = null;
+let menuSettingsBackup: unknown;
+let menuSettingsBackupCaptured = false;
 
 async function captureBrandingBackup() {
   const [backup] = await withDatabase(async (sql) => {
@@ -265,6 +267,45 @@ async function restoreBrandingBackup() {
           and day_of_week = 2
       `;
     });
+  });
+}
+
+async function captureMenuSettingsBackup() {
+  const [row] = await withDatabase(async (sql) => {
+    return sql<Array<{ menu_display_settings: unknown }>>`
+      select menu_display_settings
+      from restaurant_settings
+      limit 1
+    `;
+  });
+
+  if (!row) {
+    throw new Error("No se pudo respaldar la configuración de la carta.");
+  }
+
+  menuSettingsBackup = row.menu_display_settings;
+  menuSettingsBackupCaptured = true;
+}
+
+async function restoreMenuSettingsBackup() {
+  if (!menuSettingsBackupCaptured) {
+    return;
+  }
+
+  await withDatabase(async (sql) => {
+    if (menuSettingsBackup === null) {
+      await sql`
+        update restaurant_settings
+        set menu_display_settings = null, updated_at = now()
+      `;
+    } else {
+      await sql`
+        update restaurant_settings
+        set
+          menu_display_settings = ${sql.json(menuSettingsBackup)},
+          updated_at = now()
+      `;
+    }
   });
 }
 
@@ -355,7 +396,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
     .getByRole("button", { name: "Abrir menú de administración" })
     .click();
   await expect(page.getByRole("navigation")).toBeVisible();
-  await expect(page.getByText("Disponible próximamente")).toHaveCount(3);
+  await expect(page.getByText("Disponible próximamente")).toHaveCount(2);
 
   const dimensions = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -1115,6 +1156,109 @@ test("administrator edits branding with live preview and persistence", async ({
   await expect(page.getByText(backup.slogan)).toBeVisible();
 });
 
+test("menu settings normalize defaults and control the public menu", async ({
+  page,
+}) => {
+  await captureMenuSettingsBackup();
+  await withDatabase(async (sql) => {
+    await sql`
+      update restaurant_settings
+      set menu_display_settings = null, updated_at = now()
+    `;
+  });
+  await loginAsAdmin(page);
+  await page.goto("/admin/menu-settings");
+
+  const booleanLabels = [
+    "Mostrar imágenes",
+    "Mostrar descripciones",
+    "Mostrar precios",
+    "Mostrar etiquetas",
+    "Mostrar alérgenos",
+    "Mostrar media ración",
+  ];
+
+  for (const label of booleanLabels) {
+    await expect(page.getByLabel(label)).toBeChecked();
+  }
+  await expect(page.getByLabel("Tarjetas")).toBeChecked();
+
+  for (const label of booleanLabels) {
+    await page.getByLabel(label).uncheck();
+  }
+  await page.getByLabel("Lista").check();
+  const previewCard = page.locator("aside").getByTestId("product-card").first();
+  await expect(previewCard).toHaveAttribute("data-layout", "list");
+  await expect(previewCard.locator("img")).toHaveCount(0);
+
+  await page
+    .getByRole("button", { name: "Guardar configuración" })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Configuración de la carta guardada.",
+  );
+  await page.reload();
+
+  for (const label of booleanLabels) {
+    await expect(page.getByLabel(label)).not.toBeChecked();
+  }
+  await expect(page.getByLabel("Lista")).toBeChecked();
+
+  await page.goto("/es");
+  const publicPizza = page
+    .getByTestId("product-card")
+    .filter({ hasText: "Pizza de muestra" });
+  await expect(publicPizza).toHaveAttribute("data-layout", "list");
+  await expect(publicPizza.locator("img")).toHaveCount(0);
+  await expect(
+    publicPizza.getByText(
+      "Tomate, mozzarella y albahaca usados solo para representar el diseño.",
+    ),
+  ).toHaveCount(0);
+  await expect(publicPizza.getByText("11,80 €")).toHaveCount(0);
+  await expect(publicPizza.getByText("Vegetariano")).toHaveCount(0);
+  await expect(publicPizza.getByText("Alérgenos:")).toHaveCount(0);
+  await expect(publicPizza.getByText(/Media ración/)).toHaveCount(0);
+
+  await withDatabase(async (sql) => {
+    await sql`
+      update restaurant_settings
+      set
+        menu_display_settings = ${sql.json({
+          showImages: false,
+          layout: "list",
+          futureSetting: "ignored",
+        })},
+        updated_at = now()
+    `;
+  });
+  await page.goto("/admin/menu-settings");
+  await expect(page.getByLabel("Mostrar imágenes")).not.toBeChecked();
+  for (const label of booleanLabels.slice(1)) {
+    await expect(page.getByLabel(label)).toBeChecked();
+  }
+  await expect(page.getByLabel("Lista")).toBeChecked();
+
+  await page.goto("/es");
+  const normalizedPizza = page
+    .getByTestId("product-card")
+    .filter({ hasText: "Pizza de muestra" });
+  await expect(normalizedPizza.locator("img")).toHaveCount(0);
+  await expect(normalizedPizza).toContainText(
+    "Tomate, mozzarella y albahaca usados solo para representar el diseño.",
+  );
+  await expect(normalizedPizza).toContainText("11,80 €");
+  await expect(normalizedPizza).toContainText("Vegetariano");
+  await expect(normalizedPizza).toContainText("Alérgenos:");
+  await expect(normalizedPizza).toContainText("Media ración");
+
+  await restoreMenuSettingsBackup();
+  await page.goto("/es");
+  await expect(
+    page.getByRole("heading", { name: "Piccolo La Ràpita", level: 1 }),
+  ).toBeVisible();
+});
+
 test("unauthenticated admin access redirects to login", async ({ page }) => {
   await page.goto("/admin");
 
@@ -1334,6 +1478,7 @@ test("five failures block login and a later success clears attempts", async ({
 });
 
 test.afterAll(async () => {
+  await restoreMenuSettingsBackup();
   await restoreBrandingBackup();
   await cleanupE2EProducts();
   await cleanupE2ETaxonomies();

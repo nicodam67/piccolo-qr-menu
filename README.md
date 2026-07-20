@@ -104,6 +104,12 @@ eliminar categorías vacías utilizando exclusivamente `categories` y
 `category_translations`. Icono, color e imagen están excluidos porque no existen
 en el esquema y no se autorizó una migración.
 
+`/admin/menu-settings` configura qué datos aparecen en la carta pública y el
+layout de lista o tarjetas. La configuración se guarda en
+`restaurant_settings.menu_display_settings`. La aplicación valida el JSON con
+Zod y aplica defaults seguros si la columna es `NULL`, está incompleta o
+contiene propiedades desconocidas.
+
 `/admin/products` gestiona productos, traducciones, precios, categoría,
 visibilidad, agotados, orden, URL de imagen existente, etiquetas y alérgenos
 reutilizando exclusivamente las tablas actuales.
