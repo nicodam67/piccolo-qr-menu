@@ -3,11 +3,8 @@ import type { Metadata } from "next";
 import { AdminLayout } from "@/features/admin/components/admin-layout";
 import { QrManager } from "@/features/admin/qr/components/qr-manager";
 import { getQrAdminData } from "@/features/admin/qr/repository";
+import { parseQrCustomizationSearchParams } from "@/features/admin/qr/qr-settings";
 import { getAdminDashboardSummary } from "@/features/admin/repository";
-import {
-  getConfiguredPublicSiteUrl,
-  getPublicSiteUrl,
-} from "@/features/public-menu/site-url";
 
 export const metadata: Metadata = {
   title: "Código QR · Piccolo QR Menu",
@@ -16,14 +13,18 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminQrCodePage() {
+type QrCodePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminQrCodePage({
+  searchParams,
+}: QrCodePageProps) {
+  const params = await searchParams;
   const [summary, qrData] = await Promise.all([
     getAdminDashboardSummary(),
     getQrAdminData(),
   ]);
-  const configuredSiteUrl = getConfiguredPublicSiteUrl();
-  const siteUrl = configuredSiteUrl ?? (await getPublicSiteUrl());
-
   return (
     <AdminLayout
       restaurantName={summary.restaurantName}
@@ -32,10 +33,17 @@ export default async function AdminQrCodePage() {
     >
       <div className="mx-auto w-full max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 xl:px-8">
         <QrManager
-          baseUrl={siteUrl.toString()}
-          configuredDomain={Boolean(configuredSiteUrl)}
+          baseUrl={qrData.publicBaseUrl}
+          configuredDomain={qrData.configuredDomain}
           locales={qrData.locales}
           defaultLocale={qrData.defaultLocale}
+          initialLocale={
+            typeof params.locale === "string" &&
+            qrData.locales.some(({ code }) => code === params.locale)
+              ? params.locale
+              : qrData.defaultLocale
+          }
+          initialCustomization={parseQrCustomizationSearchParams(params)}
           restaurantNames={qrData.restaurantNames}
           restaurantSlogans={qrData.restaurantSlogans}
         />

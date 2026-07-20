@@ -11,10 +11,10 @@ import {
   type QrDownloadSize,
 } from "../qr-url";
 import {
-  DEFAULT_QR_CUSTOMIZATION,
   validateQrCustomization,
   verifyQrDestination,
   type QrBackground,
+  type QrCustomization,
   type QrErrorCorrectionLevel,
   type QrPosterLayout,
 } from "../qr-settings";
@@ -26,6 +26,8 @@ type QrManagerProps = {
   configuredDomain: boolean;
   locales: PublishedLocale[];
   defaultLocale: string;
+  initialLocale: string;
+  initialCustomization: QrCustomization;
   restaurantNames: Record<string, string>;
   restaurantSlogans: Record<string, string>;
 };
@@ -37,37 +39,45 @@ export function QrManager({
   configuredDomain,
   locales,
   defaultLocale,
+  initialLocale,
+  initialCustomization,
   restaurantNames,
   restaurantSlogans,
 }: QrManagerProps) {
   const [locale, setLocale] = useState(
-    locales.some(({ code }) => code === defaultLocale)
-      ? defaultLocale
+    locales.some(({ code }) => code === initialLocale)
+      ? initialLocale
       : (locales[0]?.code ?? defaultLocale),
   );
   const [size, setSize] = useState<QrDownloadSize>(
-    DEFAULT_QR_CUSTOMIZATION.size,
+    initialCustomization.size,
   );
-  const [margin, setMargin] = useState(DEFAULT_QR_CUSTOMIZATION.margin);
+  const [margin, setMargin] = useState(initialCustomization.margin);
   const [errorCorrectionLevel, setErrorCorrectionLevel] =
     useState<QrErrorCorrectionLevel>(
-      DEFAULT_QR_CUSTOMIZATION.errorCorrectionLevel,
+      initialCustomization.errorCorrectionLevel,
     );
   const [darkColor, setDarkColor] = useState(
-    DEFAULT_QR_CUSTOMIZATION.darkColor,
+    initialCustomization.darkColor,
   );
   const [lightColor, setLightColor] = useState(
-    DEFAULT_QR_CUSTOMIZATION.lightColor,
+    initialCustomization.lightColor,
   );
   const [background, setBackground] = useState<QrBackground>(
-    DEFAULT_QR_CUSTOMIZATION.background,
+    initialCustomization.background,
   );
   const [layout, setLayout] = useState<QrPosterLayout>(
-    DEFAULT_QR_CUSTOMIZATION.layout,
+    initialCustomization.layout,
   );
-  const [showRestaurantName, setShowRestaurantName] = useState(true);
-  const [showSlogan, setShowSlogan] = useState(true);
-  const [showCallToAction, setShowCallToAction] = useState(true);
+  const [showRestaurantName, setShowRestaurantName] = useState(
+    initialCustomization.showRestaurantName,
+  );
+  const [showSlogan, setShowSlogan] = useState(
+    initialCustomization.showSlogan,
+  );
+  const [showCallToAction, setShowCallToAction] = useState(
+    initialCustomization.showCallToAction,
+  );
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -317,7 +327,7 @@ export function QrManager({
 
               <fieldset>
                 <legend className="text-xs font-bold text-stone-700">
-                  Formato
+                  {copy.format}
                 </legend>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {[

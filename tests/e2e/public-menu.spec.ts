@@ -918,9 +918,33 @@ test("QR URL builder normalizes base paths and locales", () => {
   ).toThrow("El locale seleccionado no está disponible.");
 });
 
+test("legacy QR route redirects safely and preserves valid options", async ({
+  page,
+}) => {
+  await loginAsAdmin(page);
+  await page.goto(
+    "/admin/qr?locale=es&size=2048&margin=6&correction=Q&evil=ignored",
+  );
+  await expect(page).toHaveURL(
+    /\/admin\/qr-code\?locale=es&size=2048&margin=6&correction=Q$/,
+  );
+  await expect(page.getByLabel("2048 px")).toBeChecked();
+  await expect(page.getByLabel("Margen exterior")).toHaveValue("6");
+  await expect(page.getByLabel("Nivel de corrección")).toHaveValue("Q");
+});
+
 test("administrator generates downloads and print-ready QR", async ({
   page,
 }) => {
+  const [settingsBefore] = await withDatabase(async (sql) => {
+    return sql<Array<{ fingerprint: string }>>`
+      select md5(
+        coalesce(menu_display_settings::text, 'null') || updated_at::text
+      ) as fingerprint
+      from restaurant_settings
+      limit 1
+    `;
+  });
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -1067,6 +1091,16 @@ test("administrator generates downloads and print-ready QR", async ({
       hasText: "Código QR descargado",
     }),
   ).toHaveText("Código QR descargado");
+  const [settingsAfter] = await withDatabase(async (sql) => {
+    return sql<Array<{ fingerprint: string }>>`
+      select md5(
+        coalesce(menu_display_settings::text, 'null') || updated_at::text
+      ) as fingerprint
+      from restaurant_settings
+      limit 1
+    `;
+  });
+  expect(settingsAfter?.fingerprint).toBe(settingsBefore?.fingerprint);
   expect(clientErrors).toEqual([]);
 });
 
@@ -1244,6 +1278,9 @@ test("administrator activates translates and publishes Catalan", async ({
   await expect
     .poll(() => page.getByTestId("qr-preview-image").getAttribute("src"))
     .not.toBe(previousQr);
+  await expect(page.getByTestId("qr-preview-card")).toContainText(
+    "Escaneja per veure la nostra carta",
+  );
 });
 
 test("administrator manages special hours with public priority", async ({
@@ -2207,6 +2244,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   );
   await page.goto("/admin/qr-code");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr-code$/);
+  await page.goto("/admin/qr");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fqr$/);
   await page.goto("/admin/languages");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Flanguages$/);
   await page.goto("/admin/special-hours");

@@ -4,12 +4,18 @@ import { getDatabase } from "@/db";
 import { restaurantSettings } from "@/db/schema";
 import { getPublishedLocales } from "@/features/locales/repository";
 import type { PublishedLocale } from "@/features/locales/repository";
+import {
+  getConfiguredPublicSiteUrl,
+  getPublicSiteUrl,
+} from "@/features/public-menu/site-url";
 
 export type QrAdminData = {
   defaultLocale: string;
   locales: PublishedLocale[];
   restaurantNames: Record<string, string>;
   restaurantSlogans: Record<string, string>;
+  publicBaseUrl: string;
+  configuredDomain: boolean;
 };
 
 export async function getQrAdminData(): Promise<QrAdminData> {
@@ -27,6 +33,8 @@ export async function getQrAdminData(): Promise<QrAdminData> {
   }
 
   const translations = await getPublishedLocales();
+  const configuredSiteUrl = getConfiguredPublicSiteUrl();
+  const siteUrl = configuredSiteUrl ?? (await getPublicSiteUrl());
 
   if (translations.length === 0) {
     throw new Error("El restaurante no tiene traducciones configuradas.");
@@ -47,5 +55,7 @@ export async function getQrAdminData(): Promise<QrAdminData> {
         restaurantSlogan,
       ]),
     ),
+    publicBaseUrl: siteUrl.toString(),
+    configuredDomain: Boolean(configuredSiteUrl),
   };
 }

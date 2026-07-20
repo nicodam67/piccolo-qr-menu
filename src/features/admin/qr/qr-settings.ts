@@ -85,6 +85,54 @@ export function validateQrCustomization(value: QrCustomization) {
   return value;
 }
 
+export function parseQrCustomizationSearchParams(
+  params: Record<string, string | string[] | undefined>,
+) {
+  const single = (key: string) => {
+    const value = params[key];
+    return typeof value === "string" ? value : undefined;
+  };
+  const size = Number(single("size"));
+  const margin = Number(single("margin"));
+  const candidate: QrCustomization = {
+    ...DEFAULT_QR_CUSTOMIZATION,
+    ...(allowedSizes.has(size as QrDownloadSize)
+      ? { size: size as QrDownloadSize }
+      : {}),
+    ...(Number.isInteger(margin) && margin >= 2 && margin <= 8
+      ? { margin }
+      : {}),
+    ...(allowedCorrection.has(single("correction") as QrErrorCorrectionLevel)
+      ? {
+          errorCorrectionLevel: single(
+            "correction",
+          ) as QrErrorCorrectionLevel,
+        }
+      : {}),
+    ...(single("dark") && colorPattern.test(single("dark")!)
+      ? { darkColor: single("dark")! }
+      : {}),
+    ...(single("light") && colorPattern.test(single("light")!)
+      ? { lightColor: single("light")! }
+      : {}),
+    ...(single("background") === "transparent"
+      ? { background: "transparent" as const }
+      : {}),
+    ...(single("layout") === "square"
+      ? { layout: "square" as const }
+      : {}),
+    showRestaurantName: single("showName") !== "false",
+    showSlogan: single("showSlogan") !== "false",
+    showCallToAction: single("showCta") !== "false",
+  };
+
+  try {
+    return validateQrCustomization(candidate);
+  } catch {
+    return DEFAULT_QR_CUSTOMIZATION;
+  }
+}
+
 export function verifyQrDestination({
   destinationUrl,
   visibleUrl,

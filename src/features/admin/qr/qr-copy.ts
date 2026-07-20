@@ -37,6 +37,7 @@ export type QrAdminCopy = {
   showSlogan: string;
   verticalFormat: string;
   squareFormat: string;
+  format: string;
 };
 
 const copies: Record<string, QrAdminCopy> = {
@@ -75,6 +76,7 @@ const copies: Record<string, QrAdminCopy> = {
     showSlogan: "Mostrar eslogan",
     verticalFormat: "Vertical",
     squareFormat: "Cuadrado",
+    format: "Formato",
   },
 };
 
