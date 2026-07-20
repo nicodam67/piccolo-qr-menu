@@ -2650,8 +2650,9 @@ test("customers create reservations and administrators manage them", async ({
       from restaurant_settings limit 1
     )
     select to_char(day::date, 'YYYY-MM-DD') as date
-    from restaurant_today,
-      generate_series(today + 1, today + 30, interval '1 day') day
+    from restaurant_today
+    cross join lateral
+      generate_series(today + 1, today + 30, interval '1 day') generated(day)
     inner join opening_hours
       on opening_hours.restaurant_id = restaurant_today.id
       and opening_hours.day_of_week = extract(isodow from day)::integer
@@ -2684,7 +2685,7 @@ test("customers create reservations and administrators manage them", async ({
   ).toBeVisible();
 
   await page.goto("/es");
-  await expect(page.getByRole("link", { name: /Llamar/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Llamar/ }).first()).toBeVisible();
   await page.getByRole("link", { name: "Reservar", exact: true }).click();
   await expect(page).toHaveURL(/\/es\/reservas$/);
   await page.getByLabel("Fecha").fill(bookable.date);
@@ -2692,7 +2693,7 @@ test("customers create reservations and administrators manage them", async ({
   const firstTime = page.locator('input[name="time"]').first();
   await expect(firstTime).toBeAttached();
   const selectedTime = await firstTime.inputValue();
-  await firstTime.check();
+  await firstTime.locator("..").click();
   await page.getByLabel("Nombre").fill("Cliente Reserva E2E");
   await page.getByLabel("Teléfono").fill("+34 600 123 456");
   await page.getByLabel(/Correo electrónico/).fill("reserva-e2e@example.com");
@@ -2736,9 +2737,11 @@ test("customers create reservations and administrators manage them", async ({
   await page.getByRole("button", { name: "Reserva manual" }).click();
   await page.getByLabel("Nombre").fill("Reserva Manual E2E");
   await page.getByLabel("Teléfono").fill("+34 600 999 999");
-  await page.getByLabel("Hora").fill("10:00");
+  await page.getByLabel("Hora", { exact: true }).fill("10:00");
   await page.getByRole("button", { name: "Guardar" }).click();
-  await expect(page.getByRole("alert")).toContainText("fuera de horario");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "fuera de horario" }),
+  ).toContainText("fuera de horario");
   await page
     .getByLabel("Continuar si está fuera de horario o supera capacidad")
     .check();
@@ -2752,7 +2755,7 @@ test("customers create reservations and administrators manage them", async ({
   await expect(
     page.getByRole("link", { name: "Reservar", exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Llamar/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Llamar/ }).first()).toBeVisible();
 
   await cleanupE2EReservations();
   await restoreReservationSettingsBackup();

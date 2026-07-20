@@ -128,7 +128,12 @@ describe("online reservations", () => {
       timeZone: "UTC",
       minimumAdvanceMinutes: 0,
     });
-    assert.deepEqual(slots.map(({ time }) => time), ["12:00", "12:30", "13:00"]);
+    assert.deepEqual(slots.map(({ time }) => time), [
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+    ]);
   });
   it("calcula capacidad disponible", () => {
     const [slot] = generateReservationSlots({
