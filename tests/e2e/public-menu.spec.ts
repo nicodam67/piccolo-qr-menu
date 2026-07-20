@@ -302,7 +302,7 @@ async function restoreMenuSettingsBackup() {
       await sql`
         update restaurant_settings
         set
-          menu_display_settings = ${sql.json(menuSettingsBackup)},
+          menu_display_settings = ${JSON.stringify(menuSettingsBackup)}::jsonb,
           updated_at = now()
       `;
     }
@@ -1186,7 +1186,7 @@ test("menu settings normalize defaults and control the public menu", async ({
   for (const label of booleanLabels) {
     await page.getByLabel(label).uncheck();
   }
-  await page.getByLabel("Lista").check();
+  await page.getByText("Lista", { exact: true }).click();
   const previewCard = page.locator("aside").getByTestId("product-card").first();
   await expect(previewCard).toHaveAttribute("data-layout", "list");
   await expect(previewCard.locator("img")).toHaveCount(0);
