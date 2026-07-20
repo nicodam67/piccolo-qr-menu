@@ -14,6 +14,7 @@ import {
   productTags,
   productTranslations,
   products,
+  restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
   tagTranslations,
@@ -136,6 +137,19 @@ async function seedDemo() {
             "Descripción exclusivamente demostrativa para el prototipo visual.",
         },
       });
+
+    await tx
+      .insert(restaurantLocales)
+      .values({
+        restaurantId: ids.restaurant,
+        locale: "es",
+        isEnabled: true,
+        isPublished: true,
+        sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
 
     const hours = [
       {

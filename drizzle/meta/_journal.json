@@ -36,6 +36,13 @@
       "when": 1784539153960,
       "tag": "0004_giant_fabian_cortez",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784555995696,
+      "tag": "0005_tough_sage",
+      "breakpoints": true
     }
   ]
 }

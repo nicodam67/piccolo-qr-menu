@@ -58,6 +58,41 @@ export const restaurantTranslations = pgTable(
   ],
 );
 
+export const restaurantLocales = pgTable(
+  "restaurant_locales",
+  {
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "cascade" }),
+    locale: varchar("locale", { length: 10 }).notNull(),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    isPublished: boolean("is_published").default(false).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.restaurantId, table.locale] }),
+    uniqueIndex("restaurant_locales_order_uidx").on(
+      table.restaurantId,
+      table.sortOrder,
+    ),
+    index("restaurant_locales_public_idx").on(
+      table.restaurantId,
+      table.isPublished,
+      table.sortOrder,
+    ),
+    check(
+      "restaurant_locales_published_requires_enabled",
+      sql`not ${table.isPublished} or ${table.isEnabled}`,
+    ),
+    check("restaurant_locales_positive_order", sql`${table.sortOrder} >= 1`),
+    check(
+      "restaurant_locales_lowercase",
+      sql`${table.locale} = lower(${table.locale})`,
+    ),
+  ],
+);
+
 export const admins = pgTable(
   "admins",
   {
