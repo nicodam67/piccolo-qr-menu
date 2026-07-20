@@ -167,6 +167,7 @@ async function calculateAvailability(
       ),
     tx
       .select({
+        id: reservations.id,
         time: reservations.reservationTime,
         occupied: sql<number>`sum(${reservations.partySize})::integer`,
       })
@@ -284,11 +285,13 @@ export async function createOnlineReservation(
     );
     const existing = await tx
       .select({
+        id: reservations.id,
         locator: reservations.locator,
         date: reservations.reservationDate,
         time: reservations.reservationTime,
         partySize: reservations.partySize,
         status: reservations.status,
+        depositRequired: reservations.depositRequired,
       })
       .from(reservations)
       .where(
@@ -346,11 +349,13 @@ export async function createOnlineReservation(
         policyAcceptedAt: now,
       })
       .returning({
+        id: reservations.id,
         locator: reservations.locator,
         date: reservations.reservationDate,
         time: reservations.reservationTime,
         partySize: reservations.partySize,
         status: reservations.status,
+        depositRequired: reservations.depositRequired,
       });
     if (!created) throw new Error("No se pudo guardar la reserva.");
     return created;

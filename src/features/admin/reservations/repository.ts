@@ -37,10 +37,14 @@ export async function getAdminReservations({
   date,
   status,
   query,
+  economicStatus,
+  paymentMethod,
 }: {
   date?: string;
   status?: ReservationStatus;
   query?: string;
+  economicStatus?: string;
+  paymentMethod?: string;
 }) {
   const { db } = getDatabase();
   const [restaurant] = await db
@@ -61,6 +65,8 @@ export async function getAdminReservations({
     eq(reservations.reservationDate, selectedDate),
   ];
   if (status) conditions.push(eq(reservations.status, status));
+  if (economicStatus) conditions.push(eq(reservations.economicStatus,economicStatus));
+  if (paymentMethod) conditions.push(sql`exists (select 1 from reservation_payments rp where rp.reservation_id = ${reservations.id} and rp.method = ${paymentMethod})`);
   if (query?.trim()) {
     const pattern = `%${query.trim().slice(0, 160)}%`;
     const search = or(

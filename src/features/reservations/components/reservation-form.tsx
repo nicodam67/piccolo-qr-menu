@@ -89,6 +89,10 @@ export function ReservationForm({
         setError(result.error);
         return;
       }
+      if (result.redirectUrl) {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
       setConfirmation(result.confirmation);
       setIdempotencyKey(crypto.randomUUID());
     });
@@ -186,7 +190,7 @@ export function ReservationForm({
         <input name="acceptPolicy" type="checkbox" value="true" required className="mt-1 size-4 accent-[#173f35]" />
         <span>{copy.acceptPolicy}. {settings.policyText}</span>
       </label>
-      {depositTotal > 0 ? <section className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Adelanto: {(settings.depositPerGuestCents/100).toFixed(2)} € por persona · Total {(depositTotal/100).toFixed(2)} €</p><p className="mt-1">Métodos disponibles: {paymentMethods.length ? paymentMethods.join(", ") : "Proveedor online pendiente de configuración"}</p><p className="mt-2">{settings.cancellationPolicy}</p><p>{settings.noShowPolicy}</p><p>{settings.gracePolicy}</p>{["acceptDeposit","acceptNoShow","acceptGrace"].map((name)=><label key={name} className="mt-2 flex gap-2"><input name={name} type="checkbox" value="true" required />Acepto estas condiciones</label>)}</section> : null}
+      {depositTotal > 0 ? <section className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Adelanto: {(settings.depositPerGuestCents/100).toFixed(2)} € por persona · Total {(depositTotal/100).toFixed(2)} €</p><p className="mt-1">Métodos disponibles:</p><div className="flex gap-3">{paymentMethods.map(method=><label key={method} className="flex gap-2"><input name="paymentMethod" type="radio" value={method} required />{method}</label>)}</div>{!paymentMethods.length?<p>Proveedor online pendiente de configuración</p>:null}<p className="mt-2">{settings.cancellationPolicy}</p><p>{settings.noShowPolicy}</p><p>{settings.gracePolicy}</p>{["acceptDeposit","acceptNoShow","acceptGrace"].map((name)=><label key={name} className="mt-2 flex gap-2"><input name={name} type="checkbox" value="true" required />Acepto estas condiciones</label>)}</section> : null}
       <div aria-live="assertive" className="min-h-5">
         {error ? <p role="alert" className="text-xs font-bold text-red-700">{error}</p> : null}
       </div>

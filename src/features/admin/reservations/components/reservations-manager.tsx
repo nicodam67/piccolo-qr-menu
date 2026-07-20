@@ -77,6 +77,12 @@ export function ReservationsManager({
       data.set("minutes", window.prompt("Minutos adicionales", "15") ?? "15");
       data.set("reason", window.prompt("Motivo", "Cliente llamó") ?? "");
     }
+    if (action === "refund") {
+      const amount = window.prompt("Importe a devolver en céntimos", String(record.remainingDepositCents));
+      if (!amount) return;
+      data.set("amountCents", amount);
+      data.set("reason", window.prompt("Motivo de devolución", "Cancelación") ?? "");
+    }
     if (action === "no_show" && !window.confirm("¿Confirmar no presentación y retención?")) return;
     startTransition(async () => {
       const result = await reservationEconomicAction(record.id, action, data);
@@ -130,6 +136,7 @@ export function ReservationsManager({
               <button type="button" onClick={() => economic(record, "grace")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Ampliar cortesía</button>
               <button type="button" onClick={() => economic(record, "cash")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar efectivo</button>
               <button type="button" onClick={() => economic(record, "no_show")} className="min-h-11 rounded-xl bg-red-50 px-3 text-xs font-bold text-red-700">No presentada</button>
+              <button type="button" onClick={() => economic(record, "refund")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Devolver adelanto</button>
             </div>
           </article>
         ))}

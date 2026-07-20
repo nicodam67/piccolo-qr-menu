@@ -64,3 +64,13 @@ export async function markNoShow(reservationId:string,reason:string,now=new Date
 export async function expirePendingPayments(now=new Date()) {
   const {db}=getDatabase();const rows=await db.select().from(reservationPayments).where(and(inArray(reservationPayments.status,["pending","processing"]),lte(reservationPayments.expiresAt,now)));for(const p of rows){await db.transaction(async tx=>{await tx.update(reservationPayments).set({status:"expired",updatedAt:now}).where(eq(reservationPayments.id,p.id));await tx.update(reservations).set({economicStatus:"expired",status:"cancelled",updatedAt:now}).where(eq(reservations.id,p.reservationId));await tx.insert(reservationEconomicEvents).values({restaurantId:p.restaurantId,reservationId:p.reservationId,paymentId:p.id,eventType:"payment_expired"});});}return rows.length;
 }
+
+export async function refundReservationPayment(reservationId:string,amountCents:number,reason:string) {
+  if(!Number.isInteger(amountCents)||amountCents<=0)throw new Error("Importe de devolución no válido.");
+  const {db}=getDatabase();const [payment]=await db.select().from(reservationPayments).where(and(eq(reservationPayments.reservationId,reservationId),eq(reservationPayments.status,"paid"))).orderBy(reservationPayments.createdAt).limit(1);
+  if(!payment)throw new Error("No existe un pago confirmado.");
+  let confirmed=payment.method==="cash";
+  if(!confirmed){if(!payment.externalId)throw new Error("Pago sin identificador externo.");const result=await getPaymentProvider().refund({externalId:payment.externalId,amountCents,idempotencyKey:randomUUID()});confirmed=result.status==="succeeded";}
+  if(!confirmed)throw new Error("La devolución aún no ha sido confirmada por el proveedor.");
+  await db.transaction(async tx=>{const refunded=payment.refundedAmountCents+amountCents;if(refunded>payment.paidAmountCents)throw new Error("La devolución supera el importe pagado.");const full=refunded===payment.paidAmountCents;await tx.update(reservationPayments).set({refundedAmountCents:refunded,status:full?"refunded":"partially_refunded",refundedAt:new Date(),updatedAt:new Date()}).where(eq(reservationPayments.id,payment.id));await tx.update(reservations).set({economicStatus:full?"refunded":"partially_refunded",remainingDepositCents:Math.max(0,payment.paidAmountCents-refunded),updatedAt:new Date()}).where(eq(reservations.id,reservationId));await tx.insert(reservationEconomicEvents).values({restaurantId:payment.restaurantId,reservationId,paymentId:payment.id,eventType:full?"refund_confirmed":"partial_refund_confirmed",amountCents,reason:reason.slice(0,500)});});
+}
