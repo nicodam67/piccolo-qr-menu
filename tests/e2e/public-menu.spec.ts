@@ -382,7 +382,7 @@ async function restoreReservationSettingsBackup() {
       select *
       from jsonb_populate_record(
         null::reservation_settings,
-        ${sql.json(reservationSettingsBackup)}
+        ${JSON.stringify(reservationSettingsBackup)}::jsonb
       )
     `;
   });
@@ -2700,10 +2700,11 @@ test("customers create reservations and administrators manage them", async ({
     await page.getByTestId("reservation-locator").textContent()
   )?.trim();
   expect(locator).toMatch(/^[23456789A-Z]{10}$/);
+  if (!locator) throw new Error("No se generó el localizador E2E.");
   await expect(
     page.getByText(/El restaurante confirmará la reserva/).first(),
   ).toBeVisible();
-  const [paymentCount] = await withDatabase((sql) =>
+  const [paymentCount] = await withDatabase(async (sql) =>
     sql<Array<{ count: number }>>`
       select count(*)::integer as count
       from reservation_payments
