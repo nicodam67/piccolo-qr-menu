@@ -2959,7 +2959,9 @@ test("administrator manages loyalty consents tags and segments", async ({
   await page.getByLabel("Nombre").fill("Fidelidad");
   await page.getByLabel("Apellidos").fill("Cliente E2E");
   await page.getByLabel("Teléfono", { exact: true }).fill("+34 611 111 111");
-  await page.getByLabel("Email").fill("fidelidad-e2e@example.com");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("fidelidad-e2e@example.com");
   await page.getByRole("button", { name: "Crear cliente" }).click();
   await expect(page).toHaveURL(/\/admin\/customers\/[0-9a-f-]+$/);
   const customerUrl = page.url();
