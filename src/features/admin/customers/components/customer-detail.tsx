@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 
 import {
@@ -22,6 +23,7 @@ export function CustomerDetail({
   locales: string[];
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const customer = data.customer;
   const runForm = (
     action: (formData: FormData) => Promise<{ success: boolean; error: string | null }>,
@@ -31,7 +33,7 @@ export function CustomerDetail({
     startTransition(async () => {
       const result = await action(formData);
       if (!result.success) window.alert(result.error);
-      else window.location.reload();
+      else router.refresh();
     });
   };
   return (
@@ -78,7 +80,7 @@ export function CustomerDetail({
           <label className="flex items-center gap-2 text-xs font-bold"><input name="isDefault" type="checkbox" value="true" />Predeterminada</label>
           <button className="min-h-11 rounded-xl border font-bold sm:col-span-2">Añadir dirección</button>
         </form>
-        <ul className="mt-4 space-y-2">{data.addresses.map((address)=><li key={address.id} className="flex items-center justify-between rounded-xl bg-stone-50 p-3 text-sm"><span>{address.label ? `${address.label}: ` : ""}{address.line1}, {address.city} {address.postalCode}</span><button type="button" onClick={()=>startTransition(async()=>{await deleteCustomerAddressAction(customer.id,address.id);window.location.reload();})} className="min-h-11 px-3 text-xs font-bold text-red-700">Eliminar</button></li>)}</ul>
+        <ul className="mt-4 space-y-2">{data.addresses.map((address)=><li key={address.id} className="flex items-center justify-between rounded-xl bg-stone-50 p-3 text-sm"><span>{address.label ? `${address.label}: ` : ""}{address.line1}, {address.city} {address.postalCode}</span><button type="button" onClick={()=>startTransition(async()=>{await deleteCustomerAddressAction(customer.id,address.id);router.refresh();})} className="min-h-11 px-3 text-xs font-bold text-red-700">Eliminar</button></li>)}</ul>
       </section>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5">
