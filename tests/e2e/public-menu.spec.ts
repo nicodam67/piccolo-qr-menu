@@ -398,7 +398,9 @@ async function restoreReservationSettingsBackup() {
       select *
       from jsonb_populate_record(
         null::reservation_settings,
-        ${JSON.stringify(reservationSettingsBackup)}::jsonb
+        ${sql.json(
+          reservationSettingsBackup as Parameters<typeof sql.json>[0],
+        )}
       )
     `;
   });
