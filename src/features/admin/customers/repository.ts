@@ -29,6 +29,7 @@ export async function getAdminCustomers(query = "") {
   if (query.trim()) {
     const pattern = `%${query.trim().slice(0, 160)}%`;
     const search = or(
+      sql`${customers.firstName} || ' ' || ${customers.lastName} ilike ${pattern}`,
       ilike(customers.firstName, pattern),
       ilike(customers.lastName, pattern),
       ilike(customers.phone, pattern),
