@@ -364,9 +364,25 @@ async function captureReservationSettingsBackup() {
 }
 
 async function cleanupE2EReservations() {
-  await withDatabase((sql) => sql`
-    delete from reservations where guest_name like '%E2E%'
-  `);
+  await withDatabase((sql) =>
+    sql.begin(async (transaction) => {
+      await transaction`
+        delete from reservation_economic_events
+        where reservation_id in (
+          select id from reservations where guest_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from reservation_payments
+        where reservation_id in (
+          select id from reservations where guest_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from reservations where guest_name like '%E2E%'
+      `;
+    }),
+  );
 }
 
 async function restoreReservationSettingsBackup() {
