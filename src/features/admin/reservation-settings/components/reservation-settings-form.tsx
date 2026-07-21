@@ -8,8 +8,10 @@ import { saveReservationSettingsAction } from "../actions";
 
 export function ReservationSettingsForm({
   settings,
+  paymentProviderStatus,
 }: {
   settings: ReservationSettingsData;
+  paymentProviderStatus: "active" | "incomplete" | "disabled";
 }) {
   const [enabled, setEnabled] = useState(settings.isEnabled);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -72,7 +74,11 @@ export function ReservationSettingsForm({
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de cancelación<textarea name="cancellationPolicy" defaultValue={settings.cancellationPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de no presentación<textarea name="noShowPolicy" defaultValue={settings.noShowPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Texto de cortesía<textarea name="gracePolicy" defaultValue={settings.gracePolicy} maxLength={2000} className="mt-2 w-full rounded-xl border p-3" /></label>
-        <p className="text-xs text-amber-700 sm:col-span-2 lg:col-span-3">Tarjeta y Bizum no se activarán en producción hasta autorizar y configurar un proveedor real.</p>
+        <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-800 sm:col-span-2 lg:col-span-3">
+          <p className="font-bold">Pagos online: {paymentProviderStatus === "active" ? "activos" : "desactivados"}</p>
+          <p>Proveedor preparado: Stripe · Estado: {paymentProviderStatus === "active" ? "configurado" : paymentProviderStatus === "incomplete" ? "configuración incompleta" : "pendiente de activación final"}.</p>
+          <p>Métodos administrativos disponibles: efectivo y correcciones trazables. Las credenciales se configurarán al finalizar el programa.</p>
+        </div>
       </section>
       <p aria-live="polite" className="min-h-5 text-xs font-bold text-stone-600">{feedback}</p>
     </form>

@@ -28,3 +28,22 @@ const copies: Record<SupportedLocaleCode, ReservationCopy> = {
 export function getReservationCopy(locale: string) {
   return copies[locale as SupportedLocaleCode] ?? es;
 }
+
+const offlinePaymentNotices: Record<SupportedLocaleCode, string> = {
+  es: "Tu solicitud de reserva ha sido registrada. El restaurante confirmará la reserva y, si corresponde, te informará sobre el adelanto.",
+  ca: "La teva sol·licitud de reserva ha estat registrada. El restaurant confirmarà la reserva i, si correspon, t'informarà sobre l'avançament.",
+  en: "Your booking request has been registered. The restaurant will confirm it and, if applicable, inform you about the deposit.",
+  ro: "Cererea ta de rezervare a fost înregistrată. Restaurantul o va confirma și, dacă este cazul, te va informa despre avans.",
+  fr: "Votre demande de réservation a été enregistrée. Le restaurant la confirmera et vous informera, le cas échéant, de l'acompte.",
+  de: "Ihre Reservierungsanfrage wurde registriert. Das Restaurant bestätigt sie und informiert Sie gegebenenfalls über die Anzahlung.",
+  nl: "Je reserveringsaanvraag is geregistreerd. Het restaurant bevestigt deze en informeert je indien nodig over de aanbetaling.",
+  eu: "Zure erreserba-eskaera erregistratu da. Jatetxeak baieztatuko du eta, hala badagokio, aurrerakinari buruzko informazioa emango dizu.",
+  it: "La tua richiesta di prenotazione è stata registrata. Il ristorante la confermerà e, se necessario, ti informerà sull'anticipo.",
+};
+
+export function getOfflinePaymentNotice(locale: string) {
+  return (
+    offlinePaymentNotices[locale as SupportedLocaleCode] ??
+    offlinePaymentNotices.es
+  );
+}

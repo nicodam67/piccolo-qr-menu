@@ -83,6 +83,13 @@ export function ReservationsManager({
       data.set("amountCents", amount);
       data.set("reason", window.prompt("Motivo de devolución", "Cancelación") ?? "");
     }
+    if (action === "courtesy") {
+      data.set(
+        "reason",
+        window.prompt("Motivo de la cortesía", "Cortesía administrativa") ??
+          "",
+      );
+    }
     if (action === "no_show" && !window.confirm("¿Confirmar no presentación y retención?")) return;
     startTransition(async () => {
       const result = await reservationEconomicAction(record.id, action, data);
@@ -127,6 +134,25 @@ export function ReservationsManager({
             <p className="mt-2 text-[10px] text-stone-400">Creada: {new Date(record.createdAt).toLocaleString("es-ES")}</p>
             <p className="mt-2 text-xs font-bold text-stone-600">Adelanto {(record.depositTotalCents / 100).toFixed(2)} € · {record.economicStatus} · TPV {record.tpvApplicationStatus}</p>
             <p className="text-[10px] text-stone-500">Cortesía: {record.graceDeadlineAt ? new Date(record.graceDeadlineAt).toLocaleString("es-ES") : "—"} · Llegada: {record.arrivedAt ? new Date(record.arrivedAt).toLocaleString("es-ES") : "No registrada"}</p>
+            {record.economicEvents.length > 0 ? (
+              <details className="mt-2 text-xs text-stone-600">
+                <summary className="cursor-pointer font-bold">
+                  Historial económico ({record.economicEvents.length})
+                </summary>
+                <ul className="mt-2 space-y-1">
+                  {record.economicEvents.map((event) => (
+                    <li key={`${event.type}-${event.createdAt}`}>
+                      {new Date(event.createdAt).toLocaleString("es-ES")} ·{" "}
+                      {event.type}
+                      {event.amountCents !== null
+                        ? ` · ${(event.amountCents / 100).toFixed(2)} €`
+                        : ""}
+                      {event.reason ? ` · ${event.reason}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => setDialog(record)} className="flex min-h-11 items-center gap-2 rounded-xl border border-stone-200 px-3 text-xs font-bold"><Pencil className="size-4" />Editar</button>
               {(actions[record.status] ?? []).map((status) => (
@@ -137,6 +163,7 @@ export function ReservationsManager({
               <button type="button" onClick={() => economic(record, "cash")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar efectivo</button>
               <button type="button" onClick={() => economic(record, "no_show")} className="min-h-11 rounded-xl bg-red-50 px-3 text-xs font-bold text-red-700">No presentada</button>
               <button type="button" onClick={() => economic(record, "refund")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Devolver adelanto</button>
+              <button type="button" onClick={() => economic(record, "courtesy")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar cortesía</button>
             </div>
           </article>
         ))}

@@ -17,7 +17,7 @@ import {
 import {
   transitionReservationStatus,
 } from "./repository";
-import { extendGrace, markNoShow, refundReservationPayment, registerArrival, registerCashPayment } from "@/features/reservations/payments/service";
+import { extendGrace, markNoShow, refundReservationPayment, registerArrival, registerCashPayment, registerDepositCourtesy } from "@/features/reservations/payments/service";
 
 const revalidate = () => {
   revalidatePath("/admin/reservations");
@@ -71,6 +71,7 @@ export async function reservationEconomicAction(id:string,action:string,formData
     else if(action==="no_show") await markNoShow(id,String(formData?.get("reason") ?? "No presentación confirmada"));
     else if(action==="cash") await registerCashPayment(id,Number(formData?.get("amountCents")),String(formData?.get("note") ?? ""));
     else if(action==="refund") await refundReservationPayment(id,Number(formData?.get("amountCents")),String(formData?.get("reason") ?? ""));
+    else if(action==="courtesy") await registerDepositCourtesy(id,String(formData?.get("reason") ?? "Cortesía administrativa"));
     else throw new Error("Acción económica no válida.");
     revalidate(); return {success:true,error:null};
   } catch(error) { return {success:false,error:error instanceof Error?error.message:"No se pudo completar."}; }

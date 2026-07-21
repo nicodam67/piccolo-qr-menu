@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { calculateDeposit, calculateGraceDeadline, canApplyToTpv, canMarkNoShow, enabledPaymentMethods, refundableAmount, remainingForTpv } from "../../src/features/reservations/payments/domain";
 import { PaymentProviderNotConfigured } from "../../src/features/reservations/payments/provider";
+import { SUPPORTED_LOCALE_CODES } from "../../src/config/locales";
+import { getOfflinePaymentNotice } from "../../src/features/reservations/copy";
 
 describe("reservation deposits", () => {
   it("calcula por persona en céntimos",()=>assert.equal(calculateDeposit(4,1000,1,true),4000));
@@ -20,4 +24,22 @@ describe("reservation deposits", () => {
   it("prepara TPV solo tras llegada",()=>assert.equal(canApplyToTpv(new Date(),"paid",4000),true));
   it("proveedor desactivado rechaza webhooks",async()=>assert.equal(await new PaymentProviderNotConfigured().verifyWebhook("x","y"),false));
   it("proveedor no configurado no crea pagos",async()=>await assert.rejects(()=>new PaymentProviderNotConfigured().createPayment()));
+  it("localiza el aviso de pago aplazado", () => {
+    for (const locale of SUPPORTED_LOCALE_CODES) {
+      assert.ok(getOfflinePaymentNotice(locale).length > 40);
+    }
+  });
+  it("mantiene Stripe fuera del contrato compartido y con carga dinámica", () => {
+    const root = process.cwd();
+    const provider = readFileSync(
+      path.join(root, "src/features/reservations/payments/provider.ts"),
+      "utf8",
+    );
+    const factory = readFileSync(
+      path.join(root, "src/features/reservations/payments/provider-factory.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(provider, /stripe-provider|from ["']stripe["']/);
+    assert.match(factory, /await import\(["']\.\/stripe-provider["']\)/);
+  });
 });

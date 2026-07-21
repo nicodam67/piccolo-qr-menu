@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
   reservations,
+  reservationEconomicEvents,
   restaurantSettings,
 } from "@/db/schema";
 import {
@@ -31,6 +32,12 @@ export type AdminReservation = {
   createdAt: string;
   depositTotalCents:number; economicStatus:string; graceDeadlineAt:string;
   arrivedAt:string; tpvApplicationStatus:string; remainingDepositCents:number;
+  economicEvents: Array<{
+    type: string;
+    amountCents: number | null;
+    reason: string;
+    createdAt: string;
+  }>;
 };
 
 export async function getAdminReservations({
@@ -99,6 +106,30 @@ export async function getAdminReservations({
         ),
       ),
   ]);
+  const eventRows =
+    rows.length > 0
+      ? await db
+          .select()
+          .from(reservationEconomicEvents)
+          .where(
+            inArray(
+              reservationEconomicEvents.reservationId,
+              rows.map(({ id }) => id),
+            ),
+          )
+          .orderBy(asc(reservationEconomicEvents.createdAt))
+      : [];
+  const eventsByReservation = new Map<string, AdminReservation["economicEvents"]>();
+  for (const event of eventRows) {
+    const values = eventsByReservation.get(event.reservationId) ?? [];
+    values.push({
+      type: event.eventType,
+      amountCents: event.amountCents,
+      reason: event.reason ?? "",
+      createdAt: event.createdAt.toISOString(),
+    });
+    eventsByReservation.set(event.reservationId, values);
+  }
   return {
     date: selectedDate,
     defaultLocale: restaurant.defaultLocale,
@@ -121,6 +152,7 @@ export async function getAdminReservations({
       graceDeadlineAt:row.graceDeadlineAt?.toISOString() ?? "",
       arrivedAt:row.arrivedAt?.toISOString() ?? "",tpvApplicationStatus:row.tpvApplicationStatus,
       remainingDepositCents:row.remainingDepositCents,
+      economicEvents: eventsByReservation.get(row.id) ?? [],
     })),
     summary: summary ?? {
       totalReservations: 0,
