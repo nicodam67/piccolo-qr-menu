@@ -389,6 +389,34 @@ async function cleanupE2ECustomers() {
   await withDatabase((sql) =>
     sql.begin(async (transaction) => {
       await transaction`
+        delete from customer_loyalty_movements
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from customer_loyalty_accounts
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from customer_consents
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from customer_tag_assignments
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
         delete from customer_notes
         where customer_id in (
           select id from customers
@@ -406,8 +434,45 @@ async function cleanupE2ECustomers() {
         delete from customers
         where first_name like '%E2E%' or last_name like '%E2E%'
       `;
+      await transaction`
+        delete from customer_tags where name like '%E2E%'
+      `;
+      await transaction`
+        delete from customer_segments where name like '%E2E%'
+      `;
     }),
   );
+}
+
+let loyaltySettingsBackup: Record<string, unknown> | null = null;
+let loyaltySettingsCaptured = false;
+
+async function captureLoyaltySettingsBackup() {
+  const [row] = await withDatabase((sql) =>
+    sql<Array<{ data: Record<string, unknown> }>>`
+      select to_jsonb(loyalty_settings) as data from loyalty_settings limit 1
+    `,
+  );
+  loyaltySettingsBackup = row?.data ?? null;
+  loyaltySettingsCaptured = true;
+}
+
+async function restoreLoyaltySettingsBackup() {
+  if (!loyaltySettingsCaptured) return;
+  await withDatabase(async (sql) => {
+    await sql`delete from loyalty_settings`;
+    if (loyaltySettingsBackup) {
+      await sql`
+        insert into loyalty_settings
+        select * from jsonb_populate_record(
+          null::loyalty_settings,
+          ${sql.json(
+            loyaltySettingsBackup as Parameters<typeof sql.json>[0],
+          )}
+        )
+      `;
+    }
+  });
 }
 
 async function restoreReservationSettingsBackup() {
@@ -2872,6 +2937,118 @@ test("customers create reservations and administrators manage them", async ({
   await restoreReservationSettingsBackup();
 });
 
+test("administrator manages loyalty consents tags and segments", async ({
+  page,
+}) => {
+  await cleanupE2EReservations();
+  await cleanupE2ECustomers();
+  await captureLoyaltySettingsBackup();
+  await loginAsAdmin(page);
+
+  await page.goto("/admin/loyalty-settings");
+  await page.getByLabel("Activar programa").check();
+  await page.getByLabel("Nombre visible").fill("Club Piccolo E2E");
+  await page.getByLabel("Permitir ajustes manuales").check();
+  await page
+    .getByRole("button", { name: "Guardar configuración" })
+    .click();
+  await expect(page.getByText("Configuración guardada.")).toBeVisible();
+
+  await page.goto("/admin/customers");
+  await page.getByRole("button", { name: "Nuevo cliente" }).click();
+  await page.getByLabel("Nombre").fill("Fidelidad");
+  await page.getByLabel("Apellidos").fill("Cliente E2E");
+  await page.getByLabel("Teléfono").fill("+34 611 111 111");
+  await page.getByLabel("Email").fill("fidelidad-e2e@example.com");
+  await page.getByRole("button", { name: "Crear cliente" }).click();
+  await expect(page).toHaveURL(/\/admin\/customers\/[0-9a-f-]+$/);
+  const customerUrl = page.url();
+  const loyaltySection = page
+    .getByRole("heading", { name: "Fidelización", exact: true })
+    .locator("..");
+
+  await loyaltySection.getByLabel("Puntos").fill("100");
+  await loyaltySection.getByLabel("Motivo").fill("Abono manual E2E");
+  page.once("dialog", (dialog) => dialog.accept());
+  await loyaltySection.getByRole("button", { name: "Aplicar" }).click();
+  await expect(loyaltySection).toContainText("Saldo");
+  await expect(loyaltySection).toContainText("100");
+  await loyaltySection.getByLabel("Puntos").fill("-40");
+  await loyaltySection.getByLabel("Motivo").fill("Descuento manual E2E");
+  page.once("dialog", (dialog) => dialog.accept());
+  await loyaltySection.getByRole("button", { name: "Aplicar" }).click();
+  await expect(loyaltySection).toContainText("60");
+
+  await loyaltySection.getByLabel("Puntos").fill("-100");
+  await loyaltySection.getByLabel("Motivo").fill("Saldo insuficiente E2E");
+  const dialogs: string[] = [];
+  const dialogHandler = async (dialog: {
+    message(): string;
+    accept(value?: string): Promise<void>;
+  }) => {
+    dialogs.push(dialog.message());
+    await dialog.accept();
+  };
+  page.on("dialog", dialogHandler);
+  await loyaltySection.getByRole("button", { name: "Aplicar" }).click();
+  await expect.poll(() => dialogs.length).toBeGreaterThanOrEqual(2);
+  page.off("dialog", dialogHandler);
+  await expect(loyaltySection).toContainText("60");
+  await expect(loyaltySection).toContainText("Abono manual E2E");
+
+  const consentSection = page
+    .getByRole("heading", { name: "Consentimientos" })
+    .locator("..");
+  await consentSection.getByLabel("Versión legal").fill("crm-v1-e2e");
+  page.once("dialog", (dialog) => dialog.accept());
+  await consentSection.getByRole("button", { name: "Registrar" }).click();
+  await expect(consentSection).toContainText("granted");
+  await consentSection.getByLabel("Estado").selectOption("withdrawn");
+  await consentSection.getByLabel("Versión legal").fill("crm-v2-e2e");
+  page.once("dialog", (dialog) => dialog.accept());
+  await consentSection.getByRole("button", { name: "Registrar" }).click();
+  await expect(consentSection).toContainText("withdrawn");
+  await expect(consentSection).toContainText("Historial (2)");
+
+  await page.goto("/admin/customer-tags");
+  await page.getByLabel("Nombre").fill("VIP E2E");
+  await page.getByRole("button", { name: "Crear etiqueta" }).click();
+  await expect(page.getByText("VIP E2E", { exact: true })).toBeVisible();
+  await page.goto(customerUrl);
+  await page.getByLabel("VIP E2E").check();
+
+  await page.goto("/admin/customers");
+  await page.getByLabel("Todas las etiquetas").selectOption({
+    label: "VIP E2E",
+  });
+  await page.getByLabel("Puntos cualquiera").selectOption("true");
+  await page.getByLabel("Consentimiento email").selectOption("withdrawn");
+  await page.getByRole("button", { name: "Aplicar filtros" }).click();
+  await expect(
+    page.getByRole("link", { name: "Fidelidad Cliente E2E" }),
+  ).toBeVisible();
+
+  await page.goto("/admin/customer-segments");
+  await page.getByLabel("Nombre").fill("VIP con puntos E2E");
+  await page.getByLabel("Puntos").selectOption("true");
+  await page.getByLabel("VIP E2E").check();
+  await page.getByRole("button", { name: "Crear segmento" }).click();
+  const segmentRow = page.locator("article").filter({
+    hasText: "VIP con puntos E2E",
+  });
+  await expect(segmentRow).toContainText("1 clientes");
+  await segmentRow.getByRole("link", { name: "Ver clientes" }).click();
+  await expect(
+    page.getByRole("link", { name: "Fidelidad Cliente E2E" }),
+  ).toBeVisible();
+
+  await page.goto(customerUrl);
+  await page.getByLabel("VIP E2E").uncheck();
+
+  await cleanupE2ECustomers();
+  await restoreLoyaltySettingsBackup();
+});
+
 test("unauthenticated admin access redirects to login", async ({ page }) => {
   await page.goto("/admin");
 
@@ -2899,6 +3076,14 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Freservations$/);
   await page.goto("/admin/customers");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fcustomers$/);
+  await page.goto("/admin/loyalty-settings");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Floyalty-settings$/);
+  await page.goto("/admin/customer-tags");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fcustomer-tags$/);
+  await page.goto("/admin/customer-segments");
+  await expect(page).toHaveURL(
+    /\/login\?next=%2Fadmin%2Fcustomer-segments$/,
+  );
   await page.goto("/admin/reservation-settings");
   await expect(page).toHaveURL(
     /\/login\?next=%2Fadmin%2Freservation-settings$/,
@@ -3111,6 +3296,7 @@ test("five failures block login and a later success clears attempts", async ({
 test.afterAll(async () => {
   await cleanupE2EReservations();
   await cleanupE2ECustomers();
+  await restoreLoyaltySettingsBackup();
   await restoreReservationSettingsBackup();
   await cleanupE2ESpecialHours();
   await cleanupE2ELanguages();

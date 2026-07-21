@@ -9,16 +9,24 @@ import {
   toggleCustomerAction,
 } from "../actions";
 import type { getAdminCustomers } from "../repository";
+import type { CustomerFilters } from "@/features/customer-segments/config";
+import type { getCustomerTags } from "@/features/admin/customer-tags/repository";
 
 type CustomerRow = Awaited<ReturnType<typeof getAdminCustomers>>[number];
 
 export function CustomersManager({
   customers,
-  query,
+  filters,
+  tags,
+  segmentName,
+  page,
   locales,
 }: {
   customers: CustomerRow[];
-  query: string;
+  filters: CustomerFilters;
+  tags: Awaited<ReturnType<typeof getCustomerTags>>;
+  segmentName: string | null;
+  page: number;
   locales: string[];
 }) {
   const [creating, setCreating] = useState(false);
@@ -44,17 +52,26 @@ export function CustomersManager({
           <Plus className="size-4" /> Nuevo cliente
         </button>
       </div>
-      <form method="get" className="mt-5 flex gap-2">
+      {segmentName ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-800">Segmento: {segmentName}</p> : null}
+      <form method="get" className="mt-5 grid gap-2 rounded-2xl border bg-white p-3 sm:grid-cols-4">
         <label className="sr-only" htmlFor="customer-search">Buscar clientes</label>
         <input
           id="customer-search"
           name="query"
-          defaultValue={query}
+          defaultValue={filters.query}
           placeholder="Nombre, teléfono o email"
-          className="min-h-11 flex-1 rounded-xl border border-stone-200 bg-white px-3"
+          className="min-h-11 rounded-xl border border-stone-200 bg-white px-3 sm:col-span-2"
         />
+        <select aria-label="Estado cliente" name="status" defaultValue={filters.isActive===undefined?"":filters.isActive?"active":"inactive"} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Todos los estados</option><option value="active">Activos</option><option value="inactive">Inactivos</option></select>
+        <select aria-label="Todas las etiquetas" name="tagId" defaultValue={filters.tagIds?.[0] ?? ""} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Todas las etiquetas</option>{tags.map(tag=><option key={tag.id} value={tag.id}>{tag.name}</option>)}</select>
+        <select aria-label="Fidelización cualquiera" name="loyalty" defaultValue={filters.loyaltyParticipating?"true":""} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Fidelización cualquiera</option><option value="true">Participa</option></select>
+        <select aria-label="Puntos cualquiera" name="hasPoints" defaultValue={filters.hasPoints?"true":""} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Puntos cualquiera</option><option value="true">Con puntos</option></select>
+        <select aria-label="Consentimiento email" name="emailConsent" defaultValue={filters.emailConsent ?? ""} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Consentimiento email</option><option value="granted">Concedido</option><option value="rejected">Rechazado</option><option value="withdrawn">Retirado</option></select>
+        <select aria-label="Consentimiento teléfono" name="phoneConsent" defaultValue={filters.phoneConsent ?? ""} className="min-h-11 rounded-xl border bg-white px-2"><option value="">Consentimiento teléfono</option><option value="granted">Concedido</option><option value="rejected">Rechazado</option><option value="withdrawn">Retirado</option></select>
+        <label className="flex min-h-11 items-center gap-2 text-xs font-bold"><input name="hasNoShows" type="checkbox" value="true" defaultChecked={filters.hasNoShows} />Con no-show</label>
+        <label className="text-xs font-bold">Sin visitas desde días<input name="noVisitsSinceDays" type="number" min={1} max={3650} defaultValue={filters.noVisitsSinceDays} className="mt-1 min-h-11 w-full rounded-xl border px-2" /></label>
         <button className="min-h-11 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold">
-          Buscar
+          Aplicar filtros
         </button>
       </form>
       <p aria-live="polite" className="mt-3 min-h-5 text-xs font-bold text-stone-600">
@@ -90,6 +107,7 @@ export function CustomersManager({
                   {(customer.totalSpendCents / 100).toFixed(2)} € preparados TPV
                   · Última reserva {customer.lastReservationDate ?? "—"}
                 </p>
+                <p className="mt-1 text-[10px] font-bold text-stone-500">Puntos {customer.pointsBalance} · Etiquetas {customer.tagNames || "—"} · Email {customer.emailConsent ?? "sin registrar"} · Teléfono {customer.phoneConsent ?? "sin registrar"}</p>
               </div>
               <button
                 type="button"
@@ -117,6 +135,10 @@ export function CustomersManager({
           ))
         )}
       </section>
+      <div className="mt-4 flex justify-between">
+        {page > 1 ? <Link href={`?page=${page-1}`} className="min-h-11 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Anterior</Link> : <span />}
+        {customers.length === 50 ? <Link href={`?page=${page+1}`} className="min-h-11 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Siguiente</Link> : null}
+      </div>
       {creating ? (
         <CustomerDialog
           locales={locales}

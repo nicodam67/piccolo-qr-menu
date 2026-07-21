@@ -1,18 +1,21 @@
 import "server-only";
 
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
   customerAddresses,
   customerNotes,
+  customerTagAssignments,
   customers,
   reservations,
   restaurantSettings,
 } from "@/db/schema";
 import type { CustomerInput } from "@/features/customers/domain";
+import type { CustomerFilters } from "@/features/customer-segments/config";
+import { buildCustomerFilterConditions } from "@/features/customer-segments/repository";
 
-async function getRestaurantId() {
+export async function getCustomerRestaurantId() {
   const { db } = getDatabase();
   const [restaurant] = await db
     .select({ id: restaurantSettings.id })
@@ -22,21 +25,16 @@ async function getRestaurantId() {
   return restaurant.id;
 }
 
-export async function getAdminCustomers(query = "") {
+export async function getAdminCustomers(
+  filters: CustomerFilters = {},
+  page = 1,
+) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
-  const conditions = [eq(customers.restaurantId, restaurantId)];
-  if (query.trim()) {
-    const pattern = `%${query.trim().slice(0, 160)}%`;
-    const search = or(
-      sql`${customers.firstName} || ' ' || ${customers.lastName} ilike ${pattern}`,
-      ilike(customers.firstName, pattern),
-      ilike(customers.lastName, pattern),
-      ilike(customers.phone, pattern),
-      ilike(customers.email, pattern),
-    );
-    if (search) conditions.push(search);
-  }
+  const restaurantId = await getCustomerRestaurantId();
+  const conditions = [
+    eq(customers.restaurantId, restaurantId),
+    ...buildCustomerFilterConditions(filters),
+  ];
   return db
     .select({
       id: customers.id,
@@ -52,25 +50,30 @@ export async function getAdminCustomers(query = "") {
       cancellationCount: sql<number>`count(${reservations.id}) filter (where ${reservations.status} = 'cancelled')::integer`,
       noShowCount: sql<number>`count(${reservations.id}) filter (where ${reservations.status} = 'no_show')::integer`,
       lastReservationDate: sql<string | null>`max(${reservations.reservationDate})`,
+      pointsBalance: sql<number>`coalesce((select balance from customer_loyalty_accounts cla where cla.customer_id = ${customers.id}), 0)::integer`,
+      tagNames: sql<string>`coalesce((select string_agg(ct.name, ', ' order by ct.sort_order) from customer_tag_assignments cta inner join customer_tags ct on ct.id = cta.tag_id where cta.customer_id = ${customers.id}), '')`,
+      emailConsent: sql<string | null>`(select cc.status from customer_consents cc where cc.customer_id = ${customers.id} and cc.consent_type = 'marketing_email' order by cc.created_at desc limit 1)`,
+      phoneConsent: sql<string | null>`(select cc.status from customer_consents cc where cc.customer_id = ${customers.id} and cc.consent_type = 'marketing_phone' order by cc.created_at desc limit 1)`,
     })
     .from(customers)
     .leftJoin(reservations, eq(reservations.customerId, customers.id))
     .where(and(...conditions))
     .groupBy(customers.id)
     .orderBy(desc(customers.updatedAt))
-    .limit(250);
+    .limit(50)
+    .offset((Math.max(1, page) - 1) * 50);
 }
 
 export async function getAdminCustomerDetail(id: string) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCustomerRestaurantId();
   const [customer] = await db
     .select()
     .from(customers)
     .where(and(eq(customers.id, id), eq(customers.restaurantId, restaurantId)))
     .limit(1);
   if (!customer) return null;
-  const [notes, addresses, history] = await Promise.all([
+  const [notes, addresses, history, assignedTags] = await Promise.all([
     db
       .select()
       .from(customerNotes)
@@ -94,13 +97,23 @@ export async function getAdminCustomerDetail(id: string) {
       .where(eq(reservations.customerId, id))
       .orderBy(desc(reservations.reservationDate), desc(reservations.reservationTime))
       .limit(50),
+    db
+      .select({ tagId: customerTagAssignments.tagId })
+      .from(customerTagAssignments)
+      .where(eq(customerTagAssignments.customerId, id)),
   ]);
-  return { customer, notes, addresses, history };
+  return {
+    customer,
+    notes,
+    addresses,
+    history,
+    assignedTagIds: assignedTags.map(({ tagId }) => tagId),
+  };
 }
 
 export async function createCustomer(input: CustomerInput) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCustomerRestaurantId();
   const [created] = await db
     .insert(customers)
     .values({ restaurantId, ...input })
@@ -111,7 +124,7 @@ export async function createCustomer(input: CustomerInput) {
 
 export async function updateCustomer(id: string, input: CustomerInput) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCustomerRestaurantId();
   const [updated] = await db
     .update(customers)
     .set({ ...input, updatedAt: new Date() })
@@ -122,7 +135,7 @@ export async function updateCustomer(id: string, input: CustomerInput) {
 
 export async function setCustomerActive(id: string, isActive: boolean) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCustomerRestaurantId();
   const [updated] = await db
     .update(customers)
     .set({ isActive, updatedAt: new Date() })
@@ -137,7 +150,7 @@ export async function addCustomerNote(
   body: string,
 ) {
   const { db } = getDatabase();
-  const restaurantId = await getRestaurantId();
+  const restaurantId = await getCustomerRestaurantId();
   const [customer] = await db
     .select({ id: customers.id })
     .from(customers)

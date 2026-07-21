@@ -406,6 +406,216 @@ export const customerNotes = pgTable(
   ],
 );
 
+export const loyaltySettings = pgTable(
+  "loyalty_settings",
+  {
+    restaurantId: uuid("restaurant_id")
+      .primaryKey()
+      .references(() => restaurantSettings.id, { onDelete: "cascade" }),
+    isEnabled: boolean("is_enabled").default(false).notNull(),
+    programName: varchar("program_name", { length: 120 })
+      .default("Fidelización")
+      .notNull(),
+    pointsPerEuro: integer("points_per_euro").default(1).notNull(),
+    pointsExpire: boolean("points_expire").default(false).notNull(),
+    expiryMonths: integer("expiry_months"),
+    manualAdjustmentsEnabled: boolean("manual_adjustments_enabled")
+      .default(true)
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    check("loyalty_settings_points_check", sql`${table.pointsPerEuro} > 0`),
+    check(
+      "loyalty_settings_expiry_check",
+      sql`(not ${table.pointsExpire} and ${table.expiryMonths} is null) or (${table.pointsExpire} and ${table.expiryMonths} between 1 and 120)`,
+    ),
+  ],
+);
+
+export const customerLoyaltyAccounts = pgTable(
+  "customer_loyalty_accounts",
+  {
+    customerId: uuid("customer_id")
+      .primaryKey()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    balance: integer("balance").default(0).notNull(),
+    totalEarned: integer("total_earned").default(0).notNull(),
+    totalRedeemed: integer("total_redeemed").default(0).notNull(),
+    totalExpired: integer("total_expired").default(0).notNull(),
+    lastMovementAt: timestamp("last_movement_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index("loyalty_accounts_restaurant_balance_idx").on(
+      table.restaurantId,
+      table.balance,
+    ),
+    check("loyalty_accounts_balance_check", sql`${table.balance} >= 0`),
+    check(
+      "loyalty_accounts_totals_check",
+      sql`${table.totalEarned} >= 0 and ${table.totalRedeemed} >= 0 and ${table.totalExpired} >= 0`,
+    ),
+  ],
+);
+
+export const customerLoyaltyMovements = pgTable(
+  "customer_loyalty_movements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    amount: integer("amount").notNull(),
+    movementType: varchar("movement_type", { length: 30 }).notNull(),
+    reason: varchar("reason", { length: 500 }).notNull(),
+    adminId: uuid("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    externalReference: varchar("external_reference", { length: 160 }),
+    idempotencyKey: varchar("idempotency_key", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("loyalty_movements_customer_created_idx").on(
+      table.customerId,
+      table.createdAt,
+    ),
+    uniqueIndex("loyalty_movements_idempotency_uidx")
+      .on(table.restaurantId, table.idempotencyKey)
+      .where(sql`${table.idempotencyKey} is not null`),
+    uniqueIndex("loyalty_movements_external_uidx")
+      .on(table.restaurantId, table.externalReference)
+      .where(sql`${table.externalReference} is not null`),
+    check("loyalty_movements_amount_check", sql`${table.amount} <> 0`),
+    check(
+      "loyalty_movements_type_check",
+      sql`${table.movementType} in ('manual_credit', 'manual_debit', 'correction', 'redemption', 'expiry', 'tpv_accrual', 'tpv_redemption')`,
+    ),
+  ],
+);
+
+export const customerConsents = pgTable(
+  "customer_consents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    consentType: varchar("consent_type", { length: 40 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull(),
+    origin: varchar("origin", { length: 40 }).notNull(),
+    legalVersion: varchar("legal_version", { length: 80 }).notNull(),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    userAgent: varchar("user_agent", { length: 500 }),
+    adminId: uuid("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("customer_consents_current_idx").on(
+      table.customerId,
+      table.consentType,
+      table.createdAt,
+    ),
+    check(
+      "customer_consents_type_check",
+      sql`${table.consentType} in ('marketing_email', 'marketing_phone', 'loyalty_program', 'personalization')`,
+    ),
+    check(
+      "customer_consents_status_check",
+      sql`${table.status} in ('granted', 'rejected', 'withdrawn')`,
+    ),
+  ],
+);
+
+export const customerTags = pgTable(
+  "customer_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    color: varchar("color", { length: 7 }).default("#64748b").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    sortOrder: integer("sort_order").default(1).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("customer_tags_restaurant_name_uidx").on(
+      table.restaurantId,
+      sql`lower(${table.name})`,
+    ),
+    index("customer_tags_restaurant_order_idx").on(
+      table.restaurantId,
+      table.isActive,
+      table.sortOrder,
+    ),
+    check("customer_tags_order_check", sql`${table.sortOrder} > 0`),
+    check("customer_tags_color_check", sql`${table.color} ~ '^#[0-9A-Fa-f]{6}$'`),
+  ],
+);
+
+export const customerTagAssignments = pgTable(
+  "customer_tag_assignments",
+  {
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => customerTags.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.customerId, table.tagId] }),
+    index("customer_tag_assignments_tag_idx").on(table.tagId),
+  ],
+);
+
+export const customerSegments = pgTable(
+  "customer_segments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    description: varchar("description", { length: 1000 }),
+    filters: jsonb("filters").default({}).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("customer_segments_restaurant_name_uidx").on(
+      table.restaurantId,
+      sql`lower(${table.name})`,
+    ),
+    index("customer_segments_restaurant_active_idx").on(
+      table.restaurantId,
+      table.isActive,
+      table.updatedAt,
+    ),
+  ],
+);
+
 export const reservations = pgTable(
   "reservations",
   {
