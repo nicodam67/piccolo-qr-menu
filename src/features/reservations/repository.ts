@@ -17,6 +17,7 @@ import {
   buildSpecialOpeningDays,
 } from "@/features/public-menu/repository";
 import { getOpeningIntervalsForDate } from "@/features/public-menu/schedule";
+import { resolveCustomerForReservation } from "@/features/customers/repository";
 import {
   generateReservationLocator,
   generateReservationSlots,
@@ -324,11 +325,19 @@ export async function createOnlineReservation(
     if (depositTotalCents > 0 && !input.acceptedDepositTerms) throw new Error("Debes aceptar las condiciones del adelanto.");
     const reservationAt = zonedLocalDateTimeToUtc(input.date,input.time,context.restaurant.timezone);
     if (!reservationAt) throw new Error("Fecha u hora no válida.");
+    const customerId = await resolveCustomerForReservation(tx, {
+      restaurantId: context.restaurant.id,
+      guestName: input.guestName,
+      guestPhone: input.guestPhone,
+      guestEmail: input.guestEmail,
+      locale: input.locale,
+    });
 
     const [created] = await tx
       .insert(reservations)
       .values({
         restaurantId: context.restaurant.id,
+        customerId,
         locator,
         reservationDate: input.date,
         reservationTime: input.time,
@@ -399,10 +408,18 @@ export async function createManualReservation(
     const locator = await createUniqueLocator(tx);
     const depositTotalCents = calculateDeposit(input.partySize,context.settings.depositPerGuestCents,context.settings.depositMinimumPartySize,context.settings.depositEnabled && context.settings.manualDepositRequired);
     const reservationAt = zonedLocalDateTimeToUtc(input.date,input.time,context.restaurant.timezone);
+    const customerId = await resolveCustomerForReservation(tx, {
+      restaurantId: context.restaurant.id,
+      guestName: input.guestName,
+      guestPhone: input.guestPhone,
+      guestEmail: input.guestEmail,
+      locale: input.locale,
+    });
     const [created] = await tx
       .insert(reservations)
       .values({
         restaurantId: context.restaurant.id,
+        customerId,
         locator,
         reservationDate: input.date,
         reservationTime: input.time,
@@ -469,6 +486,13 @@ export async function updateAdminReservation(
         "El cambio queda fuera de horario o supera la capacidad. Autoriza explícitamente para continuar.",
       );
     }
+    const customerId = await resolveCustomerForReservation(tx, {
+      restaurantId: current.restaurantId,
+      guestName: input.guestName,
+      guestPhone: input.guestPhone,
+      guestEmail: input.guestEmail,
+      locale: current.locale,
+    });
     await tx
       .update(reservations)
       .set({
@@ -478,6 +502,7 @@ export async function updateAdminReservation(
         guestName: input.guestName,
         guestPhone: input.guestPhone,
         guestEmail: input.guestEmail,
+        customerId,
         customerNotes: input.customerNotes,
         internalNotes: input.internalNotes,
         updatedAt: new Date(),

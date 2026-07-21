@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { getDatabase } from "@/db";
-import { reservationEconomicEvents, reservationPayments, reservations, restaurantSettings } from "@/db/schema";
+import { customers, reservationEconomicEvents, reservationPayments, reservations, restaurantSettings } from "@/db/schema";
 import { canMarkNoShow } from "./domain";
 import type { PaymentMethod } from "./provider";
 import { getPaymentProvider } from "./provider-factory";
@@ -53,7 +53,7 @@ export async function registerCashPayment(reservationId:string,amountCents:numbe
 }
 
 export async function registerArrival(reservationId:string,at=new Date()) {
-  const {db}=getDatabase(); await db.transaction(async tx=>{const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1);if(!r)throw new Error("Reserva inexistente.");await tx.update(reservations).set({arrivedAt:at,status:"seated",tpvApplicationStatus:r.economicStatus==="paid"?"available":"not_ready",updatedAt:new Date()}).where(eq(reservations.id,reservationId));await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,eventType:"arrival_recorded",reason:"Llegada registrada por administración"});});
+  const {db}=getDatabase(); await db.transaction(async tx=>{const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1);if(!r)throw new Error("Reserva inexistente.");await tx.update(reservations).set({arrivedAt:at,status:"seated",tpvApplicationStatus:r.economicStatus==="paid"?"available":"not_ready",updatedAt:new Date()}).where(eq(reservations.id,reservationId));if(r.customerId)await tx.update(customers).set({lastVisitAt:at,updatedAt:new Date()}).where(eq(customers.id,r.customerId));await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,eventType:"arrival_recorded",reason:"Llegada registrada por administración"});});
 }
 export async function registerDepositCourtesy(
   reservationId: string,

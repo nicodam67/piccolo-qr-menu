@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Tags,
   UtensilsCrossed,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -87,6 +88,12 @@ const navigationItems: NavigationItem[] = [
     icon: SlidersHorizontal,
     available: true,
     href: "/admin/reservation-settings",
+  },
+  {
+    label: "Clientes",
+    icon: Users,
+    available: true,
+    href: "/admin/customers",
   },
   {
     label: "Idiomas",

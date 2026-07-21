@@ -23,6 +23,7 @@ type DashboardCardsProps = Pick<
   | "todayReservationCount"
   | "todayGuestCount"
   | "todayPendingCount"
+  | "customerCount"
 >;
 
 type Metric = {
@@ -43,6 +44,7 @@ export function DashboardCards({
   todayReservationCount,
   todayGuestCount,
   todayPendingCount,
+  customerCount,
 }: DashboardCardsProps) {
   const metrics: Metric[] = [
     {
@@ -65,6 +67,13 @@ export function DashboardCards({
       value: todayPendingCount,
       icon: Clock3,
       tone: "bg-yellow-50 text-yellow-700",
+    },
+    {
+      id: "customers",
+      label: "Clientes activos",
+      value: customerCount,
+      icon: Users,
+      tone: "bg-indigo-50 text-indigo-700",
     },
     {
       id: "categories",
