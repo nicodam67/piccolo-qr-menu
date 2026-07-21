@@ -279,12 +279,18 @@ definir y publicar una política real de privacidad, plazos de conservación,
 base jurídica y procedimiento de atención de derechos. No deben copiarse datos
 personales a logs, URLs ni sistemas externos no autorizados.
 
-### Adelantos y proveedor de pagos
+### Estado provisional de pagos de reservas
 
 El modelo económico admite tarjeta, Bizum y efectivo administrativo, importes
 en céntimos, eventos, devoluciones, cortesía, llegada, no-show y preparación
 para aplicar saldo una sola vez a Piccolo TPV. No existe todavía integración
-con cuentas o tickets del TPV.
+con cuentas o tickets del TPV. La arquitectura, webhooks, idempotencia y
+trazabilidad se conservan para la fase final.
+
+Los pagos online permanecen desactivados temporalmente. Las reservas funcionan
+sin proveedor externo: el adelanto calculado queda pendiente y administración
+puede registrar efectivo, tarjeta externa, cortesía o devolución manual. No es
+un error que falten credenciales.
 
 Proveedor real pendiente de autorización: Stripe publica 1,5 % + 0,25 € para
 tarjeta EEE y Bizum sin cuota mensual; Redsys depende del contrato bancario y
@@ -292,3 +298,8 @@ no publica la tarifa de Piccolo; MONEI publica para Bizum online 1,34 % +
 0,34 € más 0,17 € de adquisición en MONEI X. La aplicación usa una interfaz
 intercambiable y `PAYMENT_PROVIDER=disabled`; ninguna redirección confirma un
 pago y Bizum no se simula.
+
+Para activar un proveedor en el futuro será necesario cerrar el contrato
+comercial, habilitar métodos, configurar claves exclusivamente de servidor,
+registrar el webhook, programar la tarea de expiración y ejecutar pruebas
+sandbox completas antes de producción.

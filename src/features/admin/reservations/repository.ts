@@ -4,6 +4,7 @@ import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
+  reservationEconomicEvents,
   reservations,
   restaurantSettings,
 } from "@/db/schema";
@@ -31,6 +32,7 @@ export type AdminReservation = {
   createdAt: string;
   depositTotalCents:number; economicStatus:string; graceDeadlineAt:string;
   arrivedAt:string; tpvApplicationStatus:string; remainingDepositCents:number;
+  economicEvents: Array<{ type:string; amountCents:number|null; reason:string; createdAt:string }>;
 };
 
 export async function getAdminReservations({
@@ -76,7 +78,7 @@ export async function getAdminReservations({
     );
     if (search) conditions.push(search);
   }
-  const [rows, [summary]] = await Promise.all([
+  const [rows, [summary], eventRows] = await Promise.all([
     db
       .select()
       .from(reservations)
@@ -98,7 +100,38 @@ export async function getAdminReservations({
           eq(reservations.reservationDate, selectedDate),
         ),
       ),
+    db
+      .select({
+        reservationId: reservationEconomicEvents.reservationId,
+        type: reservationEconomicEvents.eventType,
+        amountCents: reservationEconomicEvents.amountCents,
+        reason: reservationEconomicEvents.reason,
+        createdAt: reservationEconomicEvents.createdAt,
+      })
+      .from(reservationEconomicEvents)
+      .innerJoin(
+        reservations,
+        eq(reservationEconomicEvents.reservationId, reservations.id),
+      )
+      .where(
+        and(
+          eq(reservations.restaurantId, restaurant.id),
+          eq(reservations.reservationDate, selectedDate),
+        ),
+      )
+      .orderBy(asc(reservationEconomicEvents.createdAt)),
   ]);
+  const eventsByReservation = new Map<string, AdminReservation["economicEvents"]>();
+  for (const event of eventRows) {
+    const list = eventsByReservation.get(event.reservationId) ?? [];
+    list.push({
+      type: event.type,
+      amountCents: event.amountCents,
+      reason: event.reason ?? "",
+      createdAt: event.createdAt.toISOString(),
+    });
+    eventsByReservation.set(event.reservationId, list);
+  }
   return {
     date: selectedDate,
     defaultLocale: restaurant.defaultLocale,
@@ -121,6 +154,7 @@ export async function getAdminReservations({
       graceDeadlineAt:row.graceDeadlineAt?.toISOString() ?? "",
       arrivedAt:row.arrivedAt?.toISOString() ?? "",tpvApplicationStatus:row.tpvApplicationStatus,
       remainingDepositCents:row.remainingDepositCents,
+      economicEvents: eventsByReservation.get(row.id) ?? [],
     })),
     summary: summary ?? {
       totalReservations: 0,

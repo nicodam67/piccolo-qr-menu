@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { calculateDeposit, calculateGraceDeadline, canApplyToTpv, canMarkNoShow, enabledPaymentMethods, refundableAmount, remainingForTpv } from "../../src/features/reservations/payments/domain";
 import { PaymentProviderNotConfigured } from "../../src/features/reservations/payments/provider";
+import { getOfflinePaymentNotice } from "../../src/features/reservations/copy";
+import { readFile } from "node:fs/promises";
 
 describe("reservation deposits", () => {
   it("calcula por persona en céntimos",()=>assert.equal(calculateDeposit(4,1000,1,true),4000));
@@ -20,4 +22,15 @@ describe("reservation deposits", () => {
   it("prepara TPV solo tras llegada",()=>assert.equal(canApplyToTpv(new Date(),"paid",4000),true));
   it("proveedor desactivado rechaza webhooks",async()=>assert.equal(await new PaymentProviderNotConfigured().verifyWebhook("x","y"),false));
   it("proveedor no configurado no crea pagos",async()=>await assert.rejects(()=>new PaymentProviderNotConfigured().createPayment()));
+  it("explica el adelanto pendiente sin proveedor",()=>assert.match(getOfflinePaymentNotice("es"),/restaurante confirmará/));
+  it("localiza el aviso provisional",()=>assert.match(getOfflinePaymentNotice("ca"),/restaurant confirmarà/));
+  it("no importa Stripe desde el componente cliente",async()=>{
+    const source=await readFile(new URL("../../src/features/reservations/components/reservation-form.tsx",import.meta.url),"utf8");
+    assert.equal(/from [\"']stripe[\"']|stripe-provider/.test(source),false);
+  });
+  it("carga Stripe dinámicamente solo desde la factoría de servidor",async()=>{
+    const source=await readFile(new URL("../../src/features/reservations/payments/provider-factory.ts",import.meta.url),"utf8");
+    assert.match(source,/import \"server-only\"/);
+    assert.match(source,/await import\(\"\.\/stripe-provider\"\)/);
+  });
 });

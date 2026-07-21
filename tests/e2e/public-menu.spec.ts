@@ -2679,6 +2679,8 @@ test("customers create reservations and administrators manage them", async ({
   await page
     .getByLabel("Política y condiciones")
     .fill("Política de privacidad E2E.");
+  await page.getByLabel("Activar adelanto").check();
+  await page.getByLabel("Exigir en reservas manuales").check();
   await page.getByLabel("Importe por comensal (céntimos)").fill("1000");
   await page.getByLabel("Mínimo de personas").fill("2");
   await page.getByLabel("Política de cancelación").fill("Cancelación E2E");
@@ -2704,9 +2706,16 @@ test("customers create reservations and administrators manage them", async ({
   await page.getByLabel(/Correo electrónico/).fill("reserva-e2e@example.com");
   await page.getByLabel(/Observaciones/).fill("Observación pública E2E");
   await page.getByLabel(/Acepto la política/).check();
+  await page.locator('input[name="acceptDeposit"]').check();
+  await page.locator('input[name="acceptNoShow"]').check();
+  await page.locator('input[name="acceptGrace"]').check();
+  await expect(page.locator('input[name="paymentMethod"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Solicitar reserva" }).click();
   await expect(
     page.getByRole("heading", { name: "Reserva enviada correctamente" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/El restaurante confirmará la reserva/),
   ).toBeVisible();
   const locator = (
     await page.getByTestId("reservation-locator").textContent()
@@ -2756,6 +2765,18 @@ test("customers create reservations and administrators manage them", async ({
     .check();
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByText("Reserva Manual E2E")).toBeVisible();
+  const manualCard = page
+    .getByTestId(/^reservation-/)
+    .filter({ hasText: "Reserva Manual E2E" });
+  const promptAnswers = ["2000", "Efectivo E2E"];
+  page.on("dialog", (dialog) =>
+    dialog.accept(promptAnswers.shift() ?? ""),
+  );
+  await manualCard
+    .getByRole("button", { name: "Registrar efectivo" })
+    .click();
+  await expect(manualCard).toContainText("paid");
+  await expect(manualCard).toContainText("Historial económico");
 
   await page.goto("/admin/reservation-settings");
   await page.getByLabel("Activar reservas online").uncheck();

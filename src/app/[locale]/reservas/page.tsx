@@ -46,6 +46,7 @@ export default async function PublicReservationsPage({ params }: Props) {
           restaurantPhone={data.restaurantPhone}
           settings={data.settings}
           isReady={data.isReady}
+          onlinePaymentsEnabled={data.onlinePaymentsEnabled}
           minDate={data.range.minDate}
           maxDate={data.range.maxDate}
         />

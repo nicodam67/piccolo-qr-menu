@@ -30,6 +30,7 @@ import {
   zonedLocalDateTimeToUtc,
 } from "./domain";
 import { calculateDeposit, calculateGraceDeadline } from "./payments/domain";
+import { isOnlinePaymentProviderEnabled } from "./payments/provider-factory";
 
 type ReservationTransaction = Parameters<
   Parameters<ReturnType<typeof getDatabase>["db"]["transaction"]>[0]
@@ -241,6 +242,7 @@ export async function getReservationPublicData(locale: string, now = new Date())
       restaurantPhone: context.restaurant.phone,
       settings: context.settings,
       isReady: isReservationSettingsReady(context.settings),
+      onlinePaymentsEnabled: isOnlinePaymentProviderEnabled(),
       range,
     };
   });
