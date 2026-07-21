@@ -385,6 +385,31 @@ async function cleanupE2EReservations() {
   );
 }
 
+async function cleanupE2ECustomers() {
+  await withDatabase((sql) =>
+    sql.begin(async (transaction) => {
+      await transaction`
+        delete from customer_notes
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from customer_addresses
+        where customer_id in (
+          select id from customers
+          where first_name like '%E2E%' or last_name like '%E2E%'
+        )
+      `;
+      await transaction`
+        delete from customers
+        where first_name like '%E2E%' or last_name like '%E2E%'
+      `;
+    }),
+  );
+}
+
 async function restoreReservationSettingsBackup() {
   if (!reservationSettingsCaptured) return;
   await withDatabase(async (sql) => {
@@ -912,6 +937,7 @@ test("admin dashboard loads PostgreSQL metrics at 320px", async ({ page }) => {
   await expect(page.getByTestId("admin-metric-today-reservations")).toContainText("0");
   await expect(page.getByTestId("admin-metric-today-guests")).toContainText("0");
   await expect(page.getByTestId("admin-metric-today-pending")).toContainText("0");
+  await expect(page.getByTestId("admin-metric-customers")).toContainText("0");
   await expect(page.getByText("Sin actividad reciente")).toBeVisible();
 
   await page
@@ -2631,6 +2657,7 @@ test("customers create reservations and administrators manage them", async ({
 }) => {
   await captureReservationSettingsBackup();
   await cleanupE2EReservations();
+  await cleanupE2ECustomers();
   const [bookable] = await withDatabase((sql) => sql<Array<{ date: string }>>`
     with restaurant_today as (
       select id, (current_timestamp at time zone timezone)::date as today
@@ -2732,6 +2759,35 @@ test("customers create reservations and administrators manage them", async ({
     `,
   );
   expect(paymentCount?.count).toBe(0);
+  const [customerLink] = await withDatabase(async (sql) =>
+    sql<Array<{ customer_id: string; count: number }>>`
+      select reservations.customer_id, count(customers.id)::integer as count
+      from reservations
+      inner join customers on customers.id = reservations.customer_id
+      where reservations.locator = ${locator}
+      group by reservations.customer_id
+    `,
+  );
+  expect(customerLink?.customer_id).toBeTruthy();
+  expect(customerLink?.count).toBe(1);
+
+  await page.goto("/admin/customers?query=Cliente Reserva E2E");
+  await expect(
+    page.getByRole("link", { name: "Cliente Reserva E2E" }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Cliente Reserva E2E" })
+    .click();
+  await page.getByLabel("Nueva nota").fill("Nota CRM E2E");
+  await page.getByRole("button", { name: "Añadir" }).click();
+  await expect(page.getByText("Nota CRM E2E")).toBeVisible();
+  await page
+    .getByLabel("Alergias importantes")
+    .fill("Alergia importante E2E");
+  await page.getByRole("button", { name: "Guardar perfil" }).click();
+  await expect(page.getByLabel("Alergias importantes")).toHaveValue(
+    "Alergia importante E2E",
+  );
 
   await page.goto(`/es/reservas`);
   await page.getByLabel("Fecha").fill(bookable.date);
@@ -2810,6 +2866,7 @@ test("customers create reservations and administrators manage them", async ({
   await expect(page.getByRole("link", { name: /Llamar/ }).first()).toBeVisible();
 
   await cleanupE2EReservations();
+  await cleanupE2ECustomers();
   await restoreReservationSettingsBackup();
 });
 
@@ -2838,6 +2895,8 @@ test("unauthenticated admin access redirects to login", async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fspecial-hours$/);
   await page.goto("/admin/reservations");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Freservations$/);
+  await page.goto("/admin/customers");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fcustomers$/);
   await page.goto("/admin/reservation-settings");
   await expect(page).toHaveURL(
     /\/login\?next=%2Fadmin%2Freservation-settings$/,
@@ -3049,6 +3108,7 @@ test("five failures block login and a later success clears attempts", async ({
 
 test.afterAll(async () => {
   await cleanupE2EReservations();
+  await cleanupE2ECustomers();
   await restoreReservationSettingsBackup();
   await cleanupE2ESpecialHours();
   await cleanupE2ELanguages();

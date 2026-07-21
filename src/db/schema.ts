@@ -312,6 +312,100 @@ export const reservationSettings = pgTable(
   ],
 );
 
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    restaurantId: uuid("restaurant_id")
+      .notNull()
+      .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    firstName: varchar("first_name", { length: 100 }).notNull(),
+    lastName: varchar("last_name", { length: 160 }).default("").notNull(),
+    phone: varchar("phone", { length: 40 }).notNull(),
+    email: varchar("email", { length: 254 }),
+    birthDate: date("birth_date"),
+    preferredLocale: varchar("preferred_locale", { length: 10 }).notNull(),
+    observations: varchar("observations", { length: 2000 }),
+    importantAllergies: varchar("important_allergies", { length: 1000 }),
+    isActive: boolean("is_active").default(true).notNull(),
+    lastVisitAt: timestamp("last_visit_at", { withTimezone: true }),
+    totalSpendCents: integer("total_spend_cents").default(0).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("customers_restaurant_phone_uidx").on(
+      table.restaurantId,
+      table.phone,
+    ),
+    uniqueIndex("customers_restaurant_email_uidx")
+      .on(table.restaurantId, sql`lower(${table.email})`)
+      .where(sql`${table.email} is not null`),
+    index("customers_restaurant_name_idx").on(
+      table.restaurantId,
+      table.firstName,
+      table.lastName,
+    ),
+    index("customers_restaurant_updated_idx").on(
+      table.restaurantId,
+      table.updatedAt,
+    ),
+    check("customers_spend_check", sql`${table.totalSpendCents} >= 0`),
+    check(
+      "customers_locale_lowercase_check",
+      sql`${table.preferredLocale} = lower(${table.preferredLocale})`,
+    ),
+  ],
+);
+
+export const customerAddresses = pgTable(
+  "customer_addresses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 80 }).default("").notNull(),
+    line1: varchar("line1", { length: 200 }).notNull(),
+    line2: varchar("line2", { length: 200 }),
+    city: varchar("city", { length: 120 }).default("").notNull(),
+    postalCode: varchar("postal_code", { length: 20 }).default("").notNull(),
+    province: varchar("province", { length: 120 }).default("").notNull(),
+    countryCode: varchar("country_code", { length: 2 }).default("ES").notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("customer_addresses_customer_idx").on(table.customerId),
+    check(
+      "customer_addresses_country_check",
+      sql`${table.countryCode} = upper(${table.countryCode})`,
+    ),
+  ],
+);
+
+export const customerNotes = pgTable(
+  "customer_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    adminId: uuid("admin_id").references(() => admins.id, {
+      onDelete: "set null",
+    }),
+    body: varchar("body", { length: 2000 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("customer_notes_customer_created_idx").on(
+      table.customerId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const reservations = pgTable(
   "reservations",
   {
@@ -319,6 +413,9 @@ export const reservations = pgTable(
     restaurantId: uuid("restaurant_id")
       .notNull()
       .references(() => restaurantSettings.id, { onDelete: "restrict" }),
+    customerId: uuid("customer_id").references(() => customers.id, {
+      onDelete: "restrict",
+    }),
     locator: varchar("locator", { length: 12 }).notNull(),
     reservationDate: date("reservation_date").notNull(),
     reservationTime: time("reservation_time").notNull(),
@@ -372,6 +469,10 @@ export const reservations = pgTable(
     index("reservations_restaurant_phone_idx").on(
       table.restaurantId,
       table.guestPhone,
+    ),
+    index("reservations_customer_date_idx").on(
+      table.customerId,
+      table.reservationDate,
     ),
     check("reservations_party_size_check", sql`${table.partySize} > 0`),
     check(

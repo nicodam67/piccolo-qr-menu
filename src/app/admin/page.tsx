@@ -59,6 +59,7 @@ export default async function AdminPage() {
           todayReservationCount={summary.todayReservationCount}
           todayGuestCount={summary.todayGuestCount}
           todayPendingCount={summary.todayPendingCount}
+          customerCount={summary.customerCount}
         />
 
         <section

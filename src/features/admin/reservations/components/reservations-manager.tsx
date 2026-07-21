@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CalendarPlus, Pencil, X } from "lucide-react";
 
 import {
@@ -132,6 +133,7 @@ export function ReservationsManager({
             {record.customerNotes ? <p className="mt-3 text-xs text-stone-600">Cliente: {record.customerNotes}</p> : null}
             {record.internalNotes ? <p className="mt-1 text-xs font-bold text-stone-600">Interna: {record.internalNotes}</p> : null}
             <p className="mt-2 text-[10px] text-stone-400">Creada: {new Date(record.createdAt).toLocaleString("es-ES")}</p>
+            {record.customerId ? <Link href={`/admin/customers/${record.customerId}`} className="mt-2 inline-block text-xs font-bold text-[#173f35] underline">Ver ficha cliente</Link> : null}
             <p className="mt-2 text-xs font-bold text-stone-600">Adelanto {(record.depositTotalCents / 100).toFixed(2)} € · {record.economicStatus} · TPV {record.tpvApplicationStatus}</p>
             <p className="text-[10px] text-stone-500">Cortesía: {record.graceDeadlineAt ? new Date(record.graceDeadlineAt).toLocaleString("es-ES") : "—"} · Llegada: {record.arrivedAt ? new Date(record.arrivedAt).toLocaleString("es-ES") : "No registrada"}</p>
             {record.economicEvents.length > 0 ? (

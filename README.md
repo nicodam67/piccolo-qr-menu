@@ -279,6 +279,20 @@ definir y publicar una política real de privacidad, plazos de conservación,
 base jurídica y procedimiento de atención de derechos. No deben copiarse datos
 personales a logs, URLs ni sistemas externos no autorizados.
 
+## CRM de clientes
+
+`/admin/customers` centraliza perfiles reutilizables por reservas y futuras
+integraciones con TPV, pedidos y fidelización. Conserva nombre, contacto,
+fecha de nacimiento, idioma, observaciones, alergias, estado, última visita y
+gasto preparado para TPV. Las notas CRM son append-only y las bajas son
+lógicas: no existe borrado físico de clientes desde la interfaz.
+
+Cada reserva mantiene sus datos de invitado como fotografía histórica y añade
+`customer_id`. Al crear o editar una reserva, el servidor resuelve el cliente
+por teléfono y, como alternativa, por email; si no existe, lo crea dentro de
+la misma transacción. Las consultas de estadísticas y búsquedas son agrupadas
+y no realizan una consulta por cliente.
+
 ### Estado provisional de pagos de reservas
 
 El modelo económico admite tarjeta, Bizum y efectivo administrativo, importes

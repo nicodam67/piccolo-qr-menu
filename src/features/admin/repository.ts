@@ -6,6 +6,7 @@ import { getDatabase } from "@/db";
 import {
   allergens,
   categories,
+  customers,
   products,
   reservations,
   restaurantLocales,
@@ -27,6 +28,7 @@ export type AdminDashboardSummary = {
   todayReservationCount: number;
   todayGuestCount: number;
   todayPendingCount: number;
+  customerCount: number;
 };
 
 export class AdminDashboardRepositoryError extends Error {
@@ -67,6 +69,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
             and ${reservations.reservationDate} = (current_timestamp at time zone ${restaurantSettings.timezone})::date
             and ${reservations.status} = 'pending'
         )`,
+        customerCount: sql<number>`(select count(*)::integer from ${customers} where ${customers.restaurantId} = ${restaurantSettings.id} and ${customers.isActive} = true)`,
       })
       .from(restaurantSettings)
       .innerJoin(

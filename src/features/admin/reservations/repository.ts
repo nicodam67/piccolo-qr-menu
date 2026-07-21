@@ -17,6 +17,7 @@ import {
 
 export type AdminReservation = {
   id: string;
+  customerId: string | null;
   locator: string;
   date: string;
   time: string;
@@ -135,6 +136,7 @@ export async function getAdminReservations({
     defaultLocale: restaurant.defaultLocale,
     records: rows.map((row) => ({
       id: row.id,
+      customerId: row.customerId,
       locator: row.locator,
       date: row.reservationDate,
       time: row.reservationTime.slice(0, 5),
