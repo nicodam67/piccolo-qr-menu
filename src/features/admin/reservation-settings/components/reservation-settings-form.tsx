@@ -8,10 +8,10 @@ import { saveReservationSettingsAction } from "../actions";
 
 export function ReservationSettingsForm({
   settings,
-  onlinePaymentsEnabled,
+  paymentProviderStatus,
 }: {
   settings: ReservationSettingsData;
-  onlinePaymentsEnabled: boolean;
+  paymentProviderStatus: "active" | "incomplete" | "disabled";
 }) {
   const [enabled, setEnabled] = useState(settings.isEnabled);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -64,12 +64,6 @@ export function ReservationSettingsForm({
       </section>
       <section className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-2 lg:grid-cols-3">
         <h2 className="font-display text-2xl text-[#173f35] sm:col-span-2 lg:col-span-3">Adelanto y cortesía</h2>
-        <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900 sm:col-span-2 lg:col-span-3">
-          <p><strong>Pagos online:</strong> {onlinePaymentsEnabled ? "activados" : "desactivados"}</p>
-          <p><strong>Proveedor preparado:</strong> Stripe</p>
-          <p><strong>Estado:</strong> {onlinePaymentsEnabled ? "configurado" : "pendiente de activación final"}</p>
-          <p>Métodos administrativos: efectivo, pago externo, cortesía y devolución manual. Las credenciales se configurarán al finalizar el programa.</p>
-        </div>
         {([["depositEnabled","Activar adelanto"],["cardEnabled","Tarjeta"],["bizumEnabled","Bizum"],["cashEnabled","Efectivo"],["manualDepositRequired","Exigir en reservas manuales"],["confirmOnlyAfterPayment","Confirmar solo tras pago"],["allowFullRefund","Permitir devolución total"],["allowPartialRefund","Permitir devolución parcial"]] as const).map(([name,label]) => <label key={name} className="flex min-h-11 items-center justify-between rounded-xl border border-stone-200 px-3 text-xs font-bold">{label}<input name={name} type="checkbox" value="true" defaultChecked={settings[name]} /></label>)}
         <NumberField name="depositPerGuestCents" label="Importe por comensal (céntimos)" value={settings.depositPerGuestCents} min={0} max={100000} />
         <NumberField name="depositMinimumPartySize" label="Mínimo de personas" value={settings.depositMinimumPartySize} min={1} max={100} />
@@ -80,7 +74,11 @@ export function ReservationSettingsForm({
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de cancelación<textarea name="cancellationPolicy" defaultValue={settings.cancellationPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Política de no presentación<textarea name="noShowPolicy" defaultValue={settings.noShowPolicy} maxLength={4000} className="mt-2 w-full rounded-xl border p-3" /></label>
         <label className="text-xs font-bold sm:col-span-2 lg:col-span-3">Texto de cortesía<textarea name="gracePolicy" defaultValue={settings.gracePolicy} maxLength={2000} className="mt-2 w-full rounded-xl border p-3" /></label>
-        <p className="text-xs text-amber-700 sm:col-span-2 lg:col-span-3">Tarjeta y Bizum no se activarán en producción hasta autorizar y configurar un proveedor real.</p>
+        <div className="rounded-xl bg-amber-50 p-4 text-xs text-amber-800 sm:col-span-2 lg:col-span-3">
+          <p className="font-bold">Pagos online: {paymentProviderStatus === "active" ? "activos" : "desactivados"}</p>
+          <p>Proveedor preparado: Stripe · Estado: {paymentProviderStatus === "active" ? "configurado" : paymentProviderStatus === "incomplete" ? "configuración incompleta" : "pendiente de activación final"}.</p>
+          <p>Métodos administrativos disponibles: efectivo y correcciones trazables. Las credenciales se configurarán al finalizar el programa.</p>
+        </div>
       </section>
       <p aria-live="polite" className="min-h-5 text-xs font-bold text-stone-600">{feedback}</p>
     </form>

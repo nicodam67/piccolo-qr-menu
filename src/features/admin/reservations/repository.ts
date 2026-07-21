@@ -32,7 +32,12 @@ export type AdminReservation = {
   createdAt: string;
   depositTotalCents:number; economicStatus:string; graceDeadlineAt:string;
   arrivedAt:string; tpvApplicationStatus:string; remainingDepositCents:number;
-  economicEvents: Array<{ type:string; amountCents:number|null; reason:string; createdAt:string }>;
+  economicEvents: Array<{
+    type: string;
+    amountCents: number | null;
+    reason: string;
+    createdAt: string;
+  }>;
 };
 
 export async function getAdminReservations({

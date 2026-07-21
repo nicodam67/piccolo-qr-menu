@@ -25,7 +25,13 @@ export default async function ReservationSettingsPage() {
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
         <ReservationSettingsForm
           settings={data.settings}
-          onlinePaymentsEnabled={isOnlinePaymentProviderEnabled()}
+          paymentProviderStatus={
+            isOnlinePaymentProviderEnabled()
+              ? "active"
+              : process.env.PAYMENT_PROVIDER === "stripe"
+                ? "incomplete"
+                : "disabled"
+          }
         />
       </div>
     </AdminLayout>

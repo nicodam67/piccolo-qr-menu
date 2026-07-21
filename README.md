@@ -292,14 +292,19 @@ sin proveedor externo: el adelanto calculado queda pendiente y administración
 puede registrar efectivo, tarjeta externa, cortesía o devolución manual. No es
 un error que falten credenciales.
 
+Los pagos online permanecen temporalmente desactivados con
+`PAYMENT_PROVIDER=disabled`. Esto no es un error: las reservas y los adelantos
+pendientes funcionan sin credenciales, pueden gestionarse manualmente y no se
+carga el SDK de Stripe. Stripe, Bizum, Redsys o MONEI se evaluarán al finalizar
+el resto del programa.
+
 Proveedor real pendiente de autorización: Stripe publica 1,5 % + 0,25 € para
 tarjeta EEE y Bizum sin cuota mensual; Redsys depende del contrato bancario y
 no publica la tarifa de Piccolo; MONEI publica para Bizum online 1,34 % +
 0,34 € más 0,17 € de adquisición en MONEI X. La aplicación usa una interfaz
-intercambiable y `PAYMENT_PROVIDER=disabled`; ninguna redirección confirma un
-pago y Bizum no se simula.
+intercambiable; ninguna redirección confirma un pago y Bizum no se simula.
 
-Para activar un proveedor en el futuro será necesario cerrar el contrato
-comercial, habilitar métodos, configurar claves exclusivamente de servidor,
-registrar el webhook, programar la tarea de expiración y ejecutar pruebas
-sandbox completas antes de producción.
+Para una activación futura será necesario contratar o autorizar el proveedor,
+configurar claves exclusivamente de servidor, registrar y validar el webhook,
+habilitar los métodos comerciales y ejecutar pruebas sandbox de pago,
+caducidad y devolución antes de usar credenciales de producción.
