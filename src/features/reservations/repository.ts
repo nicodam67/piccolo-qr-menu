@@ -167,7 +167,6 @@ async function calculateAvailability(
       ),
     tx
       .select({
-        id: reservations.id,
         time: reservations.reservationTime,
         occupied: sql<number>`sum(${reservations.partySize})::integer`,
       })
