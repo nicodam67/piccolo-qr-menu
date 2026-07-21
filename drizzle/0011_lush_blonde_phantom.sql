@@ -1,0 +1,2 @@
+ALTER TABLE "reservation_economic_events" ADD COLUMN "provider_event_id" varchar(160);--> statement-breakpoint
+CREATE UNIQUE INDEX "reservation_events_provider_event_uidx" ON "reservation_economic_events" USING btree ("provider_event_id");

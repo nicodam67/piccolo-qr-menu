@@ -9,8 +9,9 @@ import {
   getReservationAvailabilityAction,
   type AvailabilityActionResult,
 } from "../actions";
-import { getReservationCopy } from "../copy";
+import { getOfflinePaymentNotice, getReservationCopy } from "../copy";
 import type { ReservationSettingsData, ReservationStatus } from "../domain";
+import { calculateDeposit, enabledPaymentMethods } from "../payments/domain";
 
 type Props = {
   locale: string;
@@ -18,6 +19,7 @@ type Props = {
   restaurantPhone: string;
   settings: ReservationSettingsData;
   isReady: boolean;
+  onlinePaymentsEnabled: boolean;
   minDate: string;
   maxDate: string;
 };
@@ -28,12 +30,18 @@ export function ReservationForm({
   restaurantPhone,
   settings,
   isReady,
+  onlinePaymentsEnabled,
   minDate,
   maxDate,
 }: Props) {
   const copy = getReservationCopy(locale);
+  const offlinePaymentNotice = getOfflinePaymentNotice(locale);
   const [date, setDate] = useState(minDate);
   const [partySize, setPartySize] = useState(2);
+  const depositTotal = calculateDeposit(partySize,settings.depositPerGuestCents,settings.depositMinimumPartySize,settings.depositEnabled);
+  const paymentMethods = onlinePaymentsEnabled
+    ? enabledPaymentMethods(settings, "online")
+    : [];
   const [time, setTime] = useState("");
   const [availability, setAvailability] =
     useState<AvailabilityActionResult | null>(null);
@@ -47,6 +55,7 @@ export function ReservationForm({
     time: string;
     partySize: number;
     status: ReservationStatus;
+    paymentPending?: boolean;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -86,7 +95,14 @@ export function ReservationForm({
         setError(result.error);
         return;
       }
-      setConfirmation(result.confirmation);
+      if (result.redirectUrl) {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
+      setConfirmation({
+        ...result.confirmation,
+        paymentPending: result.paymentPending,
+      });
       setIdempotencyKey(crypto.randomUUID());
     });
   };
@@ -113,6 +129,11 @@ export function ReservationForm({
           <div><dt className="text-stone-400">{copy.partySize}</dt><dd className="font-bold">{confirmation.partySize}</dd></div>
           <div><dt className="sr-only">{confirmation.status === "confirmed" ? copy.confirmed : copy.pending}</dt><dd className="font-bold">{confirmation.status === "confirmed" ? copy.confirmed : copy.pending}</dd></div>
         </dl>
+        {confirmation.paymentPending ? (
+          <p className="mx-auto mt-4 max-w-md rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            {offlinePaymentNotice}
+          </p>
+        ) : null}
         <Link
           href={`/${locale}`}
           className="mt-6 inline-flex min-h-11 items-center rounded-full bg-[#173f35] px-5 text-sm font-bold text-white"
@@ -183,6 +204,7 @@ export function ReservationForm({
         <input name="acceptPolicy" type="checkbox" value="true" required className="mt-1 size-4 accent-[#173f35]" />
         <span>{copy.acceptPolicy}. {settings.policyText}</span>
       </label>
+      {depositTotal > 0 ? <section className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">Adelanto: {(settings.depositPerGuestCents/100).toFixed(2)} € por persona · Total {(depositTotal/100).toFixed(2)} €</p>{onlinePaymentsEnabled ? <><p className="mt-1">Métodos disponibles:</p><div className="flex gap-3">{paymentMethods.map(method=><label key={method} className="flex gap-2"><input name="paymentMethod" type="radio" value={method} required />{method}</label>)}</div></> : <p className="mt-2 font-semibold">{offlinePaymentNotice}</p>}<p className="mt-2">{settings.cancellationPolicy}</p><p>{settings.noShowPolicy}</p><p>{settings.gracePolicy}</p>{["acceptDeposit","acceptNoShow","acceptGrace"].map((name)=><label key={name} className="mt-2 flex gap-2"><input name={name} type="checkbox" value="true" required />Acepto estas condiciones</label>)}</section> : null}
       <div aria-live="assertive" className="min-h-5">
         {error ? <p role="alert" className="text-xs font-bold text-red-700">{error}</p> : null}
       </div>

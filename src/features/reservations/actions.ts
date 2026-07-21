@@ -13,6 +13,8 @@ import {
   createOnlineReservation,
   getReservationAvailability,
 } from "./repository";
+import { startOnlinePayment } from "./payments/service";
+import { isOnlinePaymentProviderEnabled } from "./payments/provider-factory";
 
 export type AvailabilityActionResult = {
   success: boolean;
@@ -69,6 +71,8 @@ export type CreateReservationActionResult = {
     partySize: number;
     status: ReservationStatus;
   };
+  redirectUrl?: string;
+  paymentPending?: boolean;
 };
 
 export async function createOnlineReservationAction(
@@ -109,7 +113,18 @@ export async function createOnlineReservationAction(
         1000,
       ),
       idempotencyKey,
+      acceptedDepositTerms:
+        formData.get("acceptDeposit") === "true" &&
+        formData.get("acceptNoShow") === "true" &&
+        formData.get("acceptGrace") === "true",
     });
+    const paymentMethod=String(formData.get("paymentMethod") ?? "");
+    let redirectUrl:string|undefined;
+    const onlineProviderEnabled = isOnlinePaymentProviderEnabled();
+    if(created.depositRequired && onlineProviderEnabled) {
+      if(paymentMethod!=="card"&&paymentMethod!=="bizum") throw new Error("Selecciona un método de pago online.");
+      redirectUrl=await startOnlinePayment(created.id,paymentMethod);
+    }
     return {
       success: true,
       error: null,
@@ -118,6 +133,8 @@ export async function createOnlineReservationAction(
         time: created.time.slice(0, 5),
         status: created.status as ReservationStatus,
       },
+      redirectUrl,
+      paymentPending: created.depositRequired && !onlineProviderEnabled,
     };
   } catch (error) {
     return {

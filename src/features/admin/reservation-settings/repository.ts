@@ -36,6 +36,14 @@ export async function getAdminReservationSettings() {
           customerMessage: row.customerMessage,
           policyText: row.policyText,
           initialStatus: row.initialStatus as "pending" | "confirmed",
+          depositEnabled:row.depositEnabled,depositPerGuestCents:row.depositPerGuestCents,
+          depositMinimumPartySize:row.depositMinimumPartySize,gracePeriodMinutes:row.gracePeriodMinutes,
+          paymentTimeoutMinutes:row.paymentTimeoutMinutes,refundDeadlineHours:row.refundDeadlineHours,
+          allowFullRefund:row.allowFullRefund,allowPartialRefund:row.allowPartialRefund,
+          cancellationPolicy:row.cancellationPolicy,noShowPolicy:row.noShowPolicy,
+          gracePolicy:row.gracePolicy,policyVersion:row.policyVersion,
+          cardEnabled:row.cardEnabled,bizumEnabled:row.bizumEnabled,cashEnabled:row.cashEnabled,
+          manualDepositRequired:row.manualDepositRequired,confirmOnlyAfterPayment:row.confirmOnlyAfterPayment,
         }
       : DEFAULT_RESERVATION_SETTINGS,
   };
