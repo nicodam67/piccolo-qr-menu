@@ -2779,7 +2779,9 @@ test("customers create reservations and administrators manage them", async ({
     .getByRole("link", { name: "Cliente Reserva E2E" })
     .click();
   await page.getByLabel("Nueva nota").fill("Nota CRM E2E");
-  await page.getByRole("button", { name: "Añadir" }).click();
+  await page
+    .getByRole("button", { name: "Añadir", exact: true })
+    .click();
   await expect(page.getByText("Nota CRM E2E")).toBeVisible();
   await page
     .getByLabel("Alergias importantes")
