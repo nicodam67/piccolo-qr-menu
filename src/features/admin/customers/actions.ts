@@ -14,7 +14,15 @@ import {
   saveCustomerAddress,
   setCustomerActive,
   updateCustomer,
+  getCustomerRestaurantId,
 } from "./repository";
+import { applyCustomerLoyaltyMovement } from "@/features/loyalty/repository";
+import {
+  isConsentStatus,
+  isConsentType,
+} from "@/features/consents/domain";
+import { recordCustomerConsent } from "@/features/consents/repository";
+import { getLoyaltySettings } from "@/features/admin/loyalty-settings/repository";
 
 function parseCustomer(formData: FormData) {
   return normalizeCustomerInput({
@@ -126,4 +134,70 @@ export async function deleteCustomerAddressAction(
   await requireAdminSession();
   await deleteCustomerAddress(customerId, id);
   revalidatePath(`/admin/customers/${customerId}`);
+}
+
+export async function applyManualLoyaltyMovementAction(
+  customerId: string,
+  formData: FormData,
+) {
+  const session = await requireAdminSession();
+  try {
+    const amount = Number(formData.get("amount"));
+    const reason = String(formData.get("reason") ?? "");
+    if (!Number.isInteger(amount) || amount === 0) {
+      throw new Error("La cantidad debe ser un entero distinto de cero.");
+    }
+    const loyalty = await getLoyaltySettings();
+    if (
+      !loyalty.settings.isEnabled ||
+      !loyalty.settings.manualAdjustmentsEnabled
+    ) {
+      throw new Error("Los ajustes manuales de fidelización no están activos.");
+    }
+    await applyCustomerLoyaltyMovement({
+      restaurantId: loyalty.restaurantId,
+      customerId,
+      amount,
+      movementType: amount > 0 ? "manual_credit" : "manual_debit",
+      reason,
+      adminId: session.adminId,
+    });
+    revalidatePath(`/admin/customers/${customerId}`);
+    revalidatePath("/admin/customers");
+    return { success: true, error: null };
+  } catch (error) {
+    return resultError(error);
+  }
+}
+
+export async function recordCustomerConsentAction(
+  customerId: string,
+  formData: FormData,
+) {
+  const session = await requireAdminSession();
+  try {
+    const consentType = String(formData.get("consentType") ?? "");
+    const status = String(formData.get("status") ?? "");
+    const legalVersion = String(formData.get("legalVersion") ?? "").trim();
+    if (!isConsentType(consentType) || !isConsentStatus(status)) {
+      throw new Error("El consentimiento no es válido.");
+    }
+    if (!legalVersion || legalVersion.length > 80 || /[<>]/.test(legalVersion)) {
+      throw new Error("La versión legal no es válida.");
+    }
+    await recordCustomerConsent({
+      restaurantId: await getCustomerRestaurantId(),
+      customerId,
+      consentType,
+      status,
+      legalVersion,
+      origin: "admin",
+      adminId: session.adminId,
+    });
+    revalidatePath(`/admin/customers/${customerId}`);
+    revalidatePath("/admin/customers");
+    return { success: true, error: null };
+  } catch (error) {
+    return resultError(error);
+  }
 }

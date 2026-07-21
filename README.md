@@ -293,6 +293,20 @@ por teléfono y, como alternativa, por email; si no existe, lo crea dentro de
 la misma transacción. Las consultas de estadísticas y búsquedas son agrupadas
 y no realizan una consulta por cliente.
 
+### Fidelización, consentimientos y segmentación
+
+La fidelización se configura en `/admin/loyalty-settings` y funciona sin TPV:
+los puntos solo cambian mediante movimientos append-only, con motivo,
+administrador e idempotencia opcional. El saldo negativo está prohibido. La
+interfaz interna `recordTpvLoyaltyMovement` queda preparada para una futura
+integración, pero no otorga puntos automáticamente.
+
+Los consentimientos comerciales se guardan como historial independiente de
+las reservas y notas CRM; nunca se conceden por defecto. Las etiquetas de
+clientes son distintas de las etiquetas dietéticas. Los segmentos almacenan
+filtros JSON validados y calculan coincidencias sin ejecutar campañas,
+emails, SMS ni integraciones externas.
+
 ### Estado provisional de pagos de reservas
 
 El modelo económico admite tarjeta, Bizum y efectivo administrativo, importes

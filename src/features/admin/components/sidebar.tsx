@@ -16,6 +16,9 @@ import {
   Tags,
   UtensilsCrossed,
   Users,
+  Gift,
+  ListFilter,
+  BadgeCheck,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -94,6 +97,24 @@ const navigationItems: NavigationItem[] = [
     icon: Users,
     available: true,
     href: "/admin/customers",
+  },
+  {
+    label: "Fidelización",
+    icon: Gift,
+    available: true,
+    href: "/admin/loyalty-settings",
+  },
+  {
+    label: "Etiquetas de clientes",
+    icon: BadgeCheck,
+    available: true,
+    href: "/admin/customer-tags",
+  },
+  {
+    label: "Segmentos de clientes",
+    icon: ListFilter,
+    available: true,
+    href: "/admin/customer-segments",
   },
   {
     label: "Idiomas",
