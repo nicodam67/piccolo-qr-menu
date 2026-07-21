@@ -1,3 +1,5 @@
+import "server-only";
+
 import Stripe from "stripe";
 import type { PaymentProvider } from "./provider";
 

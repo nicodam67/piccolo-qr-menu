@@ -1,4 +1,3 @@
-import { StripePaymentProvider } from "./stripe-provider";
 export type PaymentMethod = "card" | "bizum" | "cash";
 
 export interface PaymentProvider {
@@ -24,9 +23,3 @@ export class PaymentProviderNotConfigured implements PaymentProvider {
   async expire(): Promise<void> { this.unavailable(); }
 }
 
-export function getPaymentProvider(): PaymentProvider {
-  if (process.env.PAYMENT_PROVIDER === "stripe") {
-    return new StripePaymentProvider();
-  }
-  return new PaymentProviderNotConfigured();
-}

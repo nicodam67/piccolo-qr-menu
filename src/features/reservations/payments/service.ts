@@ -4,7 +4,8 @@ import { and, eq, inArray, lte } from "drizzle-orm";
 import { getDatabase } from "@/db";
 import { reservationEconomicEvents, reservationPayments, reservations, restaurantSettings } from "@/db/schema";
 import { canMarkNoShow } from "./domain";
-import { getPaymentProvider, type PaymentMethod } from "./provider";
+import type { PaymentMethod } from "./provider";
+import { getPaymentProvider } from "./provider-factory";
 
 export async function startOnlinePayment(reservationId:string,method:Exclude<PaymentMethod,"cash">) {
   const {db}=getDatabase();
