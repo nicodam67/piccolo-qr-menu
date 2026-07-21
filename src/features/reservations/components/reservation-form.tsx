@@ -19,9 +19,9 @@ type Props = {
   restaurantPhone: string;
   settings: ReservationSettingsData;
   isReady: boolean;
+  onlinePaymentsEnabled: boolean;
   minDate: string;
   maxDate: string;
-  onlinePaymentsEnabled: boolean;
 };
 
 export function ReservationForm({
@@ -30,9 +30,9 @@ export function ReservationForm({
   restaurantPhone,
   settings,
   isReady,
+  onlinePaymentsEnabled,
   minDate,
   maxDate,
-  onlinePaymentsEnabled,
 }: Props) {
   const copy = getReservationCopy(locale);
   const offlinePaymentNotice = getOfflinePaymentNotice(locale);

@@ -74,6 +74,17 @@ export function ReservationsManager({
       data.set("amountCents", amount);
       data.set("note", window.prompt("Observación", "Pago en efectivo") ?? "");
     }
+    if (action === "external_card") {
+      const amount = window.prompt("Importe recibido en céntimos", String(record.depositTotalCents));
+      if (!amount) return;
+      action = "cash";
+      data.set("amountCents", amount);
+      data.set("method", "card");
+      data.set("note", window.prompt("Referencia u observación", "Tarjeta externa") ?? "");
+    }
+    if (action === "courtesy") {
+      data.set("reason", window.prompt("Motivo de cortesía", "Cortesía administrativa") ?? "");
+    }
     if (action === "grace") {
       data.set("minutes", window.prompt("Minutos adicionales", "15") ?? "15");
       data.set("reason", window.prompt("Motivo", "Cliente llamó") ?? "");
@@ -83,13 +94,6 @@ export function ReservationsManager({
       if (!amount) return;
       data.set("amountCents", amount);
       data.set("reason", window.prompt("Motivo de devolución", "Cancelación") ?? "");
-    }
-    if (action === "courtesy") {
-      data.set(
-        "reason",
-        window.prompt("Motivo de la cortesía", "Cortesía administrativa") ??
-          "",
-      );
     }
     if (action === "no_show" && !window.confirm("¿Confirmar no presentación y retención?")) return;
     startTransition(async () => {
@@ -137,13 +141,13 @@ export function ReservationsManager({
             <p className="mt-2 text-xs font-bold text-stone-600">Adelanto {(record.depositTotalCents / 100).toFixed(2)} € · {record.economicStatus} · TPV {record.tpvApplicationStatus}</p>
             <p className="text-[10px] text-stone-500">Cortesía: {record.graceDeadlineAt ? new Date(record.graceDeadlineAt).toLocaleString("es-ES") : "—"} · Llegada: {record.arrivedAt ? new Date(record.arrivedAt).toLocaleString("es-ES") : "No registrada"}</p>
             {record.economicEvents.length > 0 ? (
-              <details className="mt-2 text-xs text-stone-600">
+              <details className="mt-2 rounded-lg bg-stone-50 p-2 text-xs">
                 <summary className="cursor-pointer font-bold">
                   Historial económico ({record.economicEvents.length})
                 </summary>
                 <ul className="mt-2 space-y-1">
-                  {record.economicEvents.map((event) => (
-                    <li key={`${event.type}-${event.createdAt}`}>
+                  {record.economicEvents.map((event, index) => (
+                    <li key={`${event.createdAt}-${index}`}>
                       {new Date(event.createdAt).toLocaleString("es-ES")} ·{" "}
                       {event.type}
                       {event.amountCents !== null
@@ -163,9 +167,10 @@ export function ReservationsManager({
               {!record.arrivedAt ? <button type="button" onClick={() => economic(record, "arrival")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar llegada</button> : null}
               <button type="button" onClick={() => economic(record, "grace")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Ampliar cortesía</button>
               <button type="button" onClick={() => economic(record, "cash")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar efectivo</button>
+              <button type="button" onClick={() => economic(record, "external_card")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Tarjeta externa</button>
+              <button type="button" onClick={() => economic(record, "courtesy")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar cortesía</button>
               <button type="button" onClick={() => economic(record, "no_show")} className="min-h-11 rounded-xl bg-red-50 px-3 text-xs font-bold text-red-700">No presentada</button>
               <button type="button" onClick={() => economic(record, "refund")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Devolver adelanto</button>
-              <button type="button" onClick={() => economic(record, "courtesy")} className="min-h-11 rounded-xl border px-3 text-xs font-bold">Registrar cortesía</button>
             </div>
           </article>
         ))}

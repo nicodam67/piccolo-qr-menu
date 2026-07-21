@@ -2783,6 +2783,7 @@ test("customers create reservations and administrators manage them", async ({
     .getByLabel("Política y condiciones")
     .fill("Política de privacidad E2E.");
   await page.getByLabel("Activar adelanto").check();
+  await page.getByLabel("Exigir en reservas manuales").check();
   await page.getByLabel("Importe por comensal (céntimos)").fill("1000");
   await page.getByLabel("Mínimo de personas").fill("2");
   await page.getByLabel("Política de cancelación").fill("Cancelación E2E");
@@ -2814,9 +2815,13 @@ test("customers create reservations and administrators manage them", async ({
   await page.locator('input[name="acceptDeposit"]').check();
   await page.locator('input[name="acceptNoShow"]').check();
   await page.locator('input[name="acceptGrace"]').check();
+  await expect(page.locator('input[name="paymentMethod"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Solicitar reserva" }).click();
   await expect(
     page.getByRole("heading", { name: "Reserva enviada correctamente" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/El restaurante confirmará la reserva/),
   ).toBeVisible();
   const locator = (
     await page.getByTestId("reservation-locator").textContent()
@@ -2929,10 +2934,16 @@ test("customers create reservations and administrators manage them", async ({
   const manualCard = page
     .getByTestId(/^reservation-/)
     .filter({ hasText: "Reserva Manual E2E" });
-  page.once("dialog", (dialog) => dialog.accept("Cortesía E2E"));
+  const promptAnswers = ["2000", "Efectivo E2E"];
+  const manualPaymentHandler = (dialog: {
+    accept(value?: string): Promise<void>;
+  }) => dialog.accept(promptAnswers.shift() ?? "");
+  page.on("dialog", manualPaymentHandler);
   await manualCard
-    .getByRole("button", { name: "Registrar cortesía" })
+    .getByRole("button", { name: "Registrar efectivo" })
     .click();
+  page.off("dialog", manualPaymentHandler);
+  await expect(manualCard).toContainText("paid");
   await expect(manualCard).toContainText("Historial económico");
 
   await page.goto("/admin/reservation-settings");

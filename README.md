@@ -287,8 +287,9 @@ excepciones, antelación, duración, capacidad y ocupación real. La inserción
 vuelve a comprobar la franja dentro de una transacción y utiliza idempotencia.
 
 `/admin/reservations` permite filtrar, crear reservas manuales, editar datos y
-aplicar transiciones de estado sin eliminar el historial. No incluye mesas,
-pagos, depósitos, lista de espera ni comunicaciones automáticas.
+aplicar transiciones de estado sin eliminar el historial. Incluye la gestión
+administrativa de adelantos y eventos económicos, pero no mesas, lista de
+espera ni comunicaciones automáticas.
 
 Las reservas contienen datos personales. Antes de producción es obligatorio
 definir y publicar una política real de privacidad, plazos de conservación,
@@ -328,21 +329,22 @@ emails, SMS ni integraciones externas.
 El modelo económico admite tarjeta, Bizum y efectivo administrativo, importes
 en céntimos, eventos, devoluciones, cortesía, llegada, no-show y preparación
 para aplicar saldo una sola vez a Piccolo TPV. No existe todavía integración
-con cuentas o tickets del TPV.
+con cuentas o tickets del TPV. La arquitectura, webhooks, idempotencia y
+trazabilidad se conservan para la fase final.
 
-Los pagos online permanecen temporalmente desactivados con
-`PAYMENT_PROVIDER=disabled`. Esto no es un error: las reservas y los adelantos
-pendientes funcionan sin credenciales, pueden gestionarse manualmente y no se
-carga el SDK de Stripe. Stripe, Bizum, Redsys o MONEI se evaluarán al finalizar
-el resto del programa.
+Los pagos online permanecen desactivados temporalmente. Las reservas funcionan
+sin proveedor externo: el adelanto calculado queda pendiente y administración
+puede registrar efectivo, tarjeta externa, cortesía o devolución manual. No es
+un error que falten credenciales.
 
 Proveedor real pendiente de autorización: Stripe publica 1,5 % + 0,25 € para
 tarjeta EEE y Bizum sin cuota mensual; Redsys depende del contrato bancario y
 no publica la tarifa de Piccolo; MONEI publica para Bizum online 1,34 % +
 0,34 € más 0,17 € de adquisición en MONEI X. La aplicación usa una interfaz
-intercambiable; ninguna redirección confirma un pago y Bizum no se simula.
+intercambiable y `PAYMENT_PROVIDER=disabled`; ninguna redirección confirma un
+pago y Bizum no se simula.
 
-Para una activación futura será necesario contratar o autorizar el proveedor,
-configurar claves exclusivamente de servidor, registrar y validar el webhook,
-habilitar los métodos comerciales y ejecutar pruebas sandbox de pago,
-caducidad y devolución antes de usar credenciales de producción.
+Para activar un proveedor en el futuro será necesario cerrar el contrato
+comercial, habilitar métodos, configurar claves exclusivamente de servidor,
+registrar el webhook, programar la tarea de expiración y ejecutar pruebas
+sandbox completas antes de producción.

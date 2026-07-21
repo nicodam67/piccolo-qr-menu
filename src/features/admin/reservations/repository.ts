@@ -1,11 +1,11 @@
 import "server-only";
 
-import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
-  reservations,
   reservationEconomicEvents,
+  reservations,
   restaurantSettings,
 } from "@/db/schema";
 import {
@@ -31,8 +31,12 @@ export type AdminReservation = {
   origin: ReservationOrigin;
   locale: string;
   createdAt: string;
-  depositTotalCents:number; economicStatus:string; graceDeadlineAt:string;
-  arrivedAt:string; tpvApplicationStatus:string; remainingDepositCents:number;
+  depositTotalCents: number;
+  economicStatus: string;
+  graceDeadlineAt: string;
+  arrivedAt: string;
+  tpvApplicationStatus: string;
+  remainingDepositCents: number;
   economicEvents: Array<{
     type: string;
     amountCents: number | null;
@@ -84,7 +88,7 @@ export async function getAdminReservations({
     );
     if (search) conditions.push(search);
   }
-  const [rows, [summary]] = await Promise.all([
+  const [rows, [summary], eventRows] = await Promise.all([
     db
       .select()
       .from(reservations)
@@ -106,30 +110,37 @@ export async function getAdminReservations({
           eq(reservations.reservationDate, selectedDate),
         ),
       ),
+    db
+      .select({
+        reservationId: reservationEconomicEvents.reservationId,
+        type: reservationEconomicEvents.eventType,
+        amountCents: reservationEconomicEvents.amountCents,
+        reason: reservationEconomicEvents.reason,
+        createdAt: reservationEconomicEvents.createdAt,
+      })
+      .from(reservationEconomicEvents)
+      .innerJoin(
+        reservations,
+        eq(reservationEconomicEvents.reservationId, reservations.id),
+      )
+      .where(
+        and(
+          eq(reservations.restaurantId, restaurant.id),
+          eq(reservations.reservationDate, selectedDate),
+        ),
+      )
+      .orderBy(asc(reservationEconomicEvents.createdAt)),
   ]);
-  const eventRows =
-    rows.length > 0
-      ? await db
-          .select()
-          .from(reservationEconomicEvents)
-          .where(
-            inArray(
-              reservationEconomicEvents.reservationId,
-              rows.map(({ id }) => id),
-            ),
-          )
-          .orderBy(asc(reservationEconomicEvents.createdAt))
-      : [];
   const eventsByReservation = new Map<string, AdminReservation["economicEvents"]>();
   for (const event of eventRows) {
-    const values = eventsByReservation.get(event.reservationId) ?? [];
-    values.push({
-      type: event.eventType,
+    const list = eventsByReservation.get(event.reservationId) ?? [];
+    list.push({
+      type: event.type,
       amountCents: event.amountCents,
       reason: event.reason ?? "",
       createdAt: event.createdAt.toISOString(),
     });
-    eventsByReservation.set(event.reservationId, values);
+    eventsByReservation.set(event.reservationId, list);
   }
   return {
     date: selectedDate,

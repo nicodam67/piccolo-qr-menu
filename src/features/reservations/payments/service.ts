@@ -41,14 +41,24 @@ export async function processProviderWebhook(payload:string,signature:string,eve
   });
 }
 
-export async function registerCashPayment(reservationId:string,amountCents:number,note:string) {
+export async function registerCashPayment(reservationId:string,amountCents:number,note:string,method:"cash"|"card"="cash") {
   if(!Number.isInteger(amountCents)||amountCents<=0) throw new Error("Importe no válido.");
   const {db}=getDatabase(); await db.transaction(async tx=>{
     const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1); if(!r) throw new Error("Reserva inexistente.");
     const [settings]=await tx.select().from(restaurantSettings).where(eq(restaurantSettings.id,r.restaurantId)).limit(1); if(!settings) throw new Error("Restaurante inexistente.");
-    const [p]=await tx.insert(reservationPayments).values({restaurantId:r.restaurantId,reservationId,method:"cash",provider:"cash_admin",expectedAmountCents:r.depositTotalCents,paidAmountCents:amountCents,currencyCode:settings.currencyCode,status:"paid",paidAt:new Date(),idempotencyKey:randomUUID(),note:note.slice(0,500)}).returning({id:reservationPayments.id});
+    const [p]=await tx.insert(reservationPayments).values({restaurantId:r.restaurantId,reservationId,method,provider:method==="cash"?"cash_admin":"external_card_admin",expectedAmountCents:r.depositTotalCents,paidAmountCents:amountCents,currencyCode:settings.currencyCode,status:"paid",paidAt:new Date(),idempotencyKey:randomUUID(),note:note.slice(0,500)}).returning({id:reservationPayments.id});
     await tx.update(reservations).set({economicStatus:"paid",remainingDepositCents:amountCents,status:"confirmed",updatedAt:new Date()}).where(eq(reservations.id,reservationId));
     await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,paymentId:p.id,eventType:"cash_payment_recorded",amountCents,reason:note.slice(0,500)});
+  });
+}
+
+export async function registerDepositCourtesy(reservationId:string,reason:string) {
+  const {db}=getDatabase();
+  await db.transaction(async tx=>{
+    const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1);
+    if(!r)throw new Error("Reserva inexistente.");
+    await tx.update(reservations).set({economicStatus:"exempt",depositRequired:false,remainingDepositCents:0,updatedAt:new Date()}).where(eq(reservations.id,reservationId));
+    await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,eventType:"deposit_waived",reason:reason.slice(0,500),amountCents:r.depositTotalCents});
   });
 }
 

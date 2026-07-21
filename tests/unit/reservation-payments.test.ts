@@ -29,6 +29,18 @@ describe("reservation deposits", () => {
       assert.ok(getOfflinePaymentNotice(locale).length > 40);
     }
   });
+  it("explica el adelanto pendiente sin proveedor",()=>assert.match(getOfflinePaymentNotice("es"),/restaurante confirmará/));
+  it("localiza el aviso provisional",()=>assert.match(getOfflinePaymentNotice("ca"),/restaurant confirmarà/));
+  it("no importa Stripe desde el componente cliente", () => {
+    const source = readFileSync(
+      path.join(
+        process.cwd(),
+        "src/features/reservations/components/reservation-form.tsx",
+      ),
+      "utf8",
+    );
+    assert.doesNotMatch(source, /from ["']stripe["']|stripe-provider/);
+  });
   it("mantiene Stripe fuera del contrato compartido y con carga dinámica", () => {
     const root = process.cwd();
     const provider = readFileSync(
