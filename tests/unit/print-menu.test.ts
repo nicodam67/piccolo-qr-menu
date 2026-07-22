@@ -13,11 +13,13 @@ import type { DemoMenu } from "../../src/features/public-menu/types";
 
 const menu: DemoMenu = {
   restaurant: {
+    id: "10000000-0000-4000-8000-000000000001",
     name: "Piccolo",
     slogan: "Sabor italiano",
     phoneDisplay: "",
     phoneHref: "",
     address: "",
+    currencyCode: "EUR",
     heroImageUrl: "",
     heroImageAlt: "",
   },
@@ -36,6 +38,8 @@ const menu: DemoMenu = {
       description: "Descripción",
       imageUrl: "",
       imageAlt: "",
+      fullPriceCents: 1250,
+      halfPriceCents: 700,
       fullPrice: 12.5,
       halfPrice: 7,
       tags: [{ label: "Vegano", tone: "green" }],
@@ -49,6 +53,7 @@ const menu: DemoMenu = {
       description: "",
       imageUrl: "",
       imageAlt: "",
+      fullPriceCents: 900,
       fullPrice: 9,
       tags: [],
       allergens: [],

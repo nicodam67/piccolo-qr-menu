@@ -65,36 +65,6 @@ export async function registerDepositCourtesy(reservationId:string,reason:string
 export async function registerArrival(reservationId:string,at=new Date()) {
   const {db}=getDatabase(); await db.transaction(async tx=>{const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1);if(!r)throw new Error("Reserva inexistente.");await tx.update(reservations).set({arrivedAt:at,status:"seated",tpvApplicationStatus:r.economicStatus==="paid"?"available":"not_ready",updatedAt:new Date()}).where(eq(reservations.id,reservationId));if(r.customerId)await tx.update(customers).set({lastVisitAt:at,updatedAt:new Date()}).where(eq(customers.id,r.customerId));await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,eventType:"arrival_recorded",reason:"Llegada registrada por administración"});});
 }
-export async function registerDepositCourtesy(
-  reservationId: string,
-  reason: string,
-) {
-  const { db } = getDatabase();
-  await db.transaction(async (tx) => {
-    const [reservation] = await tx
-      .select()
-      .from(reservations)
-      .where(eq(reservations.id, reservationId))
-      .for("update")
-      .limit(1);
-    if (!reservation) throw new Error("Reserva inexistente.");
-    await tx
-      .update(reservations)
-      .set({
-        economicStatus: "exempt",
-        remainingDepositCents: 0,
-        updatedAt: new Date(),
-      })
-      .where(eq(reservations.id, reservationId));
-    await tx.insert(reservationEconomicEvents).values({
-      restaurantId: reservation.restaurantId,
-      reservationId,
-      eventType: "deposit_courtesy_granted",
-      amountCents: reservation.depositTotalCents,
-      reason: reason.slice(0, 500),
-    });
-  });
-}
 export async function extendGrace(reservationId:string,minutes:number,reason:string) {
   if(!Number.isInteger(minutes)||minutes<1||minutes>240)throw new Error("Ampliación no válida.");const {db}=getDatabase();await db.transaction(async tx=>{const [r]=await tx.select().from(reservations).where(eq(reservations.id,reservationId)).for("update").limit(1);if(!r?.graceDeadlineAt)throw new Error("Sin límite de cortesía.");const next=new Date(r.graceDeadlineAt.getTime()+minutes*60000);await tx.update(reservations).set({graceDeadlineAt:next,updatedAt:new Date()}).where(eq(reservations.id,reservationId));await tx.insert(reservationEconomicEvents).values({restaurantId:r.restaurantId,reservationId,eventType:"grace_extended",reason:reason.slice(0,500),metadata:{minutes}});});
 }
