@@ -16,6 +16,18 @@ function getAdminCredentials() {
   return { email, password };
 }
 
+function getIntegrationToken() {
+  const token = process.env.INTEGRATION_SERVICE_TOKEN;
+
+  if (!token) {
+    throw new Error(
+      "INTEGRATION_SERVICE_TOKEN es obligatoria para las pruebas E2E.",
+    );
+  }
+
+  return token;
+}
+
 function getDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -702,6 +714,76 @@ test("five failures block login and a later success clears attempts", async ({
     `;
   });
   expect(Number(remainingAttempts?.count)).toBe(0);
+});
+
+test("TPV reads the versioned catalog and synchronizes availability", async ({
+  request,
+}) => {
+  const unauthorized = await request.get("/integration/v1/catalog");
+  expect(unauthorized.status()).toBe(401);
+
+  const headers = {
+    authorization: `Bearer ${getIntegrationToken()}`,
+    "x-correlation-id": "playwright-tpv-catalog",
+  };
+  const initialResponse = await request.get("/integration/v1/catalog", {
+    headers,
+  });
+  expect(initialResponse.status()).toBe(200);
+  expect(initialResponse.headers()["x-correlation-id"]).toBe(
+    "playwright-tpv-catalog",
+  );
+
+  const initialDocument = await initialResponse.json();
+  const product = initialDocument.data.products[0] as
+    | { id: string; isSoldOut: boolean }
+    | undefined;
+  expect(product).toBeDefined();
+
+  if (!product) {
+    throw new Error("El catálogo de integración no contiene productos.");
+  }
+
+  const nextAvailability = !product.isSoldOut;
+  const availabilityUrl =
+    `/integration/v1/catalog/products/${product.id}/availability`;
+
+  try {
+    const updateResponse = await request.put(availabilityUrl, {
+      headers,
+      data: { isSoldOut: nextAvailability },
+    });
+    expect(updateResponse.status()).toBe(200);
+    expect((await updateResponse.json()).data).toMatchObject({
+      productId: product.id,
+      isSoldOut: nextAvailability,
+    });
+
+    const updatedResponse = await request.get("/integration/v1/catalog", {
+      headers,
+    });
+    expect(updatedResponse.status()).toBe(200);
+    const updatedDocument = await updatedResponse.json();
+    const updatedProduct = updatedDocument.data.products.find(
+      (candidate: { id: string }) => candidate.id === product.id,
+    );
+    expect(updatedProduct?.isSoldOut).toBe(nextAvailability);
+    expect(updatedDocument.data.version).not.toBe(
+      initialDocument.data.version,
+    );
+
+    const unchangedResponse = await request.get(
+      `/integration/v1/catalog?since=${updatedDocument.data.version}`,
+      { headers },
+    );
+    expect(unchangedResponse.status()).toBe(304);
+  } finally {
+    const restoreResponse = await request.put(availabilityUrl, {
+      headers,
+      data: { isSoldOut: product.isSoldOut },
+    });
+    expect(restoreResponse.status()).toBe(200);
+  }
 });
 
 test.afterAll(async () => {

@@ -504,6 +504,29 @@ export async function setProductVisibility(
   }
 }
 
+export async function setProductSoldOut(
+  productId: string,
+  isSoldOut: boolean,
+) {
+  const { db } = getDatabase();
+  const updatedAt = new Date();
+  const [updatedProduct] = await db
+    .update(products)
+    .set({ isSoldOut, updatedAt })
+    .where(eq(products.id, productId))
+    .returning({
+      id: products.id,
+      isSoldOut: products.isSoldOut,
+      updatedAt: products.updatedAt,
+    });
+
+  if (!updatedProduct) {
+    throw new ProductValidationError("El producto ya no existe.");
+  }
+
+  return updatedProduct;
+}
+
 export async function reorderProducts(
   categoryId: string,
   orderedProductIds: string[],

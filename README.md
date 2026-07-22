@@ -90,8 +90,24 @@ una ventana de quince minutos. Un acceso correcto elimina el contador.
 npm run typecheck
 npm run lint
 npm run build
-npx playwright test
+npm test
+npm run test:e2e
 ```
+
+## Integración TPV
+
+La API de integración v1 conecta el catálogo publicado con servicios externos
+sin compartir tablas ni modificar el esquema:
+
+- `GET /integration/v1/catalog?locale=es` requiere `catalog:read`.
+- `PUT /integration/v1/catalog/products/{productId}/availability` requiere
+  `catalog:write` y sincroniza el estado agotado de forma idempotente.
+
+Ambas rutas requieren `Authorization: Bearer <token>`. Configura un token de al
+menos 32 bytes en `INTEGRATION_SERVICE_TOKEN` y limita sus permisos mediante
+`INTEGRATION_SERVICE_SCOPES`. El contrato completo está en
+`docs/openapi/integration-v1.yaml` y la auditoría en
+`docs/entrega-29-auditoria-integracion.md`.
 
 ## Alcance
 

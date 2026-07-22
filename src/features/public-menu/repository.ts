@@ -69,6 +69,7 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         phone: restaurantSettings.phone,
         address: restaurantSettings.address,
         timezone: restaurantSettings.timezone,
+        currencyCode: restaurantSettings.currencyCode,
         heroImageUrl: restaurantSettings.heroImageUrl,
         name: restaurantTranslations.name,
         slogan: restaurantTranslations.slogan,
@@ -211,11 +212,13 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
 
     return {
       restaurant: {
+        id: restaurant.id,
         name: restaurant.name,
         slogan: restaurant.slogan,
         phoneDisplay: `${restaurant.phone} · DEMO`,
         phoneHref: getPhoneHref(restaurant.phone),
         address: restaurant.address,
+        currencyCode: restaurant.currencyCode,
         heroImageUrl: restaurant.heroImageUrl,
         heroImageAlt:
           "Interior de restaurante usado únicamente como imagen de demostración",
@@ -234,6 +237,11 @@ export async function getPublicMenu(locale: string): Promise<DemoMenu> {
         description: product.description,
         imageUrl: product.imageUrl,
         imageAlt: `Imagen de demostración de ${product.name}`,
+        fullPriceCents: product.fullPriceCents,
+        halfPriceCents:
+          product.halfPriceCents === null
+            ? undefined
+            : product.halfPriceCents,
         fullPrice: product.fullPriceCents / 100,
         halfPrice:
           product.halfPriceCents === null

@@ -36,6 +36,8 @@ export type DemoProduct = {
   description: string;
   imageUrl: string;
   imageAlt: string;
+  fullPriceCents: number;
+  halfPriceCents?: number;
   fullPrice: number;
   halfPrice?: number;
   tags: ProductTag[];
@@ -51,11 +53,13 @@ export type DemoCategory = {
 
 export type DemoMenu = {
   restaurant: {
+    id: string;
     name: string;
     slogan: string;
     phoneDisplay: string;
     phoneHref: string;
     address: string;
+    currencyCode: string;
     heroImageUrl: string;
     heroImageAlt: string;
   };
