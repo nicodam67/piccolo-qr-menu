@@ -3,6 +3,7 @@ import "server-only";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
+import { buildCategoryHierarchy } from "@/features/categories/hierarchy";
 import {
   allergenTranslations,
   allergens,
@@ -40,7 +41,9 @@ export type AdminProduct = {
 
 export type ProductCategoryOption = {
   id: string;
+  parentCategoryId: string | null;
   name: string;
+  path: string;
   productCount: number;
 };
 
@@ -48,12 +51,14 @@ export type ProductTagOption = {
   id: string;
   name: string;
   color: string;
+  isActive: boolean;
 };
 
 export type ProductAllergenOption = {
   id: string;
   name: string;
   icon: string;
+  isActive: boolean;
 };
 
 export type AdminProductData = {
@@ -231,6 +236,8 @@ export async function getAdminProductData(): Promise<AdminProductData> {
     db
       .select({
         id: categories.id,
+        parentCategoryId: categories.parentCategoryId,
+        sortOrder: categories.sortOrder,
         name: categoryTranslations.name,
         productCount: sql<number>`(
           select count(*)::integer
@@ -244,21 +251,26 @@ export async function getAdminProductData(): Promise<AdminProductData> {
         eq(categoryTranslations.categoryId, categories.id),
       )
       .where(eq(categoryTranslations.locale, defaultLocale))
-      .orderBy(asc(categories.sortOrder)),
+      .orderBy(
+        sql`${categories.parentCategoryId} nulls first`,
+        asc(categories.sortOrder),
+      ),
     db
       .select({
         id: tags.id,
         color: tags.color,
+        isActive: tags.isActive,
         name: tagTranslations.name,
       })
       .from(tags)
       .innerJoin(tagTranslations, eq(tagTranslations.tagId, tags.id))
       .where(eq(tagTranslations.locale, defaultLocale))
-      .orderBy(asc(tagTranslations.name)),
+      .orderBy(asc(tags.sortOrder), asc(tagTranslations.name)),
     db
       .select({
         id: allergens.id,
         icon: allergens.icon,
+        isActive: allergens.isActive,
         name: allergenTranslations.name,
       })
       .from(allergens)
@@ -267,7 +279,7 @@ export async function getAdminProductData(): Promise<AdminProductData> {
         eq(allergenTranslations.allergenId, allergens.id),
       )
       .where(eq(allergenTranslations.locale, defaultLocale))
-      .orderBy(asc(allergenTranslations.name)),
+      .orderBy(asc(allergens.sortOrder), asc(allergenTranslations.name)),
     db
       .selectDistinct({ locale: restaurantTranslations.locale })
       .from(restaurantTranslations)
@@ -314,8 +326,17 @@ export async function getAdminProductData(): Promise<AdminProductData> {
       ?.allergenIds.push(relation.allergenId);
   }
 
+  const categoryOptions = buildCategoryHierarchy(categoryRows).flatMap(
+    (category) => [
+      { ...category, path: category.name },
+      ...category.children.map((child) => ({
+        ...child,
+        path: `${category.name} > ${child.name}`,
+      })),
+    ],
+  );
   const categoryOrder = new Map(
-    categoryRows.map((category, index) => [category.id, index]),
+    categoryOptions.map((category, index) => [category.id, index]),
   );
   const orderedProducts = [...productsById.values()].sort(
     (left, right) =>
@@ -326,7 +347,7 @@ export async function getAdminProductData(): Promise<AdminProductData> {
 
   return {
     products: orderedProducts,
-    categories: categoryRows,
+    categories: categoryOptions,
     tags: tagRows,
     allergens: allergenRows,
     locales: localeRows.map(({ locale }) => locale),
@@ -399,7 +420,7 @@ export async function updateProduct(
 ) {
   const { db } = getDatabase();
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('piccolo-products-order'))`,
     );
@@ -408,6 +429,7 @@ export async function updateProduct(
       .select({
         id: products.id,
         categoryId: products.categoryId,
+        imageUrl: products.imageUrl,
       })
       .from(products)
       .orderBy(asc(products.categoryId), asc(products.sortOrder), asc(products.id))
@@ -485,6 +507,8 @@ export async function updateProduct(
       input.tagIds,
       input.allergenIds,
     );
+
+    return currentProduct.imageUrl;
   });
 }
 
@@ -502,6 +526,29 @@ export async function setProductVisibility(
   if (!updatedProduct) {
     throw new ProductValidationError("El producto ya no existe.");
   }
+}
+
+export async function setProductSoldOut(
+  productId: string,
+  isSoldOut: boolean,
+) {
+  const { db } = getDatabase();
+  const updatedAt = new Date();
+  const [updatedProduct] = await db
+    .update(products)
+    .set({ isSoldOut, updatedAt })
+    .where(eq(products.id, productId))
+    .returning({
+      id: products.id,
+      isSoldOut: products.isSoldOut,
+      updatedAt: products.updatedAt,
+    });
+
+  if (!updatedProduct) {
+    throw new ProductValidationError("El producto ya no existe.");
+  }
+
+  return updatedProduct;
 }
 
 export async function reorderProducts(
@@ -539,12 +586,16 @@ export async function reorderProducts(
 export async function deleteProduct(productId: string) {
   const { db } = getDatabase();
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('piccolo-products-order'))`,
     );
     const [product] = await tx
-      .select({ id: products.id, categoryId: products.categoryId })
+      .select({
+        id: products.id,
+        categoryId: products.categoryId,
+        imageUrl: products.imageUrl,
+      })
       .from(products)
       .where(eq(products.id, productId))
       .for("update");
@@ -564,5 +615,7 @@ export async function deleteProduct(productId: string) {
       tx,
       remainingProducts.map(({ id }) => id),
     );
+
+    return product.imageUrl;
   });
 }

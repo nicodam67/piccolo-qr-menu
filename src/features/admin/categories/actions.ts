@@ -31,6 +31,7 @@ function parseCategoryForm(formData: FormData): CategoryMutationInput {
   const descriptionValue = formData.get("description");
   const localeValue = formData.get("locale");
   const orderValue = formData.get("sortOrder");
+  const parentValue = formData.get("parentCategoryId");
   const name = typeof nameValue === "string" ? nameValue : "";
   const description =
     typeof descriptionValue === "string" ? descriptionValue.trim() : "";
@@ -70,6 +71,8 @@ function parseCategoryForm(formData: FormData): CategoryMutationInput {
     locale,
     sortOrder,
     isActive: formData.get("isActive") === "true",
+    parentCategoryId:
+      typeof parentValue === "string" && parentValue ? parentValue : null,
   };
 }
 
@@ -126,12 +129,13 @@ export async function toggleCategoryAction(
 }
 
 export async function reorderCategoriesAction(
+  parentCategoryId: string | null,
   orderedCategoryIds: string[],
 ): Promise<CategoryActionResult> {
   await requireAdminSession();
 
   try {
-    await reorderCategories(orderedCategoryIds);
+    await reorderCategories(parentCategoryId, orderedCategoryIds);
     revalidateCategoryViews();
     return { success: true, error: null };
   } catch (error: unknown) {
@@ -152,6 +156,8 @@ export async function deleteCategoryAction(
         success: false,
         error: `No se puede eliminar: tiene ${result.productCount} ${
           result.productCount === 1 ? "producto asociado" : "productos asociados"
+        } y ${result.childCount} ${
+          result.childCount === 1 ? "subcategoría" : "subcategorías"
         }.`,
       };
     }

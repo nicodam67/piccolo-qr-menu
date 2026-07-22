@@ -14,6 +14,7 @@ import {
   productTags,
   productTranslations,
   products,
+  restaurantLocales,
   restaurantSettings,
   restaurantTranslations,
   tagTranslations,
@@ -136,6 +137,19 @@ async function seedDemo() {
             "Descripción exclusivamente demostrativa para el prototipo visual.",
         },
       });
+
+    await tx
+      .insert(restaurantLocales)
+      .values({
+        restaurantId: ids.restaurant,
+        locale: "es",
+        isEnabled: true,
+        isPublished: true,
+        sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing();
 
     const hours = [
       {
@@ -395,9 +409,27 @@ async function seedDemo() {
     }
 
     const allergenRows = [
-      { id: ids.allergens.gluten, code: "gluten", icon: "wheat" },
-      { id: ids.allergens.egg, code: "egg", icon: "egg" },
-      { id: ids.allergens.milk, code: "milk", icon: "milk" },
+      {
+        id: ids.allergens.gluten,
+        code: "gluten",
+        icon: "wheat",
+        isActive: true,
+        sortOrder: 1,
+      },
+      {
+        id: ids.allergens.egg,
+        code: "egg",
+        icon: "egg",
+        isActive: true,
+        sortOrder: 2,
+      },
+      {
+        id: ids.allergens.milk,
+        code: "milk",
+        icon: "milk",
+        isActive: true,
+        sortOrder: 3,
+      },
     ];
 
     await tx.insert(allergens).values(allergenRows).onConflictDoNothing();
@@ -411,16 +443,53 @@ async function seedDemo() {
       .onConflictDoNothing();
 
     const tagRows = [
-      { id: ids.tags.vegetarian, color: "green", name: "Vegetariano" },
-      { id: ids.tags.vegan, color: "green", name: "Vegano" },
-      { id: ids.tags.spicy, color: "red", name: "Picante" },
-      { id: ids.tags.recipeDemo, color: "gold", name: "Receta demo" },
-      { id: ids.tags.demo, color: "gold", name: "Demo" },
+      {
+        id: ids.tags.vegetarian,
+        color: "green",
+        name: "Vegetariano",
+        isActive: true,
+        sortOrder: 1,
+      },
+      {
+        id: ids.tags.vegan,
+        color: "green",
+        name: "Vegano",
+        isActive: true,
+        sortOrder: 2,
+      },
+      {
+        id: ids.tags.spicy,
+        color: "red",
+        name: "Picante",
+        isActive: true,
+        sortOrder: 3,
+      },
+      {
+        id: ids.tags.recipeDemo,
+        color: "gold",
+        name: "Receta demo",
+        isActive: true,
+        sortOrder: 4,
+      },
+      {
+        id: ids.tags.demo,
+        color: "gold",
+        name: "Demo",
+        isActive: true,
+        sortOrder: 5,
+      },
     ];
 
     await tx
       .insert(tags)
-      .values(tagRows.map(({ id, color }) => ({ id, color })))
+      .values(
+        tagRows.map(({ id, color, isActive, sortOrder }) => ({
+          id,
+          color,
+          isActive,
+          sortOrder,
+        })),
+      )
       .onConflictDoNothing();
     await tx
       .insert(tagTranslations)

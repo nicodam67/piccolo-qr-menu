@@ -294,7 +294,7 @@ export function ProductManager({
                     id={`product-category-${category.id}`}
                     className="font-display text-xl text-[#173f35]"
                   >
-                    {category.name}
+                    {category.path}
                   </h2>
                   <span className="text-[10px] font-bold text-stone-400">
                     {categoryProducts.length}{" "}

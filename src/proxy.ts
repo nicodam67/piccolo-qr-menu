@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { isSupportedLocale } from "@/config/locales";
 import {
   ADMIN_SESSION_COOKIE,
   getAdminCookieSecurityOptions,
@@ -8,11 +9,23 @@ import {
 } from "@/features/auth/session";
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const firstSegment = pathname.split("/").filter(Boolean)[0];
+  const requestHeaders = new Headers(request.headers);
+
+  if (firstSegment && isSupportedLocale(firstSegment)) {
+    requestHeaders.set("x-piccolo-locale", firstSegment);
+  }
+
+  if (!pathname.startsWith("/admin")) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
   const session = token ? await verifyAdminSessionToken(token) : null;
 
   if (session) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   const loginUrl = new URL("/login", request.url);
@@ -35,5 +48,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api|uploads).*)"],
 };

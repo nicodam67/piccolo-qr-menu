@@ -1,44 +1,120 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { CategoryNavigation } from "@/components/category-navigation";
 import { FloatingCallButton } from "@/components/floating-call-button";
 import { MenuHeader } from "@/components/menu-header";
 import { MenuSearch } from "@/components/menu-search";
 import { ProductCard } from "@/components/product-card";
+import { buildMenuHierarchy } from "@/features/categories/hierarchy";
 
-import type { DemoMenu, OpeningStatus } from "./types";
-import { filterProducts, getOpeningStatus } from "./utils";
+import type { DemoMenu, DemoProduct, OpeningStatus } from "./types";
+import type { PublishedLocale } from "@/features/locales/repository";
+import { getPublicMenuCopy } from "./copy";
+import { getPublicProductPath } from "./product-url";
+import { getRestaurantOpenStatus } from "./schedule";
+import { getScheduleCopy } from "./schedule-copy";
+import { filterProducts } from "./utils";
+
+const POSITION_MAX_AGE_MS = 30 * 60 * 1_000;
+
+type StoredMenuPosition = {
+  scrollY: number;
+  categoryId: string;
+  savedAt: number;
+};
 
 type PublicMenuPageProps = {
   menu: DemoMenu;
   initialOpeningStatus: OpeningStatus;
+  publishedLocales: PublishedLocale[];
 };
+
+function ProductGrid({
+  products,
+  menu,
+  viewProductLabel,
+  onProductNavigate,
+}: {
+  products: DemoProduct[];
+  menu: DemoMenu;
+  viewProductLabel: string;
+  onProductNavigate: () => void;
+}) {
+  return (
+    <div
+      className={
+        menu.displaySettings.layout === "cards"
+          ? "grid gap-7 sm:grid-cols-2 lg:grid-cols-3"
+          : "space-y-5"
+      }
+    >
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          settings={menu.displaySettings}
+          href={getPublicProductPath(
+            menu.locale,
+            product.id,
+            product.name,
+          )}
+          viewProductLabel={viewProductLabel}
+          onNavigate={onProductNavigate}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function PublicMenuPage({
   menu,
   initialOpeningStatus,
+  publishedLocales,
 }: PublicMenuPageProps) {
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [activeCategory, setActiveCategory] = useState(
     menu.categories[0]?.id ?? "",
   );
   const [openingStatus, setOpeningStatus] = useState(initialOpeningStatus);
+  const activeCategoryRef = useRef(activeCategory);
+  const queryRef = useRef(query);
+  const visibleCategoriesRef = useRef(menu.categories);
+  const isLeavingMenuRef = useRef(false);
+  const positionStorageKey = `piccolo-menu-position:${menu.locale}`;
+  const copy = getPublicMenuCopy(menu.locale);
+  const scheduleCopy = getScheduleCopy(menu.locale);
 
   const filteredProducts = useMemo(
-    () => filterProducts(menu.products, query),
-    [menu.products, query],
+    () => filterProducts(menu.products, deferredQuery),
+    [menu.products, deferredQuery],
   );
 
-  const visibleCategories = useMemo(
-    () =>
-      menu.categories.filter((category) =>
-        filteredProducts.some(
-          (product) => product.categoryId === category.id,
-        ),
-      ),
+  const visibleHierarchy = useMemo(
+    () => buildMenuHierarchy(menu.categories, filteredProducts),
     [filteredProducts, menu.categories],
+  );
+  const visibleCategories = useMemo(
+    () => visibleHierarchy.map(({ category }) => category),
+    [visibleHierarchy],
+  );
+  const productCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        visibleHierarchy.map(({ category, productCount }) => [
+          category.id,
+          productCount,
+        ]),
+      ),
+    [visibleHierarchy],
   );
 
   const visibleActiveCategory = visibleCategories.some(
@@ -48,15 +124,150 @@ export function PublicMenuPage({
     : (visibleCategories[0]?.id ?? "");
 
   useEffect(() => {
+    activeCategoryRef.current = visibleActiveCategory;
+    queryRef.current = query;
+    visibleCategoriesRef.current = visibleCategories;
+  }, [query, visibleActiveCategory, visibleCategories]);
+
+  useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useEffect(() => {
     const refreshStatus = () => {
       setOpeningStatus(
-        getOpeningStatus(new Date(), menu.openingHours, menu.timeZone),
+        getRestaurantOpenStatus({
+          now: new Date(),
+          weeklySchedule: menu.openingHours,
+          specialSchedule: menu.specialOpeningHours,
+          timeZone: menu.timeZone,
+        }),
       );
     };
 
     const intervalId = window.setInterval(refreshStatus, 60_000);
     return () => window.clearInterval(intervalId);
-  }, [menu.openingHours, menu.timeZone]);
+  }, [menu.openingHours, menu.specialOpeningHours, menu.timeZone]);
+
+  useEffect(() => {
+    const navigationEntry = performance.getEntriesByType(
+      "navigation",
+    )[0] as PerformanceNavigationTiming | undefined;
+
+    if (navigationEntry?.type === "reload") {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    if (window.location.hash.startsWith("#category-")) {
+      const categoryId = decodeURIComponent(
+        window.location.hash.replace("#category-", ""),
+      );
+
+      if (menu.categories.some((category) => category.id === categoryId)) {
+        const hashFrame = window.requestAnimationFrame(() => {
+          activeCategoryRef.current = categoryId;
+          setActiveCategory(categoryId);
+        });
+        return () => window.cancelAnimationFrame(hashFrame);
+      }
+
+      return;
+    }
+
+    const storedValue = sessionStorage.getItem(positionStorageKey);
+
+    if (!storedValue) {
+      return;
+    }
+
+    let storedPosition: StoredMenuPosition;
+
+    try {
+      storedPosition = JSON.parse(storedValue) as StoredMenuPosition;
+    } catch {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    if (
+      !Number.isFinite(storedPosition.scrollY) ||
+      Date.now() - storedPosition.savedAt > POSITION_MAX_AGE_MS ||
+      !menu.categories.some(
+        (category) => category.id === storedPosition.categoryId,
+      )
+    ) {
+      sessionStorage.removeItem(positionStorageKey);
+      return;
+    }
+
+    let scrollFrame = 0;
+    const stateFrame = window.requestAnimationFrame(() => {
+      setActiveCategory(storedPosition.categoryId);
+      scrollFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: storedPosition.scrollY, behavior: "auto" });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(stateFrame);
+      window.cancelAnimationFrame(scrollFrame);
+    };
+  }, [menu.categories, positionStorageKey]);
+
+  useEffect(() => {
+    let animationFrame = 0;
+
+    const savePosition = () => {
+      animationFrame = 0;
+
+      if (isLeavingMenuRef.current || queryRef.current.trim()) {
+        return;
+      }
+
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2
+      ) {
+        const lastCategory = visibleCategoriesRef.current.at(-1);
+
+        if (
+          lastCategory &&
+          activeCategoryRef.current !== lastCategory.id
+        ) {
+          activeCategoryRef.current = lastCategory.id;
+          setActiveCategory(lastCategory.id);
+        }
+      }
+
+      const position: StoredMenuPosition = {
+        scrollY: window.scrollY,
+        categoryId: activeCategoryRef.current,
+        savedAt: Date.now(),
+      };
+      sessionStorage.setItem(positionStorageKey, JSON.stringify(position));
+    };
+
+    const scheduleSave = () => {
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(savePosition);
+      }
+    };
+
+    window.addEventListener("scroll", scheduleSave, { passive: true });
+    window.addEventListener("pagehide", savePosition);
+
+    return () => {
+      window.removeEventListener("scroll", scheduleSave);
+      window.removeEventListener("pagehide", savePosition);
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [positionStorageKey]);
 
   useEffect(() => {
     if (visibleCategories.length === 0) {
@@ -65,14 +276,29 @@ export function PublicMenuPage({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const visibleEntry = entries.find((entry) => entry.isIntersecting);
-        const categoryId = visibleEntry?.target.getAttribute("data-category");
+        const isAtDocumentEnd =
+          window.innerHeight + window.scrollY >=
+          document.documentElement.scrollHeight - 2;
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (left, right) =>
+              Math.abs(left.boundingClientRect.top - 88) -
+              Math.abs(right.boundingClientRect.top - 88),
+          )[0];
+        const categoryId = isAtDocumentEnd
+          ? visibleCategories.at(-1)?.id
+          : visibleEntry?.target.getAttribute("data-category");
 
-        if (categoryId) {
+        if (categoryId && categoryId !== activeCategoryRef.current) {
+          activeCategoryRef.current = categoryId;
           setActiveCategory(categoryId);
         }
       },
-      { rootMargin: "-25% 0px -65% 0px", threshold: 0 },
+      {
+        rootMargin: "-80px 0px -60% 0px",
+        threshold: [0, 0.1, 0.25, 0.5],
+      },
     );
 
     visibleCategories.forEach((category) => {
@@ -86,10 +312,43 @@ export function PublicMenuPage({
   }, [visibleCategories]);
 
   const handleCategorySelect = (categoryId: string) => {
+    activeCategoryRef.current = categoryId;
     setActiveCategory(categoryId);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#category-${categoryId}`,
+    );
     document
       .getElementById(`category-${categoryId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+
+    if (value && window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+  };
+
+  const handleProductNavigate = () => {
+    isLeavingMenuRef.current = true;
+
+    if (queryRef.current.trim()) {
+      return;
+    }
+
+    const position: StoredMenuPosition = {
+      scrollY: window.scrollY,
+      categoryId: activeCategoryRef.current,
+      savedAt: Date.now(),
+    };
+    sessionStorage.setItem(positionStorageKey, JSON.stringify(position));
   };
 
   return (
@@ -102,7 +361,11 @@ export function PublicMenuPage({
       </a>
 
       <main className="min-h-screen pb-20">
-        <MenuHeader menu={menu} openingStatus={openingStatus} />
+        <MenuHeader
+          menu={menu}
+          openingStatus={openingStatus}
+          publishedLocales={publishedLocales}
+        />
 
         <section
           id="menu-content"
@@ -128,7 +391,13 @@ export function PublicMenuPage({
             </div>
 
             <div className="mt-3">
-              <MenuSearch value={query} onChange={setQuery} />
+              <MenuSearch
+                value={query}
+                onChange={handleSearchChange}
+                placeholder={copy.searchPlaceholder}
+                label={copy.searchLabel}
+                clearLabel={copy.clearSearch}
+              />
             </div>
           </div>
 
@@ -136,8 +405,10 @@ export function PublicMenuPage({
             <div className="sticky top-0 z-40 border-y border-stone-200 bg-[#fffdfa]/95 backdrop-blur-lg">
               <CategoryNavigation
                 categories={visibleCategories}
+                productCounts={productCounts}
                 activeCategory={visibleActiveCategory}
                 onSelect={handleCategorySelect}
+                ariaLabel={copy.categoriesLabel}
               />
             </div>
           ) : null}
@@ -150,20 +421,19 @@ export function PublicMenuPage({
             {query ? (
               <p className="text-xs text-stone-500">
                 {filteredProducts.length === 1
-                  ? "1 resultado de demostración"
-                  : `${filteredProducts.length} resultados de demostración`}
+                  ? `1 ${copy.result}`
+                  : `${filteredProducts.length} ${copy.results}`}
               </p>
             ) : null}
           </div>
 
           {visibleCategories.length > 0 ? (
-            <div className="space-y-10 px-4 pt-6 sm:px-6">
-              {visibleCategories.map((category) => {
-                const categoryProducts = filteredProducts.filter(
-                  (product) => product.categoryId === category.id,
-                );
-
-                return (
+            <div
+              id="menu-product-sections"
+              className="space-y-10 px-4 pt-6 sm:px-6"
+            >
+              {visibleHierarchy.map(
+                ({ category, directProducts, subcategories }) => (
                   <section
                     id={`category-${category.id}`}
                     key={category.id}
@@ -177,35 +447,68 @@ export function PublicMenuPage({
                         className="font-display text-2xl text-[#a8392f]"
                       >
                         {category.name}
+                        <span className="ml-2 align-middle text-sm text-stone-400">
+                          · {productCounts[category.id] ?? 0}
+                        </span>
                       </h2>
                       <p className="pb-0.5 text-[9px] font-bold tracking-[0.1em] text-stone-400 uppercase">
                         {category.eyebrow}
                       </p>
                     </div>
 
-                    <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                      {categoryProducts.map((product) => (
-                        <ProductCard key={product.id} product={product} />
-                      ))}
-                    </div>
+                    {directProducts.length > 0 ? (
+                      <ProductGrid
+                        products={directProducts}
+                        menu={menu}
+                        viewProductLabel={copy.viewProduct}
+                        onProductNavigate={handleProductNavigate}
+                      />
+                    ) : null}
+                    {subcategories.map((subcategory) => (
+                      <section
+                        key={subcategory.category.id}
+                        className="mt-8"
+                        aria-labelledby={`subcategory-title-${subcategory.category.id}`}
+                      >
+                        <h3
+                          id={`subcategory-title-${subcategory.category.id}`}
+                          className="font-display mb-4 border-b border-stone-200 pb-2 text-xl text-[#173f35]"
+                        >
+                          {subcategory.category.name}
+                          <span className="ml-2 text-xs text-stone-400">
+                            · {subcategory.products.length}
+                          </span>
+                        </h3>
+                        <ProductGrid
+                          products={subcategory.products}
+                          menu={menu}
+                          viewProductLabel={copy.viewProduct}
+                          onProductNavigate={handleProductNavigate}
+                        />
+                      </section>
+                    ))}
                   </section>
-                );
-              })}
+                ),
+              )}
             </div>
           ) : (
-            <div className="mx-4 mt-6 border-y border-stone-200 px-6 py-10 text-center sm:mx-6">
+            <div
+              id="menu-product-sections"
+              className="mx-4 mt-6 border-y border-stone-200 px-6 py-10 text-center sm:mx-6"
+            >
               <p className="font-display text-2xl text-[#173f35]">
-                No encontramos ese plato
+                {copy.noResultsTitle}
               </p>
               <p className="mt-2 text-sm text-stone-500">
-                Prueba con otro nombre, etiqueta o alérgeno.
+                {copy.noResultsHint}
               </p>
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => handleSearchChange("")}
+                aria-label={copy.clearSearch}
                 className="mt-5 min-h-11 rounded-full bg-[#173f35] px-5 text-sm font-bold text-white"
               >
-                Limpiar búsqueda
+                {copy.clearSearch}
               </button>
             </div>
           )}
@@ -220,10 +523,13 @@ export function PublicMenuPage({
         </footer>
       </main>
 
-      <FloatingCallButton
-        phoneDisplay={menu.restaurant.phoneDisplay}
-        phoneHref={menu.restaurant.phoneHref}
-      />
+      {menu.restaurant.phoneDisplay ? (
+        <FloatingCallButton
+          phoneDisplay={menu.restaurant.phoneDisplay}
+          phoneHref={menu.restaurant.phoneHref}
+          label={scheduleCopy.call}
+        />
+      ) : null}
     </>
   );
 }

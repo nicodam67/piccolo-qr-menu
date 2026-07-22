@@ -1,10 +1,19 @@
 import Image from "next/image";
-import { MapPin, Phone } from "lucide-react";
+import Link from "next/link";
+import { CalendarCheck, MapPin, Phone } from "lucide-react";
 
 import type {
   DemoMenu,
   OpeningStatus,
 } from "@/features/public-menu/types";
+import type { PublishedLocale } from "@/features/locales/repository";
+import { getPublicMenuCopy } from "@/features/public-menu/copy";
+import { getReservationCopy } from "@/features/reservations/copy";
+import {
+  formatOpeningStatus,
+  getScheduleCopy,
+  getSpecialScheduleCopy,
+} from "@/features/public-menu/schedule-copy";
 
 import { LanguageSelector } from "./language-selector";
 import { OpeningHours } from "./opening-hours";
@@ -12,10 +21,23 @@ import { OpeningHours } from "./opening-hours";
 type MenuHeaderProps = {
   menu: DemoMenu;
   openingStatus: OpeningStatus;
+  publishedLocales: PublishedLocale[];
 };
 
-export function MenuHeader({ menu, openingStatus }: MenuHeaderProps) {
+export function MenuHeader({
+  menu,
+  openingStatus,
+  publishedLocales,
+}: MenuHeaderProps) {
   const { restaurant } = menu;
+  const copy = getPublicMenuCopy(menu.locale);
+  const scheduleCopy = getScheduleCopy(menu.locale);
+  const reservationCopy = getReservationCopy(menu.locale);
+  const formattedStatus = formatOpeningStatus(
+    openingStatus,
+    scheduleCopy,
+    getSpecialScheduleCopy(menu.locale),
+  );
 
   return (
     <header className="bg-[#fffdfa]">
@@ -32,14 +54,18 @@ export function MenuHeader({ menu, openingStatus }: MenuHeaderProps) {
 
         <div className="absolute inset-x-0 top-0 mx-auto flex max-w-5xl items-center justify-between px-4 pt-4">
           <span className="rounded-full border border-white/20 bg-black/30 px-2.5 py-1.5 text-[9px] font-bold tracking-[0.14em] text-white uppercase backdrop-blur-md">
-            Imagen demo
+            {restaurant.name}
           </span>
-          <LanguageSelector />
+          <LanguageSelector
+            locales={publishedLocales}
+            currentLocale={menu.locale}
+            unavailableMessage={copy.productUnavailableInLanguage}
+          />
         </div>
 
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-5 pb-8 text-center text-white sm:pb-10">
           <p className="mb-3 text-[10px] font-bold tracking-[0.3em] text-amber-100 uppercase">
-            Cucina italiana · Demo
+            Cucina italiana
           </p>
           <h1 className="font-display mx-auto max-w-xl text-[2.55rem] leading-[0.96] text-balance drop-shadow-sm sm:text-6xl">
             {restaurant.name}
@@ -67,44 +93,68 @@ export function MenuHeader({ menu, openingStatus }: MenuHeaderProps) {
                     : "text-[#a8392f]"
                 }`}
               >
-                {openingStatus.label}
+                  {formattedStatus.label}
               </p>
               <p className="truncate text-[11px] text-stone-500">
-                {openingStatus.detail} · horario demo
+                {formattedStatus.detail || scheduleCopy.hours}
               </p>
             </div>
           </div>
 
-          <a
-            href={restaurant.phoneHref}
-            aria-label={`Llamar al teléfono de demostración ${restaurant.phoneDisplay}`}
-            className="flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-[#173f35] px-4 text-xs font-bold text-white transition-colors hover:bg-[#245849] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
-          >
-            <Phone aria-hidden="true" className="size-4" />
-            Llamar
-          </a>
+          <div className="flex shrink-0 gap-2">
+            {menu.reservationsEnabled ? (
+              <Link
+                href={`/${menu.locale}/reservas`}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#a8392f] px-4 text-xs font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a8392f]"
+              >
+                <CalendarCheck aria-hidden="true" className="size-4" />
+                {reservationCopy.reserve}
+              </Link>
+            ) : null}
+            {restaurant.phoneDisplay ? (
+              <a
+                href={restaurant.phoneHref}
+                aria-label={`${scheduleCopy.call}: ${restaurant.phoneDisplay}`}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#173f35] px-4 text-xs font-bold text-white transition-colors hover:bg-[#245849] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
+              >
+                <Phone aria-hidden="true" className="size-4" />
+                <span className={menu.reservationsEnabled ? "sr-only sm:not-sr-only" : ""}>
+                  {scheduleCopy.call}
+                </span>
+              </a>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-3 grid border-y border-stone-200 sm:grid-cols-2">
           <OpeningHours
             openingHours={menu.openingHours}
+            specialOpeningHours={menu.specialOpeningHours}
             status={openingStatus}
+            locale={menu.locale}
+            timeZone={menu.timeZone}
           />
 
-          <div className="flex min-h-12 items-center gap-2.5 border-t border-stone-200 py-2 sm:border-t-0 sm:border-l sm:pl-4">
-            <MapPin
-              aria-hidden="true"
-              className="size-4 shrink-0 text-[#a8392f]"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-stone-700">
-                {restaurant.address}
-              </p>
-              <p className="text-[10px] text-stone-400">
-                Dirección no oficial · teléfono demo
-              </p>
-            </div>
-          </div>
+          {restaurant.address ? (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                restaurant.address,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-12 items-center gap-2.5 border-t border-stone-200 py-2 focus-visible:outline-2 focus-visible:outline-[#173f35] sm:border-t-0 sm:border-l sm:pl-4"
+            >
+              <MapPin aria-hidden="true" className="size-4 shrink-0 text-[#a8392f]" />
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-stone-700">
+                  {restaurant.address}
+                </span>
+                <span className="text-[10px] text-stone-400">
+                  {scheduleCopy.directions}
+                </span>
+              </span>
+            </a>
+          ) : null}
         </div>
       </div>
     </header>

@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { AlertTriangle, ListOrdered, LoaderCircle, Plus } from "lucide-react";
+import { buildCategoryHierarchy } from "@/features/categories/hierarchy";
 
 import {
   deleteCategoryAction,
@@ -36,7 +37,7 @@ type CategoryManagerProps = {
 };
 
 type DialogState =
-  | { type: "create" }
+  | { type: "create"; parentCategoryId: string | null }
   | { type: "edit"; category: AdminCategory }
   | null;
 
@@ -62,11 +63,27 @@ export function CategoryManager({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
-
-  const categoryIds = useMemo(
-    () => categories.map((category) => category.id),
+  const [expandedIds, setExpandedIds] = useState(
+    () =>
+      new Set(
+        initialCategories
+          .filter(({ parentCategoryId }) => parentCategoryId === null)
+          .map(({ id }) => id),
+      ),
+  );
+  const hierarchy = useMemo(
+    () => buildCategoryHierarchy(categories),
     [categories],
   );
+  const displayedCategories = useMemo(
+    () =>
+      hierarchy.flatMap((root) => [
+        root,
+        ...(expandedIds.has(root.id) ? root.children : []),
+      ]),
+    [expandedIds, hierarchy],
+  );
+  const categoryIds = displayedCategories.map(({ id }) => id);
 
   const getTranslation = (category: AdminCategory) =>
     category.translations.find(
@@ -78,23 +95,47 @@ export function CategoryManager({
       return;
     }
 
+    const activeCategory = categories.find(({ id }) => id === active.id);
+    const overCategory = categories.find(({ id }) => id === over.id);
+    if (
+      !activeCategory ||
+      !overCategory ||
+      activeCategory.parentCategoryId !== overCategory.parentCategoryId
+    ) {
+      setFeedback("Solo se puede ordenar dentro del mismo nivel.");
+      return;
+    }
     const previousCategories = categories;
-    const oldIndex = categories.findIndex(({ id }) => id === active.id);
-    const newIndex = categories.findIndex(({ id }) => id === over.id);
+    const siblings = categories
+      .filter(
+        ({ parentCategoryId }) =>
+          parentCategoryId === activeCategory.parentCategoryId,
+      )
+      .sort((left, right) => left.sortOrder - right.sortOrder);
+    const oldIndex = siblings.findIndex(({ id }) => id === active.id);
+    const newIndex = siblings.findIndex(({ id }) => id === over.id);
 
     if (oldIndex < 0 || newIndex < 0) {
       return;
     }
 
-    const reorderedCategories = arrayMove(categories, oldIndex, newIndex).map(
+    const reorderedSiblings = arrayMove(siblings, oldIndex, newIndex).map(
       (category, index) => ({ ...category, sortOrder: index + 1 }),
     );
+    const orders = new Map(
+      reorderedSiblings.map(({ id, sortOrder }) => [id, sortOrder]),
+    );
+    const reorderedCategories = categories.map((category) => ({
+      ...category,
+      sortOrder: orders.get(category.id) ?? category.sortOrder,
+    }));
     setCategories(reorderedCategories);
     setFeedback("Guardando el nuevo orden…");
 
     startTransition(async () => {
       const result = await reorderCategoriesAction(
-        reorderedCategories.map(({ id }) => id),
+        activeCategory.parentCategoryId,
+        reorderedSiblings.map(({ id }) => id),
       );
 
       if (!result.success) {
@@ -159,9 +200,7 @@ export function CategoryManager({
       }
 
       setCategories((current) =>
-        current
-          .filter(({ id }) => id !== categoryId)
-          .map((category, index) => ({ ...category, sortOrder: index + 1 })),
+        current.filter(({ id }) => id !== categoryId),
       );
       setDeleteCandidate(null);
       setFeedback("Categoría eliminada.");
@@ -192,7 +231,7 @@ export function CategoryManager({
         </div>
         <button
           type="button"
-          onClick={() => setDialog({ type: "create" })}
+          onClick={() => setDialog({ type: "create", parentCategoryId: null })}
           className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#173f35] px-5 text-sm font-bold text-white hover:bg-[#245849] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
         >
           <Plus aria-hidden="true" className="size-4" />
@@ -252,7 +291,7 @@ export function CategoryManager({
               items={categoryIds}
               strategy={verticalListSortingStrategy}
             >
-              {categories.map((category) => (
+              {displayedCategories.map((category) => (
                 <CategoryRow
                   key={category.id}
                   category={category}
@@ -266,6 +305,19 @@ export function CategoryManager({
                   }
                   onToggle={handleToggle}
                   onDelete={setDeleteCandidate}
+                  depth={category.parentCategoryId ? 1 : 0}
+                  isExpanded={expandedIds.has(category.id)}
+                  onToggleExpanded={() =>
+                    setExpandedIds((current) => {
+                      const next = new Set(current);
+                      if (next.has(category.id)) next.delete(category.id);
+                      else next.add(category.id);
+                      return next;
+                    })
+                  }
+                  onCreateChild={(parentCategoryId) =>
+                    setDialog({ type: "create", parentCategoryId })
+                  }
                 />
               ))}
             </SortableContext>
@@ -297,13 +349,12 @@ export function CategoryManager({
           }
           mode={dialog.type}
           category={dialog.type === "edit" ? dialog.category : undefined}
+          initialParentCategoryId={
+            dialog.type === "create" ? dialog.parentCategoryId : undefined
+          }
+          categories={categories}
           locales={locales}
           defaultLocale={selectedLocale}
-          maxOrder={
-            dialog.type === "create"
-              ? categories.length + 1
-              : categories.length
-          }
           onClose={() => setDialog(null)}
           onSaved={closeFormAndRefresh}
         />

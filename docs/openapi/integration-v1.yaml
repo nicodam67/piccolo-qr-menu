@@ -1,0 +1,335 @@
+openapi: 3.1.0
+info:
+  title: Piccolo TPV ↔ QR Menu Integration API
+  version: 1.0.0
+  description: |
+    Contrato inicial de integración entre Piccolo QR Menu y el TPV.
+    En esta entrega solo se publica el catálogo visible y la sincronización
+    idempotente del estado agotado. Reservas, CRM y fidelización permanecen
+    bloqueados hasta fusionar sus modelos persistentes existentes.
+servers:
+  - url: https://qr-menu.example.com
+security:
+  - serviceToken: []
+paths:
+  /integration/v1/catalog:
+    get:
+      operationId: getIntegrationCatalog
+      summary: Obtiene el catálogo público versionado
+      description: Requiere el scope `catalog:read`.
+      parameters:
+        - name: locale
+          in: query
+          schema:
+            type: string
+            enum: [es]
+            default: es
+        - name: since
+          in: query
+          description: Versión SHA-256 obtenida en una respuesta anterior.
+          schema:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+        - name: If-None-Match
+          in: header
+          schema:
+            type: string
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Catálogo público actual.
+          headers:
+            ETag:
+              schema:
+                type: string
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogDocument"
+        "304":
+          description: La versión enviada continúa vigente.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /integration/v1/catalog/products/{productId}/availability:
+    put:
+      operationId: setIntegrationProductAvailability
+      summary: Sincroniza el estado agotado de un producto
+      description: |
+        Requiere el scope `catalog:write`. La operación es idempotente porque
+        establece un estado absoluto y no registra un delta.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [isSoldOut]
+              properties:
+                isSoldOut:
+                  type: boolean
+      responses:
+        "200":
+          description: Disponibilidad sincronizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        Token de al menos 32 bytes configurado fuera del repositorio.
+        Los scopes se asignan en `INTEGRATION_SERVICE_SCOPES`.
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+        pattern: "^[A-Za-z0-9._:-]+$"
+  headers:
+    CorrelationId:
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Parámetros o cuerpo no válidos.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+    Unauthorized:
+      description: Token ausente o no válido.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+    Forbidden:
+      description: La credencial no dispone del scope requerido.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+    NotFound:
+      description: El producto no existe.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+    PayloadTooLarge:
+      description: El cuerpo supera 1024 bytes.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+    Unavailable:
+      description: La integración no está configurada.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorDocument"
+  schemas:
+    Meta:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, correlationId]
+      properties:
+        schemaVersion:
+          type: string
+          const: 1.0.0
+        generatedAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+    CatalogDocument:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Catalog"
+        meta:
+          $ref: "#/components/schemas/Meta"
+    Catalog:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - publicationScope
+        - restaurant
+        - categories
+        - products
+      properties:
+        version:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        publicationScope:
+          type: string
+          const: public-menu
+        restaurant:
+          $ref: "#/components/schemas/Restaurant"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+    Restaurant:
+      type: object
+      additionalProperties: false
+      required: [id, name, locale, currencyCode, timeZone]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        locale:
+          type: string
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+        timeZone:
+          type: string
+    Category:
+      type: object
+      additionalProperties: false
+      required: [id, name, description]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+    Product:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - categoryId
+        - name
+        - description
+        - fullPriceCents
+        - halfPriceCents
+        - isSoldOut
+        - imageUrl
+        - tags
+        - allergens
+      properties:
+        id:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        fullPriceCents:
+          type: integer
+          minimum: 0
+        halfPriceCents:
+          type: [integer, "null"]
+          minimum: 0
+        isSoldOut:
+          type: boolean
+        imageUrl:
+          type: string
+          format: uri
+        tags:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [label, tone]
+            properties:
+              label:
+                type: string
+              tone:
+                type: string
+                enum: [green, red, gold]
+        allergens:
+          type: array
+          items:
+            type: string
+    AvailabilityDocument:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [productId, isSoldOut, updatedAt]
+          properties:
+            productId:
+              type: string
+              format: uuid
+            isSoldOut:
+              type: boolean
+            updatedAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ErrorDocument:
+      type: object
+      additionalProperties: false
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        meta:
+          $ref: "#/components/schemas/Meta"
