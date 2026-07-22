@@ -1,5 +1,26 @@
 # Entrega 29 — Auditoría e integración TPV ↔ QR Menu
 
+## Actualización verificada en la Entrega 30
+
+El inventario de este documento describe `main` antes de la consolidación. La
+rama actual ya incorpora, conservando su historial, Reservas, Adelantos, CRM y
+Fidelización con las migraciones `0003`–`0013`.
+
+La afirmación original de que Socket.IO, fichaje e idempotencia de comandas
+seguían pendientes en el TPV quedó obsoleta. Una revisión del repositorio
+`nicodam67/piccolo-tpv-replit` en `main@28a806b` confirma:
+
+- Socket.IO autenticado y limitado por función/empleado: resuelto.
+- Fichaje mediante pruebas de autorización de uso único: resuelto en servidor.
+- Envío de comandas con idempotencia persistente y transaccional: resuelto;
+  la impresión física no garantiza exactamente una vez.
+- RBAC: mejorado, pero todavía incompleto en varias mutaciones operativas.
+
+No se puede verificar desde GitHub si ese SHA está desplegado ni si sus
+migraciones están aplicadas en producción. Los documentos históricos
+`replit-tpv-*` conservan el alcance del commit auditado y señalan esta
+revalidación.
+
 ## Alcance auditado
 
 Se revisaron el árbol completo de `main`, su historial, las rutas, capas de
@@ -129,16 +150,14 @@ interno al TPV y no es el canal de integración entre sistemas.
 
 ## Lo que falta realmente
 
-1. Fusionar en orden Reservas → CRM → Fidelización cuando se autorice la
-   ventana de migraciones. No reescribir esos dominios.
-2. Exponer sus servicios existentes por `/integration/v1` con scopes e
+1. Exponer los servicios consolidados por `/integration/v1` con scopes e
    idempotencia persistente.
-3. Completar el catálogo TPV con IVA, formatos, modificadores y zona de
+2. Completar el catálogo TPV con IVA, formatos, modificadores y zona de
    preparación; esos campos no existen en PostgreSQL actual.
-4. Resolver referencias externas TPV ↔ UUID canónico.
-5. Endurecer en el repositorio TPV los hallazgos críticos de fichaje, Socket.IO,
-   RBAC, credenciales demo e idempotencia de comandas.
-6. Añadir rotación de credenciales, métricas, alertas, retries acotados y
+3. Resolver referencias externas TPV ↔ UUID canónico.
+4. Completar RBAC en las mutaciones operativas del TPV y garantizar
+   idempotencia de la cola de impresión.
+5. Añadir rotación de credenciales, métricas, alertas, retries acotados y
    dead-letter para eventos operativos.
 
 Los detalles del TPV, mapa de datos, seguridad, módulos y fases se conservan en

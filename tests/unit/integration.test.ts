@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  evaluateIntegrationCredential,
   isIntegrationTokenValid,
   parseBearerCredential,
   parseIntegrationScopes,
@@ -28,6 +29,7 @@ const menu: DemoMenu = {
     heroImageAlt: "Restaurante",
   },
   locale: "es",
+  currencyCode: "EUR",
   timeZone: "Europe/Madrid",
   categories: [
     {
@@ -60,6 +62,16 @@ const menu: DemoMenu = {
     },
   ],
   openingHours: [],
+  specialOpeningHours: [],
+  displaySettings: {
+    showImages: true,
+    showDescriptions: true,
+    showPrices: true,
+    showTags: true,
+    showAllergens: true,
+    showHalfPortions: true,
+    layout: "cards",
+  },
 };
 
 test("parses strict Bearer credentials and configured scopes", () => {
@@ -78,6 +90,38 @@ test("compares integration tokens without accepting prefixes", () => {
   assert.equal(isIntegrationTokenValid("exact-token", "exact-token"), true);
   assert.equal(isIntegrationTokenValid("exact", "exact-token"), false);
   assert.equal(isIntegrationTokenValid(null, "exact-token"), false);
+});
+
+test("distinguishes invalid credentials from insufficient scopes", () => {
+  const scopes = parseIntegrationScopes("catalog:read");
+
+  assert.equal(
+    evaluateIntegrationCredential(
+      "wrong-token",
+      "configured-token",
+      scopes,
+      "catalog:read",
+    ),
+    "invalid_token",
+  );
+  assert.equal(
+    evaluateIntegrationCredential(
+      "configured-token",
+      "configured-token",
+      scopes,
+      "catalog:write",
+    ),
+    "insufficient_scope",
+  );
+  assert.equal(
+    evaluateIntegrationCredential(
+      "configured-token",
+      "configured-token",
+      scopes,
+      "catalog:read",
+    ),
+    "authorized",
+  );
 });
 
 test("builds a stable, cent-based catalog contract", () => {

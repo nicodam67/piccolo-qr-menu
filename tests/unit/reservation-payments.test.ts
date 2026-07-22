@@ -41,6 +41,14 @@ describe("reservation deposits", () => {
     );
     assert.doesNotMatch(source, /from ["']stripe["']|stripe-provider/);
   });
+  it("mantiene proveedores reales desactivados por defecto", () => {
+    const envExample = readFileSync(
+      path.join(process.cwd(), ".env.example"),
+      "utf8",
+    );
+    assert.match(envExample, /^PAYMENT_PROVIDER=disabled$/m);
+    assert.doesNotMatch(envExample, /^NEXT_PUBLIC_.*(?:PAYMENT|STRIPE|BIZUM)/m);
+  });
   it("mantiene Stripe fuera del contrato compartido y con carga dinámica", () => {
     const root = process.cwd();
     const provider = readFileSync(

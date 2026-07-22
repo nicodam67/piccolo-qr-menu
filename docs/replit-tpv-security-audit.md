@@ -1,5 +1,19 @@
 # Auditoría de seguridad — Piccolo TPV
 
+> **Revalidación Entrega 30.** Los hallazgos de este documento pertenecen a
+> `03b1aa3`. Sobre `main@28a806b` se verificó en código:
+>
+> - Socket.IO resuelto por `cc0e6b5` y `11e99e6`.
+> - Fichaje protegido por pruebas de uso único en `57d5621` y `cab5ee1`.
+> - Comandas idempotentes en `2637000`, `3c8e5bd`, `85d1b7b` y prueba
+>   `7ca742e`; la cola de impresión continúa sin exactly-once.
+> - RBAC mejorado por `88d6d38`, pero aún incompleto en rutas de pedidos,
+>   delivery, reservas y alergias de mesa.
+>
+> No se ha verificado que producción ejecute ese SHA ni que las migraciones TPV
+> estén aplicadas. Las secciones siguientes se mantienen como registro de la
+> auditoría original, no como afirmación del estado actual.
+
 ## Método
 
 - Inspección de archivos sensibles antes de ejecutar código.

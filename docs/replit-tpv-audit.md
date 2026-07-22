@@ -1,5 +1,14 @@
 # Auditoría técnica verificable — Piccolo TPV de Replit
 
+> **Nota de vigencia (Entrega 30).** Esta auditoría describe
+> `main@03b1aa3`. La revalidación del 22 de julio de 2026 sobre
+> `main@28a806b` confirma que Socket.IO autenticado, la autorización de fichaje
+> y la idempotencia transaccional de comandas ya están implementados mediante
+> la PR TPV #1. RBAC sigue parcialmente aplicado y la impresión física no tiene
+> garantía exactly-once. El estado del despliegue y de sus migraciones no es
+> verificable desde este repositorio. Se conserva el texto original como
+> evidencia histórica del commit auditado.
+
 ## Identificación y alcance
 
 | Dato | Valor |

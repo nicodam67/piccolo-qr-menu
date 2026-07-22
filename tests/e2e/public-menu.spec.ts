@@ -3337,6 +3337,26 @@ test("TPV reads the versioned catalog and synchronizes availability", async ({
   );
 
   const initialDocument = await initialResponse.json();
+  const catalogJson = JSON.stringify(initialDocument);
+  for (const privateField of [
+    "customerId",
+    "guestEmail",
+    "guestPhone",
+    "customerNotes",
+    "internalNotes",
+  ]) {
+    expect(catalogJson).not.toContain(`"${privateField}"`);
+  }
+  const initialEtag = initialResponse.headers().etag;
+  expect(initialEtag).toMatch(/^"[a-f0-9]{64}"$/);
+  if (!initialEtag) {
+    throw new Error("El catálogo de integración no devolvió ETag.");
+  }
+  const etagResponse = await request.get("/integration/v1/catalog", {
+    headers: { ...headers, "if-none-match": initialEtag },
+  });
+  expect(etagResponse.status()).toBe(304);
+
   const product = initialDocument.data.products[0] as
     | { id: string; isSoldOut: boolean }
     | undefined;
@@ -3357,6 +3377,15 @@ test("TPV reads the versioned catalog and synchronizes availability", async ({
     });
     expect(updateResponse.status()).toBe(200);
     expect((await updateResponse.json()).data).toMatchObject({
+      productId: product.id,
+      isSoldOut: nextAvailability,
+    });
+    const repeatedUpdateResponse = await request.put(availabilityUrl, {
+      headers,
+      data: { isSoldOut: nextAvailability },
+    });
+    expect(repeatedUpdateResponse.status()).toBe(200);
+    expect((await repeatedUpdateResponse.json()).data).toMatchObject({
       productId: product.id,
       isSoldOut: nextAvailability,
     });

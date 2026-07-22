@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  isIntegrationTokenValid,
+  evaluateIntegrationCredential,
   parseBearerCredential,
   parseIntegrationScopes,
   type IntegrationScope,
@@ -39,8 +39,17 @@ export function authorizeIntegrationRequest(
   const providedToken = parseBearerCredential(
     request.headers.get("authorization"),
   );
+  const scopes = parseIntegrationScopes(
+    process.env.INTEGRATION_SERVICE_SCOPES,
+  );
+  const decision = evaluateIntegrationCredential(
+    providedToken,
+    configuredToken,
+    scopes,
+    requiredScope,
+  );
 
-  if (!isIntegrationTokenValid(providedToken, configuredToken)) {
+  if (decision === "invalid_token") {
     return {
       authorized: false,
       code: "invalid_token",
@@ -49,11 +58,7 @@ export function authorizeIntegrationRequest(
     };
   }
 
-  const scopes = parseIntegrationScopes(
-    process.env.INTEGRATION_SERVICE_SCOPES,
-  );
-
-  if (!scopes.has(requiredScope)) {
+  if (decision === "insufficient_scope") {
     return {
       authorized: false,
       code: "insufficient_scope",

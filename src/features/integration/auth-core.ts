@@ -12,6 +12,10 @@ export const INTEGRATION_SCOPES = [
 ] as const;
 
 export type IntegrationScope = (typeof INTEGRATION_SCOPES)[number];
+export type IntegrationCredentialDecision =
+  | "authorized"
+  | "invalid_token"
+  | "insufficient_scope";
 
 const integrationScopeSet = new Set<string>(INTEGRATION_SCOPES);
 
@@ -57,4 +61,17 @@ export function isIntegrationTokenValid(
     provided.length === configured.length &&
     timingSafeEqual(provided, configured)
   );
+}
+
+export function evaluateIntegrationCredential(
+  providedToken: string | null,
+  configuredToken: string,
+  scopes: ReadonlySet<IntegrationScope>,
+  requiredScope: IntegrationScope,
+): IntegrationCredentialDecision {
+  if (!isIntegrationTokenValid(providedToken, configuredToken)) {
+    return "invalid_token";
+  }
+
+  return scopes.has(requiredScope) ? "authorized" : "insufficient_scope";
 }
