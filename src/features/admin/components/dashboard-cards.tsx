@@ -1,10 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Languages,
+  CalendarCheck,
+  Clock3,
   Leaf,
   ShieldAlert,
   Tags,
   UtensilsCrossed,
+  Users,
 } from "lucide-react";
 
 import type { AdminDashboardSummary } from "../repository";
@@ -12,10 +15,15 @@ import type { AdminDashboardSummary } from "../repository";
 type DashboardCardsProps = Pick<
   AdminDashboardSummary,
   | "categoryCount"
+  | "subcategoryCount"
   | "productCount"
   | "languageCount"
   | "allergenCount"
   | "tagCount"
+  | "todayReservationCount"
+  | "todayGuestCount"
+  | "todayPendingCount"
+  | "customerCount"
 >;
 
 type Metric = {
@@ -28,18 +36,58 @@ type Metric = {
 
 export function DashboardCards({
   categoryCount,
+  subcategoryCount,
   productCount,
   languageCount,
   allergenCount,
   tagCount,
+  todayReservationCount,
+  todayGuestCount,
+  todayPendingCount,
+  customerCount,
 }: DashboardCardsProps) {
   const metrics: Metric[] = [
     {
+      id: "today-reservations",
+      label: "Reservas de hoy",
+      value: todayReservationCount,
+      icon: CalendarCheck,
+      tone: "bg-violet-50 text-violet-700",
+    },
+    {
+      id: "today-guests",
+      label: "Comensales previstos",
+      value: todayGuestCount,
+      icon: Users,
+      tone: "bg-cyan-50 text-cyan-700",
+    },
+    {
+      id: "today-pending",
+      label: "Reservas pendientes",
+      value: todayPendingCount,
+      icon: Clock3,
+      tone: "bg-yellow-50 text-yellow-700",
+    },
+    {
+      id: "customers",
+      label: "Clientes activos",
+      value: customerCount,
+      icon: Users,
+      tone: "bg-indigo-50 text-indigo-700",
+    },
+    {
       id: "categories",
-      label: "Categorías activas",
+      label: "Categorías principales activas",
       value: categoryCount,
       icon: Tags,
       tone: "bg-amber-50 text-amber-700",
+    },
+    {
+      id: "subcategories",
+      label: "Subcategorías activas",
+      value: subcategoryCount,
+      icon: Tags,
+      tone: "bg-orange-50 text-orange-700",
     },
     {
       id: "products",
@@ -74,7 +122,7 @@ export function DashboardCards({
   return (
     <section
       aria-label="Resumen de la carta"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
     >
       {metrics.map((metric) => {
         const Icon = metric.icon;

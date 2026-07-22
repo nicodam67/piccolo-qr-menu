@@ -1,0 +1,1 @@
+ALTER TABLE "restaurant_settings" ADD COLUMN "menu_display_settings" jsonb;

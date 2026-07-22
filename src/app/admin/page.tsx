@@ -51,10 +51,15 @@ export default async function AdminPage() {
 
         <DashboardCards
           categoryCount={summary.categoryCount}
+          subcategoryCount={summary.subcategoryCount}
           productCount={summary.productCount}
           languageCount={summary.languageCount}
           allergenCount={summary.allergenCount}
           tagCount={summary.tagCount}
+          todayReservationCount={summary.todayReservationCount}
+          todayGuestCount={summary.todayGuestCount}
+          todayPendingCount={summary.todayPendingCount}
+          customerCount={summary.customerCount}
         />
 
         <section

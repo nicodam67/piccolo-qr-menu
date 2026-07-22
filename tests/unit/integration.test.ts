@@ -52,7 +52,10 @@ const menu: DemoMenu = {
         { label: "Vegetariano", tone: "green" },
         { label: "Clásico", tone: "gold" },
       ],
-      allergens: ["Leche", "Gluten"],
+      allergens: [
+        { label: "Leche", icon: "milk" },
+        { label: "Gluten", icon: "wheat" },
+      ],
       isSoldOut: false,
     },
   ],

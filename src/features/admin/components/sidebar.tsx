@@ -2,13 +2,23 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  CalendarClock,
+  CalendarCheck,
   Download,
+  Languages,
   LayoutDashboard,
   PackageOpen,
   Palette,
   QrCode,
   Settings,
+  SlidersHorizontal,
+  ShieldAlert,
+  Tags,
   UtensilsCrossed,
+  Users,
+  Gift,
+  ListFilter,
+  BadgeCheck,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -46,10 +56,90 @@ const navigationItems: NavigationItem[] = [
     available: true,
     href: "/admin/products",
   },
-  { label: "Branding", icon: Palette, available: false },
-  { label: "QR & Share", icon: QrCode, available: false },
-  { label: "Exportar", icon: Download, available: false },
-  { label: "Configuración", icon: Settings, available: false },
+  {
+    label: "Alérgenos",
+    icon: ShieldAlert,
+    available: true,
+    href: "/admin/allergens",
+  },
+  {
+    label: "Etiquetas",
+    icon: Tags,
+    available: true,
+    href: "/admin/tags",
+  },
+  {
+    label: "Branding",
+    icon: Palette,
+    available: true,
+    href: "/admin/branding",
+  },
+  {
+    label: "Horarios especiales",
+    icon: CalendarClock,
+    available: true,
+    href: "/admin/special-hours",
+  },
+  {
+    label: "Reservas",
+    icon: CalendarCheck,
+    available: true,
+    href: "/admin/reservations",
+  },
+  {
+    label: "Configuración de reservas",
+    icon: SlidersHorizontal,
+    available: true,
+    href: "/admin/reservation-settings",
+  },
+  {
+    label: "Clientes",
+    icon: Users,
+    available: true,
+    href: "/admin/customers",
+  },
+  {
+    label: "Fidelización",
+    icon: Gift,
+    available: true,
+    href: "/admin/loyalty-settings",
+  },
+  {
+    label: "Etiquetas de clientes",
+    icon: BadgeCheck,
+    available: true,
+    href: "/admin/customer-tags",
+  },
+  {
+    label: "Segmentos de clientes",
+    icon: ListFilter,
+    available: true,
+    href: "/admin/customer-segments",
+  },
+  {
+    label: "Idiomas",
+    icon: Languages,
+    available: true,
+    href: "/admin/languages",
+  },
+  {
+    label: "Código QR",
+    icon: QrCode,
+    available: true,
+    href: "/admin/qr-code",
+  },
+  {
+    label: "Carta imprimible",
+    icon: Download,
+    available: true,
+    href: "/admin/print-menu",
+  },
+  {
+    label: "Carta pública",
+    icon: Settings,
+    available: true,
+    href: "/admin/menu-settings",
+  },
 ];
 
 export function Sidebar({

@@ -68,3 +68,86 @@ a {
     animation-iteration-count: 1 !important;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 18mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  [data-qr-print-poster],
+  [data-qr-print-poster] *,
+  [data-print-menu],
+  [data-print-menu] * {
+    visibility: visible !important;
+  }
+
+  [data-qr-print-poster] {
+    position: fixed;
+    inset: 12mm 20mm;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10mm;
+    background: white;
+    color: #173f35;
+    text-align: center;
+    border: 0.4mm dashed #999;
+    padding: 12mm;
+  }
+
+  [data-qr-print-poster] h1 {
+    max-width: 170mm;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 26pt;
+  }
+
+  [data-qr-print-poster] img {
+    width: 145mm;
+    height: 145mm;
+    object-fit: contain;
+  }
+
+  [data-qr-print-poster] p {
+    max-width: 170mm;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20pt;
+  }
+
+  [data-qr-print-poster] small {
+    max-width: 170mm;
+    overflow-wrap: anywhere;
+    font-size: 8pt;
+    color: #444;
+  }
+
+  [data-print-menu] {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  [data-print-menu] section,
+  [data-print-menu] li {
+    break-inside: avoid;
+  }
+
+  [data-print-menu] h2 {
+    break-after: avoid;
+  }
+}

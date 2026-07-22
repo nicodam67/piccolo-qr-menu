@@ -28,3 +28,6 @@ next-env.d.ts
 # test artifacts
 /playwright-report
 /test-results
+
+# local image storage
+/.data

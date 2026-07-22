@@ -87,9 +87,9 @@ export function buildIntegrationCatalog(
       isSoldOut: product.isSoldOut ?? false,
       imageUrl: product.imageUrl,
       tags: sortByLabel(product.tags),
-      allergens: [...product.allergens].sort((left, right) =>
-        left.localeCompare(right, "es"),
-      ),
+      allergens: product.allergens
+        .map(({ label }) => label)
+        .sort((left, right) => left.localeCompare(right, "es")),
     })),
   };
   const version = createHash("sha256")

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdminSession } from "@/features/auth/server-session";
+import { deleteManagedProductImage } from "@/features/images/storage";
 
 import {
   createProduct,
@@ -98,19 +99,23 @@ function parseProductForm(formData: FormData): ProductMutationInput {
     throw new ProductValidationError("El orden debe ser un entero positivo.");
   }
 
-  try {
-    const parsedImageUrl = new URL(imageUrl);
+  if (imageUrl) {
+    try {
+      const parsedImageUrl = new URL(imageUrl, "http://local");
+      const isManagedLocalImage = imageUrl.startsWith("/uploads/products/");
 
-    if (
-      parsedImageUrl.protocol !== "https:" &&
-      parsedImageUrl.protocol !== "http:"
-    ) {
-      throw new Error("Unsupported protocol");
+      if (
+        !isManagedLocalImage &&
+        parsedImageUrl.protocol !== "https:" &&
+        parsedImageUrl.protocol !== "http:"
+      ) {
+        throw new Error("Unsupported protocol");
+      }
+    } catch {
+      throw new ProductValidationError(
+        "La imagen debe ser una URL gestionada, HTTP o HTTPS.",
+      );
     }
-  } catch {
-    throw new ProductValidationError(
-      "La URL de imagen existente debe ser HTTP o HTTPS.",
-    );
   }
 
   return {
@@ -173,7 +178,15 @@ export async function updateProductAction(
   await requireAdminSession();
 
   try {
-    await updateProduct(productId, parseProductForm(formData));
+    const input = parseProductForm(formData);
+    const previousImageUrl = await updateProduct(productId, input);
+
+    if (previousImageUrl && previousImageUrl !== input.imageUrl) {
+      await deleteManagedProductImage(previousImageUrl).catch((error) => {
+        console.error("No se pudo retirar la imagen anterior.", error);
+      });
+    }
+
     revalidateProductViews();
     return { success: true, error: null, productId };
   } catch (error: unknown) {
@@ -217,7 +230,14 @@ export async function deleteProductAction(
   await requireAdminSession();
 
   try {
-    await deleteProduct(productId);
+    const deletedImageUrl = await deleteProduct(productId);
+
+    if (deletedImageUrl) {
+      await deleteManagedProductImage(deletedImageUrl).catch((error) => {
+        console.error("No se pudo retirar la imagen del producto.", error);
+      });
+    }
+
     revalidateProductViews();
     return { success: true, error: null };
   } catch (error: unknown) {

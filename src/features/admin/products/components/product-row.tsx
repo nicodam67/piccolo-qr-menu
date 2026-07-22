@@ -70,12 +70,22 @@ export function ProductRow({
         <GripVertical aria-hidden="true" className="size-5" />
       </button>
 
-      <div
-        role="img"
-        aria-label={`Imagen de ${translation?.name ?? "producto"}`}
-        className="aspect-square w-12 rounded-xl bg-cover bg-center bg-stone-100 sm:w-14"
-        style={{ backgroundImage: `url("${product.imageUrl}")` }}
-      />
+      {product.imageUrl ? (
+        <div
+          role="img"
+          aria-label={`Imagen de ${translation?.name ?? "producto"}`}
+          className="aspect-square w-12 rounded-xl bg-cover bg-center bg-stone-100 sm:w-14"
+          style={{ backgroundImage: `url("${product.imageUrl}")` }}
+        />
+      ) : (
+        <div
+          role="img"
+          aria-label={`${translation?.name ?? "Producto"} sin imagen`}
+          className="grid aspect-square w-12 place-items-center rounded-xl bg-stone-100 text-[8px] font-bold text-stone-400 uppercase sm:w-14"
+        >
+          Sin imagen
+        </div>
+      )}
 
       <div className="min-w-0">
         <div className="flex items-center gap-2">

@@ -12,9 +12,10 @@ import type { AdminCategory } from "../repository";
 type CategoryFormDialogProps = {
   mode: "create" | "edit";
   category?: AdminCategory;
+  categories: AdminCategory[];
+  initialParentCategoryId?: string | null;
   locales: string[];
   defaultLocale: string;
-  maxOrder: number;
   onClose: () => void;
   onSaved: () => void;
 };
@@ -22,9 +23,10 @@ type CategoryFormDialogProps = {
 export function CategoryFormDialog({
   mode,
   category,
+  categories,
+  initialParentCategoryId,
   locales,
   defaultLocale,
-  maxOrder,
   onClose,
   onSaved,
 }: CategoryFormDialogProps) {
@@ -43,6 +45,15 @@ export function CategoryFormDialog({
     initialTranslation?.description ?? "",
   );
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
+  const [parentCategoryId, setParentCategoryId] = useState(
+    category?.parentCategoryId ?? initialParentCategoryId ?? "",
+  );
+  const maxOrder =
+    categories.filter(
+      (item) =>
+        item.id !== category?.id &&
+        (item.parentCategoryId ?? "") === parentCategoryId,
+    ).length + 1;
   const [sortOrder, setSortOrder] = useState(
     String(category?.sortOrder ?? maxOrder),
   );
@@ -109,6 +120,53 @@ export function CategoryFormDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5 sm:px-6">
+          <div>
+            <label
+              htmlFor="category-parent"
+              className="text-xs font-bold text-stone-700"
+            >
+              Categoría principal
+            </label>
+            <select
+              id="category-parent"
+              name="parentCategoryId"
+              value={parentCategoryId}
+              disabled={isPending}
+              onChange={(event) => {
+                setParentCategoryId(event.target.value);
+                setSortOrder("1");
+              }}
+              className="mt-2 min-h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none focus:border-[#245849]"
+            >
+              <option value="">Sin padre · categoría principal</option>
+              {categories
+                .filter(
+                  (item) => item.id !== category?.id,
+                )
+                .map((item) => {
+                  const translation =
+                    item.translations.find(
+                      (entry) => entry.locale === locale,
+                    ) ?? item.translations[0];
+                  return (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      disabled={item.parentCategoryId !== null}
+                    >
+                      {item.parentCategoryId ? "↳ " : ""}
+                      {translation?.name ?? "Sin traducción"}
+                      {item.parentCategoryId ? " · no puede ser padre" : ""}
+                    </option>
+                  );
+                })}
+            </select>
+            <p className="mt-1 text-[10px] text-stone-500">
+              Sin padre crea una categoría principal. Con padre crea una
+              subcategoría.
+            </p>
+          </div>
+
           <div>
             <label
               htmlFor="category-locale"

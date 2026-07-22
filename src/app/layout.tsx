@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 
+import { getLocaleConfig } from "@/config/locales";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,13 +16,20 @@ export const viewport: Viewport = {
   themeColor: "#173f35",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const locale = requestHeaders.get("x-piccolo-locale") ?? "es";
+  const localeConfig = getLocaleConfig(locale) ?? getLocaleConfig("es");
+
   return (
-    <html lang="es">
+    <html
+      lang={localeConfig?.htmlLang ?? "es"}
+      dir={localeConfig?.direction ?? "ltr"}
+    >
       <body>{children}</body>
     </html>
   );

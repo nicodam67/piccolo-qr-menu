@@ -1,3 +1,5 @@
+import type { MenuDisplaySettings } from "@/features/menu-settings/config";
+
 export type DayKey =
   | "monday"
   | "tuesday"
@@ -18,15 +20,44 @@ export type OpeningDay = {
   periods: OpeningPeriod[];
 };
 
+export type SpecialOpeningDay = {
+  date: string;
+  exceptionType?: "open" | "closed" | "special";
+  isClosed: boolean;
+  reason?: string;
+  periods: OpeningPeriod[];
+};
+
 export type OpeningStatus = {
   isOpen: boolean;
-  label: string;
-  detail: string;
+  state:
+    | "open"
+    | "closed"
+    | "openingSoon"
+    | "closingSoon"
+    | "closedToday"
+    | "unavailable";
+  currentDay: DayKey | null;
+  isSpecial?: boolean;
+  reason?: string;
+  specialDate?: string;
+  reopensToday?: boolean;
+  closesAt?: string;
+  nextOpening?: {
+    day: DayKey;
+    dayOffset: number;
+    opensAt: string;
+  };
 };
 
 export type ProductTag = {
   label: string;
   tone: "green" | "red" | "gold";
+};
+
+export type ProductAllergen = {
+  label: string;
+  icon: string;
 };
 
 export type DemoProduct = {
@@ -41,12 +72,14 @@ export type DemoProduct = {
   fullPrice: number;
   halfPrice?: number;
   tags: ProductTag[];
-  allergens: string[];
+  allergens: ProductAllergen[];
   isSoldOut?: boolean;
 };
 
 export type DemoCategory = {
   id: string;
+  parentCategoryId?: string | null;
+  sortOrder?: number;
   name: string;
   eyebrow: string;
 };
@@ -64,8 +97,26 @@ export type DemoMenu = {
     heroImageAlt: string;
   };
   locale: string;
+  currencyCode: string;
+  reservationsEnabled?: boolean;
   timeZone: string;
   categories: DemoCategory[];
   products: DemoProduct[];
   openingHours: OpeningDay[];
+  specialOpeningHours: SpecialOpeningDay[];
+  displaySettings: MenuDisplaySettings;
+};
+
+export type PublicProductDetail = {
+  locale: string;
+  currencyCode: string;
+  restaurant: DemoMenu["restaurant"];
+  category: DemoCategory;
+  parentCategory: DemoCategory | null;
+  product: DemoProduct;
+  relatedProducts: DemoProduct[];
+  displaySettings: MenuDisplaySettings;
+  openingHours: OpeningDay[];
+  specialOpeningHours: SpecialOpeningDay[];
+  timeZone: string;
 };
