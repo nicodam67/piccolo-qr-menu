@@ -147,6 +147,11 @@ pagos desactivados que había quedado en una rama hermana.
   avisos localizados y carga dinámica de Stripe exclusivamente en servidor.
 - Las pruebas combinan la cobertura CRM/Fidelización posterior con la
   comprobación explícita de que no se muestra método online.
+- Se eliminó una duplicación de `registerDepositCourtesy` y de su rama de
+  Server Action detectada por TypeScript tras la consolidación.
+- Playwright evidenció dos carreras existentes: cleanup padre-hijo de
+  categorías y sobrescritura de la posición del menú durante navegación SPA.
+  Se estabilizaron sin cambiar el diseño ni el esquema.
 
 Ninguna migración aplicada fue editada o regenerada.
 
@@ -195,3 +200,26 @@ las migraciones TPV estén aplicadas. No se añadió código TPV a este proyecto
 
 No se publicaron endpoints de Reservas, CRM, Fidelización ni pagos en esta
 entrega.
+
+## 9. Validación PostgreSQL limpia
+
+Se creó la base aislada `piccolo_qr_menu_e30_clean_20260722`; la base de
+trabajo no se borró ni se recreó.
+
+Resultados:
+
+- `drizzle-kit migrate`: `0000`–`0013` aplicadas en orden.
+- 14 filas de migración y 14 hashes distintos.
+- Los 14 hashes registrados coinciden exactamente con el SHA-256 de cada SQL.
+- Cero índices inválidos o sin preparar.
+- 39 claves foráneas, todas validadas.
+- 58 checks.
+- Tablas de reservas, pagos, eventos, CRM y fidelización presentes.
+- Seed ejecutado dos veces sin duplicar: 1 restaurante, 4 categorías y
+  6 productos.
+- Segunda ejecución de migraciones sin nuevas filas ni cambios de checksum.
+
+PostgreSQL emitió únicamente avisos de truncado determinista para cuatro
+nombres de FK superiores a 63 caracteres. Las constraints resultantes están
+creadas y validadas; no se modificaron las migraciones históricas para
+renombrarlas.
