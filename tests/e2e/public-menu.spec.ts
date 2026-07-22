@@ -75,11 +75,16 @@ async function cleanupE2ECategories() {
     await sql.begin(async (transaction) => {
       await transaction`
         delete from categories
-        where id in (
-          select category_id
-          from category_translations
-          where name like 'Categoría E2E%'
-        )
+        using category_translations
+        where category_translations.category_id = categories.id
+          and category_translations.name ilike '%categoría E2E%'
+          and categories.parent_category_id is not null
+      `;
+      await transaction`
+        delete from categories
+        using category_translations
+        where category_translations.category_id = categories.id
+          and category_translations.name ilike '%categoría E2E%'
       `;
       await transaction`
         with ordered as (
@@ -1747,8 +1752,19 @@ test("administrator manages hierarchical categories safely", async ({
     .getByLabel("Categoría principal")
     .selectOption({ label: "Categoría E2E" });
   await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page
+      .getByTestId(/^category-row-/)
+      .filter({ hasText: "Categoría E2E" })
+      .first(),
+  ).toContainText("1 subcategorías");
 
-  await page.getByRole("button", { name: "Eliminar Categoría E2E" }).click();
+  const parentDeleteButton = page.getByRole("button", {
+    name: "Eliminar Categoría E2E",
+  });
+
+  await parentDeleteButton.click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Eliminar", exact: true })
