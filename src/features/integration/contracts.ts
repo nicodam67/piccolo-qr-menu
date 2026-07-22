@@ -130,3 +130,7 @@ export function isUuid(value: string) {
     value,
   );
 }
+
+export function isCatalogVersion(value: string) {
+  return /^[a-f0-9]{64}$/.test(value);
+}

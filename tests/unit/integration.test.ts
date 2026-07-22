@@ -9,6 +9,7 @@ import {
 import {
   IntegrationContractError,
   buildIntegrationCatalog,
+  isCatalogVersion,
   isUuid,
   parseAvailabilityCommand,
 } from "../../src/features/integration/contracts";
@@ -117,4 +118,11 @@ test("validates absolute availability commands and product UUIDs", () => {
     true,
   );
   assert.equal(isUuid("not-a-uuid"), false);
+  assert.equal(
+    isCatalogVersion(
+      "baa24069444a392eb101d2b1ea904abbe364f357cf135f147d26d11811fc7a04",
+    ),
+    true,
+  );
+  assert.equal(isCatalogVersion("latest"), false);
 });

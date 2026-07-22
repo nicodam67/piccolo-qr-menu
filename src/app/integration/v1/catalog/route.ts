@@ -1,7 +1,6 @@
-import {
-  authorizeIntegrationRequest,
-} from "@/features/integration/auth";
+import { authorizeIntegrationRequest } from "@/features/integration/auth";
 import { getIntegrationCatalog } from "@/features/integration/catalog-service";
+import { isCatalogVersion } from "@/features/integration/contracts";
 import {
   getCorrelationId,
   getIntegrationHeaders,
@@ -36,10 +35,20 @@ export async function GET(request: Request) {
     );
   }
 
+  const since = url.searchParams.get("since");
+
+  if (since !== null && !isCatalogVersion(since)) {
+    return integrationErrorResponse(
+      400,
+      "invalid_catalog_version",
+      "La versión de catálogo no es válida.",
+      correlationId,
+    );
+  }
+
   try {
     const catalog = await getIntegrationCatalog(locale, correlationId);
     const etag = `"${catalog.data.version}"`;
-    const since = url.searchParams.get("since");
 
     if (
       since === catalog.data.version ||
