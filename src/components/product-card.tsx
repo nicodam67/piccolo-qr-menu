@@ -17,6 +17,7 @@ type ProductCardProps = {
   settings: MenuDisplaySettings;
   href?: string;
   viewProductLabel?: string;
+  onNavigate?: () => void;
 };
 
 export function ProductCard({
@@ -24,6 +25,7 @@ export function ProductCard({
   settings,
   href,
   viewProductLabel,
+  onNavigate,
 }: ProductCardProps) {
   const isList = settings.layout === "list";
 
@@ -50,6 +52,7 @@ export function ProductCard({
           {href ? (
             <Link
               href={href}
+              onNavigate={onNavigate}
               aria-label={`${viewProductLabel ?? "Ver producto"}: ${
                 product.name
               }`}
@@ -85,6 +88,7 @@ export function ProductCard({
             {href ? (
               <Link
                 href={href}
+                onNavigate={onNavigate}
                 className="rounded-sm hover:text-[#a8392f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#a8392f]"
               >
                 {product.name}
@@ -170,6 +174,7 @@ export function ProductCard({
         {href && viewProductLabel ? (
           <Link
             href={href}
+            onNavigate={onNavigate}
             className="mt-4 inline-flex min-h-10 items-center rounded-full border border-[#173f35]/20 px-4 text-xs font-bold text-[#173f35] hover:bg-[#173f35] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173f35]"
           >
             {viewProductLabel}

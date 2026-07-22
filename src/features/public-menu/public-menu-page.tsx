@@ -41,10 +41,12 @@ function ProductGrid({
   products,
   menu,
   viewProductLabel,
+  onProductNavigate,
 }: {
   products: DemoProduct[];
   menu: DemoMenu;
   viewProductLabel: string;
+  onProductNavigate: () => void;
 }) {
   return (
     <div
@@ -65,6 +67,7 @@ function ProductGrid({
             product.name,
           )}
           viewProductLabel={viewProductLabel}
+          onNavigate={onProductNavigate}
         />
       ))}
     </div>
@@ -85,6 +88,7 @@ export function PublicMenuPage({
   const activeCategoryRef = useRef(activeCategory);
   const queryRef = useRef(query);
   const visibleCategoriesRef = useRef(menu.categories);
+  const isLeavingMenuRef = useRef(false);
   const positionStorageKey = `piccolo-menu-position:${menu.locale}`;
   const copy = getPublicMenuCopy(menu.locale);
   const scheduleCopy = getScheduleCopy(menu.locale);
@@ -222,7 +226,7 @@ export function PublicMenuPage({
     const savePosition = () => {
       animationFrame = 0;
 
-      if (queryRef.current.trim()) {
+      if (isLeavingMenuRef.current || queryRef.current.trim()) {
         return;
       }
 
@@ -330,6 +334,21 @@ export function PublicMenuPage({
         `${window.location.pathname}${window.location.search}`,
       );
     }
+  };
+
+  const handleProductNavigate = () => {
+    isLeavingMenuRef.current = true;
+
+    if (queryRef.current.trim()) {
+      return;
+    }
+
+    const position: StoredMenuPosition = {
+      scrollY: window.scrollY,
+      categoryId: activeCategoryRef.current,
+      savedAt: Date.now(),
+    };
+    sessionStorage.setItem(positionStorageKey, JSON.stringify(position));
   };
 
   return (
@@ -442,6 +461,7 @@ export function PublicMenuPage({
                         products={directProducts}
                         menu={menu}
                         viewProductLabel={copy.viewProduct}
+                        onProductNavigate={handleProductNavigate}
                       />
                     ) : null}
                     {subcategories.map((subcategory) => (
@@ -463,6 +483,7 @@ export function PublicMenuPage({
                           products={subcategory.products}
                           menu={menu}
                           viewProductLabel={copy.viewProduct}
+                          onProductNavigate={handleProductNavigate}
                         />
                       </section>
                     ))}
