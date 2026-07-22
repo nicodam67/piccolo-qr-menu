@@ -3302,6 +3302,9 @@ test("five failures block login and a later success clears attempts", async ({
   await emailInput.fill(email);
   await passwordInput.fill(password);
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
+  await expect(
+    page.getByRole("button", { name: "Iniciar sesión" }),
+  ).toBeEnabled();
   await expect(page).toHaveURL(/\/login$/);
   await expect(
     page.getByRole("alert").filter({
