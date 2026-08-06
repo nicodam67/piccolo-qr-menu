@@ -225,3 +225,72 @@ Antes de permitir un apply sintético o futuro ensayo aislado:
 12. checksum, nombre de base y backup ID confirmados.
 
 Este gate no autoriza usar `--apply` con el backup real.
+
+## Resultado de validación de esta entrega
+
+### Backup real: inspect
+
+`hercules:inspect` terminó con código 0:
+
+- 14 tablas;
+- 980 documentos;
+- 26 categorías;
+- 195 productos;
+- 262 archivos físicos;
+- 262 assets lógicos, todos con estado `ready`;
+- 8 locales;
+- 0 errores y 0 rechazos;
+- 0 `UNKNOWN_DOCUMENT_FIELD` para los 17 campos auditados.
+
+### Backup real: dry-run
+
+`hercules:import --dry-run`, sin `DATABASE_URL`, terminó con código 0:
+
+| Acción | Conteo |
+| --- | ---: |
+| `create` | 415 |
+| `update` | 0 |
+| `skip` | 110 |
+| `reject` | 0 |
+
+Los 110 `skip` corresponden a 101 assets huérfanos o propuestos para
+deduplicación y 9 tablas auxiliares/desconocidas. No representan registros
+válidos rechazados.
+
+### Datos preservados
+
+- branding: 1 documento, nombre/eslogan base, hero, colores, fuentes y metadata;
+- horarios: 7 días, 2 cerrados, 10 periodos, 0 cruces de medianoche reales;
+- disponibilidad: 7 productos y 2 categorías inactivos preservados;
+- medias raciones: 31 precios exactos;
+- cantidades: 46 strings preservados en metadata;
+- multimedia: 172 imágenes principales, 2 vídeos y 1 hero; 175 referencias
+  resueltas;
+- storage: 87 archivos históricos no referenciados y 37 duplicados por SHA-256.
+
+### Traducciones
+
+La versión anterior informaba 111 traducciones incompletas. Al reconocer
+`restaurantName` como nombre base de branding:
+
+- 1 ausencia estructural de `es` queda resuelta como `baseFallback`;
+- permanecen 110 traducciones realmente ausentes;
+- no hay traducciones vacías en el backup real;
+- 353 nombres coinciden con el idioma base y quedan señalados para revisión;
+- no hay locales desconocidos ni contenido inventado.
+
+### Comprobaciones
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm ci` | Correcto; informa 4 vulnerabilidades existentes |
+| Typecheck | Correcto |
+| Lint | Correcto |
+| Build | Correcto |
+| Tests del importador | 27/27 |
+| Suite unitaria completa | 30/30 |
+| Integración PostgreSQL | 12/12 en `piccolo_test_import` |
+| E2E existente | 12/12 en una DB local E2E aislada |
+
+La integración ejecuta `apply` únicamente con fixtures sintéticos sanitizados.
+No se ejecutó `apply` con el backup real.
