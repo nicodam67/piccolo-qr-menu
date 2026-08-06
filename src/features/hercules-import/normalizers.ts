@@ -1030,11 +1030,23 @@ function normalizeBranding(
       externalId,
       issues,
     );
+    const hoursDisplay = asString(document.hours);
+    if (hoursDisplay && openingHours.length > 0) {
+      issue(
+        issues,
+        "HOURS_SCHEDULE_REVIEW",
+        "warning",
+        "Coexisten hours y schedule; schedule es la fuente estructurada y hours se preserva para revisión humana.",
+        "branding",
+        externalId,
+        "hours",
+      );
+    }
     const sourceMetadata = {
       cardSettings: asRecord(document.cardSettings),
       city: asString(document.city),
       establishedYear: asString(document.establishedYear),
-      hours: asString(document.hours),
+      hours: hoursDisplay,
       postalCode: asString(document.postalCode),
       province: asString(document.province),
       restaurantName: asString(document.restaurantName),

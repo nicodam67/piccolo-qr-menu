@@ -130,6 +130,7 @@ test("normaliza la forma real sin pérdida silenciosa", async (t) => {
 
   assert.equal(analysis.report.valid, true);
   assert.equal(analysis.plan.counters.reject, 0);
+  assert.ok(issueCodes(analysis).includes("HOURS_SCHEDULE_REVIEW"));
   assert.equal(branding.translations[0]?.name, "Restaurante sanitizado");
   assert.equal(branding.translations[0]?.slogan, "Eslogan sintético");
   assert.deepEqual(branding.colors, {

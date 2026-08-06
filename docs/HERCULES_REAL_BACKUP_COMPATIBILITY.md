@@ -119,6 +119,12 @@ Las excepciones no se sintetizan desde el texto `hours`. Si una fuente futura
 incluye excepciones estructuradas, requerirá un adaptador explícito a
 `opening_hour_exceptions`.
 
+Cuando coexisten `hours` y `schedule`, se genera
+`HOURS_SCHEDULE_REVIEW`: `schedule` es la fuente estructurada importable y
+`hours` se conserva literalmente en metadata. En el backup real ambos campos
+no son equivalentes, por lo que la elección requiere aprobación humana antes
+de cualquier apply.
+
 ## Disponibilidad y estados
 
 Se preservan por separado `active`, `visible`, `available`, `soldOut`, `hidden`

@@ -282,6 +282,8 @@ cero duplicados y solo `skip`/`update` justificados.
 - `UNKNOWN_LOCALE` / `MISSING_TRANSLATION`: matriz de traducciones;
 - `EMPTY_TRANSLATION` / `TRANSLATION_EQUALS_BASE`: contenido vacío o igual al
   locale base;
+- `HOURS_SCHEDULE_REVIEW`: coexisten horario de texto y horario estructurado;
+  se preservan ambos y `schedule` requiere aprobación;
 - `INVALID_PRICE` / `INVALID_HALF_PORTION`: precio ambiguo;
 - `PRODUCT_CATEGORY_NOT_FOUND` / `ORPHAN_CATEGORY`: relación inválida;
 - `STORAGE_BINARY_MISSING`: referencia o metadata sin binario;
