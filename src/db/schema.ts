@@ -5,6 +5,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -733,14 +734,8 @@ export const externalEntityMappings = pgTable(
     sourceCreatedAt: timestamp("source_created_at", { withTimezone: true }),
     sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
     payloadHash: varchar("payload_hash", { length: 64 }),
-    lastSeenImportRunId: uuid("last_seen_import_run_id").references(
-      () => importRuns.id,
-      { onDelete: "set null" },
-    ),
-    lastSeenSyncRunId: uuid("last_seen_sync_run_id").references(
-      () => syncRuns.id,
-      { onDelete: "set null" },
-    ),
+    lastSeenImportRunId: uuid("last_seen_import_run_id"),
+    lastSeenSyncRunId: uuid("last_seen_sync_run_id"),
     ...timestamps,
   },
   (table) => [
@@ -759,6 +754,16 @@ export const externalEntityMappings = pgTable(
       table.lastSeenImportRunId,
     ),
     index("external_entity_mappings_sync_run_idx").on(table.lastSeenSyncRunId),
+    foreignKey({
+      name: "external_mappings_import_run_fk",
+      columns: [table.lastSeenImportRunId],
+      foreignColumns: [importRuns.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "external_mappings_sync_run_fk",
+      columns: [table.lastSeenSyncRunId],
+      foreignColumns: [syncRuns.id],
+    }).onDelete("set null"),
     check(
       "external_entity_mappings_source_check",
       sql`${table.source} in ('hercules_convex', 'piccolo_tpv', 'legacy', 'manual')`,

@@ -1182,8 +1182,8 @@
         }
       },
       "foreignKeys": {
-        "external_entity_mappings_last_seen_import_run_id_import_runs_id_fk": {
-          "name": "external_entity_mappings_last_seen_import_run_id_import_runs_id_fk",
+        "external_mappings_import_run_fk": {
+          "name": "external_mappings_import_run_fk",
           "tableFrom": "external_entity_mappings",
           "tableTo": "import_runs",
           "columnsFrom": [
@@ -1195,8 +1195,8 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "external_entity_mappings_last_seen_sync_run_id_sync_runs_id_fk": {
-          "name": "external_entity_mappings_last_seen_sync_run_id_sync_runs_id_fk",
+        "external_mappings_sync_run_fk": {
+          "name": "external_mappings_sync_run_fk",
           "tableFrom": "external_entity_mappings",
           "tableTo": "sync_runs",
           "columnsFrom": [

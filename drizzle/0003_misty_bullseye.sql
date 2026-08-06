@@ -153,8 +153,7 @@ SELECT
 	true,
 	false,
 	"sort_order"
-FROM "ranked_locales"
-ON CONFLICT ("code") DO NOTHING;--> statement-breakpoint
+FROM "ranked_locales";--> statement-breakpoint
 UPDATE "locales"
 SET "is_default" = true, "updated_at" = now()
 WHERE "code" = (
@@ -263,8 +262,8 @@ ALTER TABLE "products" ADD COLUMN "last_synced_at" timestamp with time zone;--> 
 ALTER TABLE "products" ADD COLUMN "sync_version" varchar(160);--> statement-breakpoint
 ALTER TABLE "products" ADD COLUMN "sync_status" varchar(30) DEFAULT 'not_synced' NOT NULL;--> statement-breakpoint
 ALTER TABLE "products" ADD COLUMN "archived_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "external_entity_mappings" ADD CONSTRAINT "external_entity_mappings_last_seen_import_run_id_import_runs_id_fk" FOREIGN KEY ("last_seen_import_run_id") REFERENCES "public"."import_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "external_entity_mappings" ADD CONSTRAINT "external_entity_mappings_last_seen_sync_run_id_sync_runs_id_fk" FOREIGN KEY ("last_seen_sync_run_id") REFERENCES "public"."sync_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "external_entity_mappings" ADD CONSTRAINT "external_mappings_import_run_fk" FOREIGN KEY ("last_seen_import_run_id") REFERENCES "public"."import_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "external_entity_mappings" ADD CONSTRAINT "external_mappings_sync_run_fk" FOREIGN KEY ("last_seen_sync_run_id") REFERENCES "public"."sync_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_runs" ADD CONSTRAINT "import_runs_initiated_by_admins_id_fk" FOREIGN KEY ("initiated_by") REFERENCES "public"."admins"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_runs" ADD CONSTRAINT "import_runs_rollback_of_import_runs_id_fk" FOREIGN KEY ("rollback_of") REFERENCES "public"."import_runs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "opening_hour_exceptions" ADD CONSTRAINT "opening_hour_exceptions_restaurant_id_restaurant_settings_id_fk" FOREIGN KEY ("restaurant_id") REFERENCES "public"."restaurant_settings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
