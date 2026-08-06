@@ -24,6 +24,26 @@ function normalizeKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function isSensitiveKey(key: string): boolean {
+  const normalized = normalizeKey(key);
+  return (
+    sensitiveKeys.has(normalized) ||
+    [
+      "password",
+      "passwordhash",
+      "token",
+      "secret",
+      "apikey",
+      "cookie",
+      "authorization",
+      "privatekey",
+    ].some(
+      (sensitive) =>
+        normalized.endsWith(sensitive) || normalized.startsWith(sensitive),
+    )
+  );
+}
+
 export function findSensitivePaths(
   value: unknown,
   path = "payload",
@@ -39,7 +59,7 @@ export function findSensitivePaths(
   return Object.entries(value as Record<string, unknown>).flatMap(
     ([key, nested]) => {
       const nestedPath = `${path}.${key}`;
-      return sensitiveKeys.has(normalizeKey(key))
+      return isSensitiveKey(key)
         ? [nestedPath]
         : findSensitivePaths(nested, nestedPath);
     },
@@ -64,7 +84,7 @@ export function redactSensitiveValues(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
       key,
-      sensitiveKeys.has(normalizeKey(key))
+      isSensitiveKey(key)
         ? "[REDACTED]"
         : redactSensitiveValues(nested),
     ]),
@@ -80,7 +100,7 @@ export function omitSensitiveValues(value: unknown): unknown {
   }
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .filter(([key]) => !sensitiveKeys.has(normalizeKey(key)))
+      .filter(([key]) => !isSensitiveKey(key))
       .map(([key, nested]) => [key, omitSensitiveValues(nested)]),
   );
 }

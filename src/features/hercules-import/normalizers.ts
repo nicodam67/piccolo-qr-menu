@@ -145,6 +145,33 @@ const brandingFields = new Set([
   "createdAt",
   "updatedAt",
 ]);
+const userFields = new Set([
+  ...baseFields,
+  "email",
+  "name",
+  "fullName",
+  "metadata",
+  "profile",
+  "role",
+  "createdAt",
+  "updatedAt",
+  "password",
+  "passwordHash",
+  "token",
+  "refreshToken",
+  "accessToken",
+  "session",
+]);
+const supportedLinkKinds = new Set([
+  "website",
+  "instagram",
+  "facebook",
+  "tiktok",
+  "youtube",
+  "map",
+  "booking",
+  "other",
+]);
 
 function issue(
   issues: ValidationIssue[],
@@ -193,7 +220,7 @@ function extractTranslations(
 ): Translation[] {
   const byLocale = new Map<
     SupportedLocale,
-    { name: string | null; description: string | null }
+    { name: string | null; description: string | null; slogan: string | null }
   >();
   const translationRoot = localeRecord(
     firstDefined(document, ["translations", "traducciones"]),
@@ -239,14 +266,21 @@ function extractTranslations(
       ) ??
       asString(descriptions[locale]) ??
       "";
-    byLocale.set(locale as SupportedLocale, { name, description });
+    const slogan = asString(
+      translatedRecord?.slogan ?? translatedRecord?.eslogan,
+    );
+    byLocale.set(locale as SupportedLocale, { name, description, slogan });
   });
 
   const directName = asString(firstDefined(document, ["name", "nombre"]));
   const directDescription =
     asString(firstDefined(document, ["description", "descripcion"])) ?? "";
   if (directName && !byLocale.has("es")) {
-    byLocale.set("es", { name: directName, description: directDescription });
+    byLocale.set("es", {
+      name: directName,
+      description: directDescription,
+      slogan: asString(firstDefined(document, ["slogan", "eslogan"])),
+    });
   }
 
   for (const locale of SUPPORTED_LOCALES) {
@@ -263,13 +297,14 @@ function extractTranslations(
     }
   }
   const translations = [...byLocale.entries()]
-    .filter((entry): entry is [SupportedLocale, { name: string; description: string | null }] =>
+    .filter((entry): entry is [SupportedLocale, { name: string; description: string | null; slogan: string | null }] =>
       Boolean(entry[1].name),
     )
     .map(([locale, translation]) => ({
       locale,
       name: translation.name,
       description: translation.description ?? "",
+      ...(translation.slogan ? { slogan: translation.slogan } : {}),
     }))
     .sort((left, right) => left.locale.localeCompare(right.locale));
   if (translations.length === 0) {
@@ -697,8 +732,20 @@ function normalizeBranding(
         const record = asRecord(value);
         const url = asString(record?.url);
         if (!record || !url) return null;
+        const kind = asString(record.kind ?? record.type) ?? "other";
+        if (!supportedLinkKinds.has(kind)) {
+          issue(
+            issues,
+            "UNSUPPORTED_LINK_KIND",
+            "error",
+            `Tipo de enlace no soportado "${kind}".`,
+            "branding",
+            externalId,
+            `links.${index}.kind`,
+          );
+        }
         return {
-          kind: asString(record.kind ?? record.type) ?? "other",
+          kind,
           label: asString(record.label),
           url,
           sortOrder:
@@ -712,6 +759,17 @@ function normalizeBranding(
       .filter((value): value is NonNullable<typeof value> => Boolean(value))
       .sort((left, right) => left.sortOrder - right.sortOrder);
     const heroAsset = storageId(firstDefined(document, ["heroId", "hero"]));
+    if (!asString(document.heroImageUrl) && !heroAsset) {
+      issue(
+        issues,
+        "BRANDING_REQUIRED_FIELD",
+        "error",
+        "Branding requiere heroImageUrl o un asset hero.",
+        "branding",
+        externalId,
+        "hero",
+      );
+    }
     const normalized = {
       entityType: "restaurant" as const,
       externalId,
@@ -789,6 +847,7 @@ export function normalizeSnapshot(
       );
       return [];
     }
+    validateFields(document, userFields, "users", externalId, issues);
     const sensitive = findSensitivePaths(document);
     sensitive.forEach((path) =>
       issue(
@@ -802,7 +861,14 @@ export function normalizeSnapshot(
       ),
     );
     const safe = omitSensitiveValues(document) as SourceDocument;
-    const metadata = asRecord(safe.metadata) ?? {};
+    const metadata = {
+      ...(asRecord(safe.metadata) ?? {}),
+      ...(asString(safe.name) ? { name: asString(safe.name)! } : {}),
+      ...(asString(safe.fullName)
+        ? { fullName: asString(safe.fullName)! }
+        : {}),
+      ...(asString(safe.role) ? { role: asString(safe.role)! } : {}),
+    };
     issue(
       issues,
       "USER_REQUIRES_HUMAN_REVIEW",

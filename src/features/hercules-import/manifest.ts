@@ -244,22 +244,32 @@ export function buildManifest(
       };
     });
 
-  const firstByHash = new Map<string, string>();
+  const assetsByHash = new Map<string, AssetManifestEntry[]>();
   assets.forEach((asset) => {
     if (!asset.sha256) return;
-    const first = firstByHash.get(asset.sha256);
-    if (first) {
-      asset.duplicateOf = first;
+    const group = assetsByHash.get(asset.sha256) ?? [];
+    group.push(asset);
+    assetsByHash.set(asset.sha256, group);
+  });
+  assetsByHash.forEach((group) => {
+    if (group.length < 2) return;
+    const canonical = [...group].sort(
+      (left, right) =>
+        Number(left.orphan) - Number(right.orphan) ||
+        Number(left.status !== "ready") - Number(right.status !== "ready") ||
+        left.storageId.localeCompare(right.storageId),
+    )[0]!;
+    group.forEach((asset) => {
+      if (asset === canonical) return;
+      asset.duplicateOf = canonical.storageId;
       issues.push({
         code: "ASSET_DUPLICATE_SHA256",
         severity: "warning",
         table: "_storage",
         externalId: asset.storageId,
-        message: `Asset duplicado por contenido; se propone reutilizar "${first}".`,
+        message: `Asset duplicado por contenido; se propone reutilizar "${canonical.storageId}".`,
       });
-    } else {
-      firstByHash.set(asset.sha256, asset.storageId);
-    }
+    });
   });
 
   return {

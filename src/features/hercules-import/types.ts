@@ -77,6 +77,7 @@ export type Translation = {
   locale: SupportedLocale;
   name: string;
   description: string;
+  slogan?: string;
 };
 
 export type NormalizedCategory = {

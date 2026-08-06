@@ -276,7 +276,8 @@ async function applyBranding(
       insert into restaurant_translations (
         restaurant_id, locale, name, slogan, description
       ) values (
-        ${restaurantId}::uuid, ${translation.locale}, ${translation.name}, '',
+        ${restaurantId}::uuid, ${translation.locale}, ${translation.name},
+        ${translation.slogan ?? ""},
         ${translation.description}
       )
       on conflict (restaurant_id, locale) do update set
