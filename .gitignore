@@ -28,3 +28,15 @@ next-env.d.ts
 # test artifacts
 /playwright-report
 /test-results
+
+# Hercules/Convex snapshots and generated importer output
+*.zip
+**/documents.jsonl
+**/manifest.json
+**/import-plan.json
+**/validation-report.json
+**/*.hercules-report/
+**/hercules-import-output/
+**/.hercules-tmp/
+*.hercules.tmp
+/backups/

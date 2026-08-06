@@ -1,5 +1,5 @@
 const sensitiveKeyPattern =
-  /^(authorization|cookie|credential|password|password_hash|passwordhash|secret|token|api_key|apikey)$/i;
+  /^(authorization|cookie|credentials?|password|password[_-]?hash|secret|token|api[_-]?key|refresh[_-]?token|access[_-]?token|session(?:[_-]?id)?|private[_-]?key)$/i;
 
 export class SensitiveAuditDataError extends Error {
   constructor(path: string) {
