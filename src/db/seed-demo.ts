@@ -9,6 +9,7 @@ import {
   allergens,
   categories,
   categoryTranslations,
+  locales,
   openingHours,
   productAllergens,
   productTags,
@@ -86,6 +87,30 @@ const now = new Date();
 
 async function seedDemo() {
   await db.transaction(async (tx) => {
+    await tx
+      .insert(locales)
+      .values({
+        code: "es",
+        name: "Español",
+        nativeName: "Español",
+        isEnabled: true,
+        isDefault: true,
+        sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: locales.code,
+        set: {
+          name: "Español",
+          nativeName: "Español",
+          isEnabled: true,
+          isDefault: true,
+          sortOrder: 1,
+          updatedAt: now,
+        },
+      });
+
     await tx
       .insert(restaurantSettings)
       .values({

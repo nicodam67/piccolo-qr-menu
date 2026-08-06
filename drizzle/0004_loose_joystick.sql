@@ -1,0 +1,6 @@
+ALTER TABLE "allergen_translations" ADD CONSTRAINT "allergen_translations_locale_locales_code_fk" FOREIGN KEY ("locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "category_translations" ADD CONSTRAINT "category_translations_locale_locales_code_fk" FOREIGN KEY ("locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "product_translations" ADD CONSTRAINT "product_translations_locale_locales_code_fk" FOREIGN KEY ("locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "restaurant_settings" ADD CONSTRAINT "restaurant_settings_default_locale_locales_code_fk" FOREIGN KEY ("default_locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "restaurant_translations" ADD CONSTRAINT "restaurant_translations_locale_locales_code_fk" FOREIGN KEY ("locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
+ALTER TABLE "tag_translations" ADD CONSTRAINT "tag_translations_locale_locales_code_fk" FOREIGN KEY ("locale") REFERENCES "public"."locales"("code") ON DELETE restrict ON UPDATE cascade;
