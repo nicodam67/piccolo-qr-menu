@@ -4,6 +4,9 @@ import { createReadStream } from "node:fs";
 const UUID_NAMESPACE = "1bc68dc9-6a5c-5fa3-b07e-b7b2d5ee921d";
 
 export function canonicalJson(value: unknown): string {
+  if (value === undefined) {
+    return "null";
+  }
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
   }
@@ -11,6 +14,7 @@ export function canonicalJson(value: unknown): string {
     return `[${value.map(canonicalJson).join(",")}]`;
   }
   return `{${Object.entries(value as Record<string, unknown>)
+    .filter(([, nested]) => nested !== undefined)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, nested]) => `${JSON.stringify(key)}:${canonicalJson(nested)}`)
     .join(",")}}`;

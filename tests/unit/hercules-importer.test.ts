@@ -319,10 +319,14 @@ test("los cuatro informes son deterministas", async (t) => {
     "validation-report.json",
     "REPORT.md",
   ]) {
+    const firstContents = await readFile(join(first, filename), "utf8");
     assert.equal(
-      await readFile(join(first, filename), "utf8"),
+      firstContents,
       await readFile(join(second, filename), "utf8"),
     );
+    if (filename.endsWith(".json")) {
+      assert.doesNotThrow(() => JSON.parse(firstContents));
+    }
   }
   assert.equal(await sha256File(path), analysis.manifest.source.checksum);
 });
