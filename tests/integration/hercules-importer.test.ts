@@ -153,6 +153,75 @@ test("apply sintético es transaccional e idempotente en dos ejecuciones", async
       ) duplicated
     `;
     assert.equal(duplicateMappings[0]?.count, 0);
+    const [brandingMapping] = await sql<
+      Array<{ brandingId: string; restaurantId: string }>
+    >`
+      select
+        max(internal_id::text) filter (
+          where entity_type = 'branding'
+        ) as "brandingId",
+        max(internal_id::text) filter (
+          where entity_type = 'restaurant'
+        ) as "restaurantId"
+      from external_entity_mappings
+      where external_id = 'branding-1'
+    `;
+    assert.equal(
+      brandingMapping?.brandingId,
+      brandingMapping?.restaurantId,
+    );
+    const [unresolved] = await sql<Array<{ count: number }>>`
+      select count(*)::int as count
+      from external_entity_mappings mapping
+      where mapping.source = 'hercules_convex'
+        and (
+          (
+            mapping.entity_type = 'restaurant'
+            and not exists (
+              select 1 from restaurant_settings
+              where id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'branding'
+            and not exists (
+              select 1 from restaurant_branding
+              where restaurant_id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'category'
+            and not exists (
+              select 1 from categories where id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'product'
+            and not exists (
+              select 1 from products where id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'tag'
+            and not exists (
+              select 1 from tags where id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'allergen'
+            and not exists (
+              select 1 from allergens where id = mapping.internal_id
+            )
+          )
+          or (
+            mapping.entity_type = 'asset'
+            and not exists (
+              select 1 from assets where id = mapping.internal_id
+            )
+          )
+        )
+    `;
+    assert.equal(unresolved?.count, 0);
   } finally {
     await sql.end();
   }

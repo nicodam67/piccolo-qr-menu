@@ -283,6 +283,11 @@ test("mappings propuestos son únicos por tipo e ID externo", async (t) => {
     ({ entityType, sourceExternalId }) => `${entityType}:${sourceExternalId}`,
   );
   assert.equal(new Set(keys).size, keys.length);
+  const restaurant = mapped.find(
+    ({ entityType }) => entityType === "restaurant",
+  );
+  const branding = mapped.find(({ entityType }) => entityType === "branding");
+  assert.equal(branding?.proposedInternalId, restaurant?.proposedInternalId);
 });
 
 test("un mapping existente sin cambios produce skip", async (t) => {

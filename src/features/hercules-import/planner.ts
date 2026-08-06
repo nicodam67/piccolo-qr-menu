@@ -74,32 +74,43 @@ export function buildImportPlan(
     table: string,
     dependencies: string[],
     importOrder: number,
+    forcedInternalId?: string,
   ) => {
     const relevant = issuesFor(allIssues, table, externalId);
     const errors = relevant.filter(({ severity }) => severity === "error");
     const warnings = relevant
       .filter(({ severity }) => severity === "warning")
       .map(({ code }) => code);
-    const decision = decideAction(
-      entityType,
-      externalId,
-      payloadHash,
-      existing,
+    const mapped = existing.get(mappingKey(entityType, externalId));
+    const forcedConflict = Boolean(
+      forcedInternalId && mapped && mapped.internalId !== forcedInternalId,
     );
-    items.push({
+    const decision =
+      forcedInternalId && !mapped
+        ? {
+            action: "create" as const,
+            reason: "No existe mapping previo.",
+            internalId: forcedInternalId,
+          }
+        : decideAction(entityType, externalId, payloadHash, existing);
+    const item: ImportPlanItem = {
       entityType,
       sourceExternalId: externalId,
       proposedInternalId: decision.internalId,
-      action: errors.length > 0 ? "reject" : decision.action,
+      action: errors.length > 0 || forcedConflict ? "reject" : decision.action,
       reason:
         errors.length > 0
           ? `Errores bloqueantes: ${errors.map(({ code }) => code).join(", ")}.`
+          : forcedConflict
+            ? "El mapping branding no coincide con el UUID del restaurante."
           : decision.reason,
       warnings,
       dependencies,
       importOrder,
       payloadHash,
-    });
+    };
+    items.push(item);
+    return item;
   };
 
   for (const locale of SUPPORTED_LOCALES) {
@@ -118,7 +129,7 @@ export function buildImportPlan(
     });
   }
   normalized.branding.forEach((branding) => {
-    addMapped(
+    const restaurantItem = addMapped(
       "restaurant",
       branding.externalId,
       branding.payloadHash,
@@ -133,6 +144,7 @@ export function buildImportPlan(
       "branding",
       [`restaurant:${branding.externalId}`],
       30,
+      restaurantItem.proposedInternalId ?? undefined,
     );
   });
   normalized.categories.forEach((category) =>
