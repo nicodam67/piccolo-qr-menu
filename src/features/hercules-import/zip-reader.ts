@@ -148,7 +148,7 @@ export async function readConvexSnapshot(inputPath: string): Promise<SnapshotDat
   const documentsByTable = new Map<string, Record<string, unknown>[]>();
   const tableFields = new Map<string, Set<string>>();
   const tableInvalidLines = new Map<string, number>();
-  const storageFiles: SnapshotData["storageFiles"] = new Map();
+  const archiveStorageFiles: SnapshotData["storageFiles"] = new Map();
   const issues: ValidationIssue[] = [];
   const seenEntries = new Set<string>();
   let totalBytes = 0;
@@ -212,8 +212,9 @@ export async function readConvexSnapshot(inputPath: string): Promise<SnapshotDat
             if (!storageId) {
               throw new UnsafeSnapshotError("Binario de storage sin identificador.");
             }
-            storageFiles.set(storageId, {
+            archiveStorageFiles.set(storageId, {
               entryName: entry.fileName,
+              physicalFilename: storageId,
               ...(await inspectStorageEntry(zipfile, entry)),
             });
             zipfile.readEntry();
@@ -238,6 +239,30 @@ export async function readConvexSnapshot(inputPath: string): Promise<SnapshotDat
   const storageMetadata = (documentsByTable.get("_storage") ?? []).filter(
     (document): document is StorageDocument => typeof document._id === "string",
   );
+  const metadataIds = new Set(storageMetadata.map(({ _id }) => _id));
+  const storageFiles: SnapshotData["storageFiles"] = new Map();
+  for (const [archiveStorageId, binary] of archiveStorageFiles) {
+    const candidates = metadataIds.has(archiveStorageId)
+      ? [archiveStorageId]
+      : [...metadataIds]
+          .filter((storageId) => archiveStorageId.startsWith(`${storageId}.`))
+          .sort((left, right) => right.length - left.length);
+    const storageId = candidates[0] ?? archiveStorageId;
+    if (
+      candidates.length > 1 &&
+      candidates[0]!.length === candidates[1]!.length
+    ) {
+      throw new UnsafeSnapshotError(
+        `Nombre de binario ambiguo para storage: ${binary.entryName}.`,
+      );
+    }
+    if (storageFiles.has(storageId)) {
+      throw new UnsafeSnapshotError(
+        `Más de un binario corresponde al storage "${storageId}".`,
+      );
+    }
+    storageFiles.set(storageId, binary);
+  }
   return {
     sourcePath: inputPath,
     checksum,

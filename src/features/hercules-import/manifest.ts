@@ -1,4 +1,5 @@
 import type {
+  AssetReference,
   AssetManifestEntry,
   NormalizedSnapshot,
   SnapshotData,
@@ -27,6 +28,7 @@ const storageFields = new Set([
   "storageId",
   "originalFilename",
   "name",
+  "internalId",
 ]);
 
 function classification(name: string): TableClassification {
@@ -40,26 +42,59 @@ function documentId(document: Record<string, unknown>): string | null {
 }
 
 function assetReferences(normalized: NormalizedSnapshot) {
-  const references = new Map<string, Set<string>>();
-  const add = (storageId: string | null, source: string) => {
+  const references = new Map<string, AssetReference[]>();
+  const add = (storageId: string | null, reference: AssetReference) => {
     if (!storageId) return;
-    const current = references.get(storageId) ?? new Set<string>();
-    current.add(source);
+    const current = references.get(storageId) ?? [];
+    current.push(reference);
     references.set(storageId, current);
   };
   normalized.products.forEach((product) => {
-    const source = `product:${product.externalId}`;
-    add(product.primaryAssetExternalId, source);
-    product.galleryAssetExternalIds.forEach((id) => add(id, source));
-    product.videoAssetExternalIds.forEach((id) => add(id, source));
+    add(product.primaryAssetExternalId, {
+      entityType: "product",
+      externalId: product.externalId,
+      role: "primary",
+      sortOrder: 0,
+    });
+    product.galleryAssetExternalIds.forEach((id, sortOrder) =>
+      add(id, {
+        entityType: "product",
+        externalId: product.externalId,
+        role: "gallery",
+        sortOrder,
+      }),
+    );
+    product.videoAssetExternalIds.forEach((id, sortOrder) =>
+      add(id, {
+        entityType: "product",
+        externalId: product.externalId,
+        role: "video",
+        sortOrder,
+      }),
+    );
   });
   normalized.branding.forEach((branding) => {
-    const source = `branding:${branding.externalId}`;
-    add(branding.assetExternalIds.logo, source);
-    add(branding.assetExternalIds.hero, source);
-    add(branding.assetExternalIds.icon, source);
+    (["logo", "hero", "icon"] as const).forEach((role) =>
+      add(branding.assetExternalIds[role], {
+        entityType: "branding",
+        externalId: branding.externalId,
+        role,
+        sortOrder: 0,
+      }),
+    );
   });
   return references;
+}
+
+function normalizedDeclaredHash(value: string | null): string | null {
+  if (!value) return null;
+  if (/^[0-9a-f]{64}$/iu.test(value)) return value.toLowerCase();
+  try {
+    const decoded = Buffer.from(value, "base64");
+    return decoded.length === 32 ? decoded.toString("hex") : null;
+  } catch {
+    return null;
+  }
 }
 
 export function buildManifest(
@@ -69,18 +104,23 @@ export function buildManifest(
   const issues: ValidationIssue[] = [...snapshot.issues, ...normalized.issues];
   const tables = [...snapshot.documentsByTable.entries()]
     .map(([name, documents]) => {
+      const tableClassification = classification(name);
       const seen = new Set<string>();
       const duplicates = new Set<string>();
       documents.forEach((document) => {
         const id = documentId(document);
         if (!id) {
-          issues.push({
-            code: "MISSING_EXTERNAL_ID",
-            severity: "error",
-            table: name,
-            message: `Documento sin _id en ${name}.`,
-          });
-        } else if (seen.has(id)) {
+          if (tableClassification === "supported") {
+            issues.push({
+              code: "MISSING_EXTERNAL_ID",
+              severity: "error",
+              table: name,
+              message: `Documento sin _id en ${name}.`,
+            });
+          }
+          return;
+        }
+        if (seen.has(id)) {
           duplicates.add(id);
           issues.push({
             code: "DUPLICATE_EXTERNAL_ID",
@@ -90,9 +130,8 @@ export function buildManifest(
             message: `_id duplicado "${id}" en ${name}.`,
           });
         }
-        if (id) seen.add(id);
+        seen.add(id);
       });
-      const tableClassification = classification(name);
       if (tableClassification === "unknown") {
         issues.push({
           code: "UNKNOWN_TABLE",
@@ -148,10 +187,24 @@ export function buildManifest(
     .map((storageId) => {
       const metadata = metadataById.get(storageId);
       const binary = snapshot.storageFiles.get(storageId);
-      const referencedBy = [...(references.get(storageId) ?? [])].sort();
+      const assetReferenceList = [...(references.get(storageId) ?? [])].sort(
+        (left, right) =>
+          left.entityType.localeCompare(right.entityType) ||
+          left.externalId.localeCompare(right.externalId) ||
+          left.role.localeCompare(right.role) ||
+          left.sortOrder - right.sortOrder,
+      );
+      const referencedBy = [
+        ...new Set(
+          assetReferenceList.map(
+            ({ entityType, externalId }) => `${entityType}:${externalId}`,
+          ),
+        ),
+      ].sort();
       const declaredMime = asString(metadata?.contentType ?? metadata?.mimeType);
       const declaredSize = metadata?.size ?? metadata?.byteSize;
-      const declaredHash = asString(metadata?.sha256);
+      const rawDeclaredHash = asString(metadata?.sha256);
+      const declaredHash = normalizedDeclaredHash(rawDeclaredHash);
       if (!binary) {
         issues.push({
           code: "STORAGE_BINARY_MISSING",
@@ -195,7 +248,6 @@ export function buildManifest(
       if (
         binary &&
         declaredHash &&
-        /^[0-9a-f]{64}$/u.test(declaredHash) &&
         declaredHash !== binary.sha256
       ) {
         issues.push({
@@ -204,6 +256,16 @@ export function buildManifest(
           table: "_storage",
           externalId: storageId,
           message: `SHA-256 declarado no coincide para "${storageId}".`,
+        });
+      }
+      if (rawDeclaredHash && !declaredHash) {
+        issues.push({
+          code: "STORAGE_CHECKSUM_FORMAT_UNSUPPORTED",
+          severity: "warning",
+          table: "_storage",
+          externalId: storageId,
+          path: "sha256",
+          message: `Formato SHA-256 declarado no reconocido para "${storageId}".`,
         });
       }
       if (binary?.mimeType === "application/octet-stream") {
@@ -217,8 +279,12 @@ export function buildManifest(
       }
       return {
         storageId,
+        sourceInternalId: asString(metadata?.internalId),
+        physicalFilename: binary?.physicalFilename ?? null,
         originalFilename:
-          asString(metadata?.originalFilename ?? metadata?.name) ?? null,
+          asString(metadata?.originalFilename ?? metadata?.name) ??
+          binary?.physicalFilename ??
+          null,
         mimeType: binary?.mimeType ?? declaredMime ?? "application/octet-stream",
         byteSize:
           binary?.byteSize ??
@@ -227,6 +293,7 @@ export function buildManifest(
         width: binary?.width ?? null,
         height: binary?.height ?? null,
         durationMs: binary?.durationMs ?? null,
+        references: assetReferenceList,
         referencedBy,
         orphan: referencedBy.length === 0,
         duplicateOf: null,

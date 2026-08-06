@@ -119,6 +119,11 @@ Correspondencia idempotente entre `(source, entity_type, external_id)` y UUID
 interno. También conserva parent externo, metadata no sensible, fechas de
 origen, hash de payload y último run import/sync.
 
+La metadata puede preservar campos de origen sin columna operacional —por
+ejemplo `quantity`, variantes visuales de Hercules o el `internalId` de
+`_storage`— únicamente para trazabilidad y evitar pérdida silenciosa. No se usa
+como modelo de lectura de la aplicación ni sustituye las columnas normalizadas.
+
 - unique `(source, entity_type, external_id)`;
 - unique `(source, entity_type, internal_id)`, evitando dos IDs de una misma
   fuente para una entidad interna;
@@ -172,6 +177,10 @@ administrable y requieren orden, unicidad e índices.
 Nombre, eslogan y descripción permanecen en `restaurant_translations`.
 Teléfono y dirección permanecen en `restaurant_settings`. Las URLs hero
 heredadas continúan como fallback hasta que la interfaz migre a assets.
+
+El `schedule` real de Hercules se normaliza en `opening_hours`: un registro por
+día, cierre explícito y hasta dos periodos. Un cierre anterior a la apertura
+representa cruce de medianoche; no se generan excepciones desde textos libres.
 
 ### `opening_hour_exceptions`
 

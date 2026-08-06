@@ -8,7 +8,48 @@ import type {
   SnapshotManifest,
   ValidationReport,
 } from "./types";
+import { SUPPORTED_LOCALES } from "./types";
 import { canonicalJson } from "./utils";
+
+function translationSummary(
+  manifest: SnapshotManifest,
+  analysis: Pick<ImportAnalysis, "normalized">,
+): ValidationReport["translationSummary"] {
+  const entities = {
+    branding: analysis.normalized.branding,
+    categories: analysis.normalized.categories,
+    menuItems: analysis.normalized.products,
+  } as const;
+  return Object.entries(entities).flatMap(([table, records]) =>
+    SUPPORTED_LOCALES.map((locale) => {
+      const translations = records.flatMap(({ translations }) =>
+        translations.filter((translation) => translation.locale === locale),
+      );
+      const matchingIssues = manifest.issues.filter(
+        (issue) =>
+          issue.table === table &&
+          issue.path === `translations.${locale}`,
+      );
+      return {
+        table: table as "branding" | "categories" | "menuItems",
+        locale,
+        present: translations.length,
+        baseFallback: translations.filter(
+          ({ source }) => source === "base_field",
+        ).length,
+        absent: matchingIssues.filter(
+          ({ code }) => code === "MISSING_TRANSLATION",
+        ).length,
+        empty: matchingIssues.filter(
+          ({ code }) => code === "EMPTY_TRANSLATION",
+        ).length,
+        sameAsBase: matchingIssues.filter(
+          ({ code }) => code === "TRANSLATION_EQUALS_BASE",
+        ).length,
+      };
+    }),
+  );
+}
 
 export function buildValidationReport(
   manifest: SnapshotManifest,
@@ -27,6 +68,7 @@ export function buildValidationReport(
     warnings,
     errors,
     userInventory: analysis.normalized.users,
+    translationSummary: translationSummary(manifest, analysis),
   };
 }
 
@@ -68,6 +110,15 @@ function markdownReport(analysis: ImportAnalysis): string {
     "## Usuarios",
     "",
     `Se inventariaron ${report.userInventory.length} usuarios. No se importan credenciales, sesiones, tokens ni administradores. Todos requieren intervención humana.`,
+    "",
+    "## Traducciones",
+    "",
+    "| Tabla | Locale | Presentes | Fallback base | Ausentes | Vacías | Iguales a base |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ...report.translationSummary.map(
+      (entry) =>
+        `| ${entry.table} | ${entry.locale} | ${entry.present} | ${entry.baseFallback} | ${entry.absent} | ${entry.empty} | ${entry.sameAsBase} |`,
+    ),
     "",
     "## Errores",
     "",
