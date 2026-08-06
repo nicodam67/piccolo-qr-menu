@@ -20,6 +20,7 @@ El lector sigue el formato oficial documentado por Convex:
 <table>/documents.jsonl
 _storage/documents.jsonl
 _storage/<storage-id>
+_storage/<storage-id>.<ext>       # variante observada en el export real
 generated_schema.jsonl       # metadata opcional; no es una tabla
 ```
 
@@ -27,6 +28,9 @@ Cada línea de `documents.jsonl` debe ser un objeto JSON. Se preservan `_id` y
 `_creationTime`. El lector acepta el ZIP directamente y procesa cada entrada
 sin extraerla. Rechaza rutas absolutas, `..`, backslashes, enlaces simbólicos,
 entradas repetidas, tamaños excesivos y ratios de compresión sospechosos.
+Cuando el export añade una extensión al binario, el lector la separa únicamente
+si el prefijo coincide de forma no ambigua con un `_storage._id`. El nombre
+físico se conserva en el manifiesto.
 
 Los tipos Convex especiales descritos por `generated_schema.jsonl` se
 inventarían como metadata, pero esta versión solo transforma valores JSON que
@@ -161,6 +165,13 @@ decimales y se convierten exactamente a céntimos; los campos `*Cents` deben ser
 enteros. Se rechazan categorías inexistentes, precios ambiguos, media ración
 incoherente, locales desconocidos y referencias obligatorias ausentes.
 
+La forma real `halfPortionPrice` se trata como precio de media ración,
+`videoStorageId` como vídeo singular ordenado y `quantity` se preserva en la
+metadata del mapping porque todavía no existe una columna de cantidad/unidad.
+Los estados activo, visible, disponible, oculto, archivado y agotado se
+mantienen separados; su precedencia está documentada en
+`HERCULES_REAL_BACKUP_COMPATIBILITY.md`.
+
 Tags y alérgenos observados dentro de productos se planifican como relaciones
 N:M. No se inventan traducciones adicionales: el literal de origen solo se
 conserva en `es`.
@@ -171,6 +182,11 @@ Se transforma a `restaurant_settings`, `restaurant_translations`,
 `restaurant_branding`, `restaurant_links` y relaciones de assets. Teléfono y
 dirección son obligatorios para apply. Colores y fuentes permanecen
 estructurados; nunca se acepta CSS arbitrario.
+
+También se adaptan los aliases reales `restaurantName`, `tagline`,
+`heroImageStorageId`, `themeColors`, `themeFonts`, `cardSettings`, componentes
+de dirección y `schedule`. El horario estructurado admite cierres, dos periodos
+y cruces de medianoche; el texto libre `hours` solo se preserva como metadata.
 
 ### Usuarios
 
@@ -219,6 +235,11 @@ por extensión. Cuando es verificable se obtienen ancho/alto; duración queda
 `null` si el contenedor no permite determinarla de forma segura sin un
 decodificador multimedia.
 
+Un storage ID produce una sola entrada lógica aunque el nombre físico tenga
+extensión o sea referenciado desde varias entidades/roles. `references`
+conserva cada uso con rol y orden; `referencedBy` mantiene dependencias únicas.
+El hash declarado se valida tanto en hexadecimal como en Base64.
+
 `manifest.json` incluye:
 
 - `storageId`, nombre original, MIME, tamaño y SHA-256;
@@ -259,6 +280,8 @@ cero duplicados y solo `skip`/`update` justificados.
 - `UNKNOWN_TABLE`: falta adaptador explícito;
 - `DUPLICATE_EXTERNAL_ID`: `_id` repetido;
 - `UNKNOWN_LOCALE` / `MISSING_TRANSLATION`: matriz de traducciones;
+- `EMPTY_TRANSLATION` / `TRANSLATION_EQUALS_BASE`: contenido vacío o igual al
+  locale base;
 - `INVALID_PRICE` / `INVALID_HALF_PORTION`: precio ambiguo;
 - `PRODUCT_CATEGORY_NOT_FOUND` / `ORPHAN_CATEGORY`: relación inválida;
 - `STORAGE_BINARY_MISSING`: referencia o metadata sin binario;

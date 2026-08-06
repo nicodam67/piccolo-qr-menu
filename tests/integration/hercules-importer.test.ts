@@ -11,7 +11,10 @@ import {
   validateSnapshotAgainstDatabase,
 } from "../../src/features/hercules-import/database";
 import { sha256File } from "../../src/features/hercules-import/utils";
-import { writeSyntheticSnapshot } from "../fixtures/hercules/synthetic-snapshot";
+import {
+  realShapeFixture,
+  writeSyntheticSnapshot,
+} from "../fixtures/hercules/synthetic-snapshot";
 
 function testDatabaseUrl(): string {
   const value = process.env.DATABASE_URL;
@@ -222,6 +225,102 @@ test("apply sintético es transaccional e idempotente en dos ejecuciones", async
         )
     `;
     assert.equal(unresolved?.count, 0);
+  } finally {
+    await sql.end();
+  }
+});
+
+test("apply sintético preserva la forma real compatible", async (t) => {
+  const databaseUrl = testDatabaseUrl();
+  const directory = await mkdtemp(join(tmpdir(), "hercules-real-shape-apply-"));
+  const inputPath = join(directory, "synthetic-real-shape.zip");
+  t.after(async () => {
+    await truncateImporterTables(databaseUrl);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const source = realShapeFixture();
+  await writeSyntheticSnapshot(inputPath, source);
+  await truncateImporterTables(databaseUrl);
+  const checksum = await sha256File(inputPath);
+
+  const result = await applySnapshotToTestDatabase({
+    inputPath,
+    databaseUrl,
+    confirmDatabaseName: "piccolo_test_import",
+    confirmSourceChecksum: checksum,
+    confirmBackupId: "synthetic-real-shape-backup",
+  });
+  assert.equal(result.analysis.plan.counters.reject, 0);
+
+  const sql = postgres(databaseUrl, { max: 1 });
+  try {
+    const [counts] = await sql<
+      Array<{
+        assets: number;
+        hours: number;
+        videos: number;
+        closedDays: number;
+      }>
+    >`
+      select
+        (select count(*)::int from assets) as assets,
+        (select count(*)::int from opening_hours) as hours,
+        (
+          select count(*)::int from product_assets where role = 'video'
+        ) as videos,
+        (
+          select count(*)::int from opening_hours where is_closed
+        ) as "closedDays"
+    `;
+    assert.deepEqual(counts, {
+      assets: 5,
+      hours: 7,
+      videos: 1,
+      closedDays: 2,
+    });
+    const [product] = await sql<
+      Array<{
+        fullPriceCents: number;
+        halfPriceCents: number | null;
+        isActive: boolean;
+        quantity: string | null;
+      }>
+    >`
+      select
+        product.full_price_cents as "fullPriceCents",
+        product.half_price_cents as "halfPriceCents",
+        product.is_active as "isActive",
+        mapping.metadata->>'quantity' as quantity
+      from products product
+      join external_entity_mappings mapping
+        on mapping.source = 'hercules_convex'
+       and mapping.entity_type = 'product'
+       and mapping.internal_id = product.id
+    `;
+    assert.deepEqual(product, {
+      fullPriceCents: 1250,
+      halfPriceCents: 725,
+      isActive: false,
+      quantity: "250 g",
+    });
+    const [branding] = await sql<
+      Array<{
+        primaryColor: string | null;
+        primaryFont: string | null;
+        heroLinked: boolean;
+      }>
+    >`
+      select
+        primary_color as "primaryColor",
+        primary_font as "primaryFont",
+        hero_asset_id is not null as "heroLinked"
+      from restaurant_branding
+    `;
+    assert.deepEqual(branding, {
+      primaryColor: "#112233",
+      primaryFont: "Synthetic Sans",
+      heroLinked: true,
+    });
   } finally {
     await sql.end();
   }

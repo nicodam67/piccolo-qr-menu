@@ -2,6 +2,8 @@ import { findSensitivePaths, omitSensitiveValues } from "./security";
 import type {
   NormalizedBranding,
   NormalizedCategory,
+  NormalizedEntityStates,
+  NormalizedOpeningHour,
   NormalizedProduct,
   NormalizedSnapshot,
   SourceDocument,
@@ -40,6 +42,12 @@ const categoryFields = new Set([
   "isVisible",
   "isActive",
   "active",
+  "available",
+  "isAvailable",
+  "hidden",
+  "isHidden",
+  "archived",
+  "isArchived",
   "status",
   "estado",
   "parentId",
@@ -71,6 +79,7 @@ const productFields = new Set([
   "precioCompleto",
   "fullPriceCents",
   "halfPrice",
+  "halfPortionPrice",
   "precioMediaRacion",
   "halfPriceCents",
   "hasHalfPortion",
@@ -81,6 +90,12 @@ const productFields = new Set([
   "visible",
   "isVisible",
   "isActive",
+  "active",
+  "hidden",
+  "isHidden",
+  "archived",
+  "isArchived",
+  "status",
   "soldOut",
   "isSoldOut",
   "agotado",
@@ -98,6 +113,8 @@ const productFields = new Set([
   "galeria",
   "videos",
   "video",
+  "videoStorageId",
+  "quantity",
   "order",
   "orden",
   "sortOrder",
@@ -142,6 +159,18 @@ const brandingFields = new Set([
   "fontBody",
   "links",
   "socialLinks",
+  "cardSettings",
+  "city",
+  "establishedYear",
+  "heroImageStorageId",
+  "hours",
+  "postalCode",
+  "province",
+  "restaurantName",
+  "schedule",
+  "tagline",
+  "themeColors",
+  "themeFonts",
   "createdAt",
   "updatedAt",
 ]);
@@ -217,10 +246,20 @@ function extractTranslations(
   table: string,
   externalId: string,
   issues: ValidationIssue[],
+  options: {
+    directNameKeys?: readonly string[];
+    directDescriptionKeys?: readonly string[];
+    directSloganKeys?: readonly string[];
+  } = {},
 ): Translation[] {
   const byLocale = new Map<
     SupportedLocale,
-    { name: string | null; description: string | null; slogan: string | null }
+    {
+      name: string | null;
+      description: string | null;
+      slogan: string | null;
+      source: Translation["source"];
+    }
   >();
   const translationRoot = localeRecord(
     firstDefined(document, ["translations", "traducciones"]),
@@ -269,27 +308,65 @@ function extractTranslations(
     const slogan = asString(
       translatedRecord?.slogan ?? translatedRecord?.eslogan,
     );
-    byLocale.set(locale as SupportedLocale, { name, description, slogan });
+    byLocale.set(locale as SupportedLocale, {
+      name,
+      description,
+      slogan,
+      source: "localized",
+    });
   });
 
-  const directName = asString(firstDefined(document, ["name", "nombre"]));
+  const directName = asString(
+    firstDefined(document, options.directNameKeys ?? ["name", "nombre"]),
+  );
   const directDescription =
-    asString(firstDefined(document, ["description", "descripcion"])) ?? "";
-  if (directName && !byLocale.has("es")) {
+    asString(
+      firstDefined(
+        document,
+        options.directDescriptionKeys ?? ["description", "descripcion"],
+      ),
+    ) ?? "";
+  if (directName && !byLocale.get("es")?.name) {
     byLocale.set("es", {
       name: directName,
       description: directDescription,
-      slogan: asString(firstDefined(document, ["slogan", "eslogan"])),
+      slogan: asString(
+        firstDefined(
+          document,
+          options.directSloganKeys ?? ["slogan", "eslogan"],
+        ),
+      ),
+      source: "base_field",
     });
   }
 
+  const baseName = byLocale.get("es")?.name;
   for (const locale of SUPPORTED_LOCALES) {
-    if (!byLocale.get(locale)?.name) {
+    const translation = byLocale.get(locale);
+    if (!translation?.name) {
+      const empty = observedLocales.has(locale);
       issue(
         issues,
-        "MISSING_TRANSLATION",
+        empty ? "EMPTY_TRANSLATION" : "MISSING_TRANSLATION",
         "warning",
-        `Falta traducción con nombre para locale "${locale}".`,
+        empty
+          ? `La traducción para locale "${locale}" existe pero no tiene nombre.`
+          : `Falta traducción con nombre para locale "${locale}".`,
+        table,
+        externalId,
+        `translations.${locale}`,
+      );
+    } else if (
+      locale !== "es" &&
+      baseName &&
+      translation.name.normalize("NFC").toLocaleLowerCase() ===
+        baseName.normalize("NFC").toLocaleLowerCase()
+    ) {
+      issue(
+        issues,
+        "TRANSLATION_EQUALS_BASE",
+        "warning",
+        `La traducción "${locale}" coincide con el nombre del idioma base.`,
         table,
         externalId,
         `translations.${locale}`,
@@ -297,14 +374,25 @@ function extractTranslations(
     }
   }
   const translations = [...byLocale.entries()]
-    .filter((entry): entry is [SupportedLocale, { name: string; description: string | null; slogan: string | null }] =>
-      Boolean(entry[1].name),
+    .filter(
+      (
+        entry,
+      ): entry is [
+        SupportedLocale,
+        {
+          name: string;
+          description: string | null;
+          slogan: string | null;
+          source: Translation["source"];
+        },
+      ] => Boolean(entry[1].name),
     )
     .map(([locale, translation]) => ({
       locale,
       name: translation.name,
       description: translation.description ?? "",
       ...(translation.slogan ? { slogan: translation.slogan } : {}),
+      source: translation.source,
     }))
     .sort((left, right) => left.locale.localeCompare(right.locale));
   if (translations.length === 0) {
@@ -342,10 +430,6 @@ function integerField(
     field,
   );
   return fallback;
-}
-
-function booleanField(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
 }
 
 function parsePrice(
@@ -433,7 +517,164 @@ function storageIds(value: unknown): string[] {
   }
   return [
     ...new Set(value.map(storageId).filter((id): id is string => Boolean(id))),
-  ].sort();
+  ];
+}
+
+function optionalBoolean(
+  document: SourceDocument,
+  keys: readonly string[],
+): boolean | null {
+  const value = firstDefined(document, keys);
+  return typeof value === "boolean" ? value : null;
+}
+
+function normalizeStates(
+  document: SourceDocument,
+  table: string,
+  externalId: string,
+  issues: ValidationIssue[],
+): NormalizedEntityStates {
+  const status = asString(document.status)?.toLocaleLowerCase() ?? null;
+  const active =
+    optionalBoolean(document, ["isActive", "active"]) ??
+    (status === "active" ? true : status === "inactive" ? false : null);
+  const visible = optionalBoolean(document, ["isVisible", "visible"]);
+  const available = optionalBoolean(document, [
+    "isAvailable",
+    "available",
+    "disponible",
+  ]);
+  const soldOut = optionalBoolean(document, [
+    "isSoldOut",
+    "soldOut",
+    "agotado",
+  ]);
+  const hidden =
+    optionalBoolean(document, ["isHidden", "hidden"]) ??
+    (status === "hidden" ? true : null);
+  const archived =
+    optionalBoolean(document, ["isArchived", "archived"]) ??
+    (status === "archived" ? true : null);
+  const contradictions = [
+    visible === true && hidden === true ? "visible+hidden" : null,
+    active === true && archived === true ? "active+archived" : null,
+  ].filter((value): value is string => Boolean(value));
+  if (contradictions.length > 0) {
+    issue(
+      issues,
+      "CONFLICTING_STATE_FLAGS",
+      "warning",
+      `Flags de estado contradictorios: ${contradictions.join(", ")}.`,
+      table,
+      externalId,
+      "status",
+    );
+  }
+  return {
+    active,
+    visible,
+    available,
+    soldOut,
+    hidden,
+    archived,
+    effectiveActive:
+      active !== false &&
+      visible !== false &&
+      available !== false &&
+      hidden !== true &&
+      archived !== true,
+  };
+}
+
+const scheduleDays: Record<string, number> = {
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+  sunday: 7,
+};
+
+function validScheduleTime(value: unknown): string | null {
+  const time = asString(value);
+  return time &&
+    (/^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(time) || time === "24:00")
+    ? time
+    : null;
+}
+
+function normalizeOpeningHours(
+  value: unknown,
+  externalId: string,
+  issues: ValidationIssue[],
+): NormalizedOpeningHour[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    issue(
+      issues,
+      "INVALID_SCHEDULE",
+      "error",
+      "schedule debe ser un array de días.",
+      "branding",
+      externalId,
+      "schedule",
+    );
+    return [];
+  }
+  const seenDays = new Set<number>();
+  return value.flatMap((rawDay, index) => {
+    const day = asRecord(rawDay);
+    const dayName = asString(day?.day)?.toLocaleLowerCase();
+    const dayOfWeek = dayName ? scheduleDays[dayName] : undefined;
+    if (!day || !dayOfWeek || seenDays.has(dayOfWeek)) {
+      issue(
+        issues,
+        "INVALID_SCHEDULE_DAY",
+        "error",
+        !dayOfWeek
+          ? "Día de schedule no reconocido."
+          : "Día duplicado en schedule.",
+        "branding",
+        externalId,
+        `schedule.${index}.day`,
+      );
+      return [];
+    }
+    seenDays.add(dayOfWeek);
+    const periods = (["shift1", "shift2"] as const).flatMap((shiftName) => {
+      const shift = asRecord(day[shiftName]);
+      if (!shift || shift.open !== true) return [];
+      const opensAt = validScheduleTime(shift.openTime);
+      const closesAt = validScheduleTime(shift.closeTime);
+      if (!opensAt || !closesAt) {
+        issue(
+          issues,
+          "INVALID_SCHEDULE_PERIOD",
+          "error",
+          `Periodo abierto sin horas válidas en ${shiftName}.`,
+          "branding",
+          externalId,
+          `schedule.${index}.${shiftName}`,
+        );
+        return [];
+      }
+      return [{ opensAt, closesAt }];
+    });
+    return [
+      {
+        dayOfWeek,
+        isClosed: periods.length === 0,
+        firstOpensAt: periods[0]?.opensAt ?? null,
+        firstClosesAt: periods[0]?.closesAt ?? null,
+        secondOpensAt: periods[1]?.opensAt ?? null,
+        secondClosesAt: periods[1]?.closesAt ?? null,
+        crossesMidnight: periods.some(
+          ({ opensAt, closesAt }) => closesAt <= opensAt,
+        ),
+      },
+    ];
+  });
 }
 
 function normalizeCategories(
@@ -477,6 +718,12 @@ function normalizeCategories(
         .sort(([left], [right]) => left.localeCompare(right)),
     );
     if (parentId) externalReferences.parentCategoryId = parentId;
+    const states = normalizeStates(
+      document,
+      "categories",
+      externalId,
+      issues,
+    );
     const normalized = {
       entityType: "category" as const,
       externalId,
@@ -489,11 +736,9 @@ function normalizeCategories(
         externalId,
         "sortOrder",
       ),
-      isActive: booleanField(
-        firstDefined(document, ["isActive", "visible", "isVisible", "active"]),
-        true,
-      ),
+      isActive: states.effectiveActive,
       status: asString(firstDefined(document, ["status", "estado"])),
+      states,
       translations: extractTranslations(
         document,
         "categories",
@@ -501,6 +746,7 @@ function normalizeCategories(
         issues,
       ),
       externalReferences,
+      sourceMetadata: { states },
     };
     return [{ ...normalized, payloadHash: sha256(canonicalJson(normalized)) }];
   });
@@ -565,7 +811,7 @@ function normalizeProducts(
     const halfPriceCents = parsePrice(
       document,
       ["halfPriceCents"],
-      ["halfPrice", "precioMediaRacion"],
+      ["halfPrice", "halfPortionPrice", "precioMediaRacion"],
       false,
       "menuItems",
       externalId,
@@ -600,10 +846,15 @@ function normalizeProducts(
         externalId,
       );
     }
-    const available = booleanField(
-      firstDefined(document, ["available", "isAvailable", "disponible"]),
-      true,
+    const halfPortionAvailable =
+      typeof halfFlag === "boolean" ? halfFlag : null;
+    const states = normalizeStates(
+      document,
+      "menuItems",
+      externalId,
+      issues,
     );
+    const quantity = asString(document.quantity);
     const normalized = {
       entityType: "product" as const,
       externalId,
@@ -617,16 +868,11 @@ function normalizeProducts(
       ),
       fullPriceCents: fullPriceCents ?? 0,
       halfPriceCents,
-      isActive:
-        available &&
-        booleanField(
-          firstDefined(document, ["isActive", "visible", "isVisible"]),
-          true,
-        ),
-      isSoldOut: booleanField(
-        firstDefined(document, ["soldOut", "isSoldOut", "agotado"]),
-        false,
-      ),
+      halfPortionAvailable,
+      quantity,
+      isActive: states.effectiveActive,
+      isSoldOut: states.soldOut ?? false,
+      states,
       sortOrder: integerField(
         firstDefined(document, ["sortOrder", "order", "orden"]),
         0,
@@ -654,7 +900,7 @@ function normalizeProducts(
         firstDefined(document, ["gallery", "galeria"]),
       ),
       videoAssetExternalIds: storageIds(
-        firstDefined(document, ["videos", "video"]),
+        firstDefined(document, ["videos", "video", "videoStorageId"]),
       ),
       flags: {
         featured:
@@ -662,6 +908,11 @@ function normalizeProducts(
             ? (firstDefined(document, ["featured", "isFeatured"]) as boolean)
             : null,
         ...(asRecord(document.flags) ?? {}),
+      },
+      sourceMetadata: {
+        states,
+        halfPortionAvailable,
+        ...(quantity ? { quantity } : {}),
       },
     };
     return [{ ...normalized, payloadHash: sha256(canonicalJson(normalized)) }];
@@ -758,7 +1009,9 @@ function normalizeBranding(
       })
       .filter((value): value is NonNullable<typeof value> => Boolean(value))
       .sort((left, right) => left.sortOrder - right.sortOrder);
-    const heroAsset = storageId(firstDefined(document, ["heroId", "hero"]));
+    const heroAsset = storageId(
+      firstDefined(document, ["heroId", "hero", "heroImageStorageId"]),
+    );
     if (!asString(document.heroImageUrl) && !heroAsset) {
       issue(
         issues,
@@ -770,6 +1023,25 @@ function normalizeBranding(
         "hero",
       );
     }
+    const themeColors = asRecord(document.themeColors);
+    const themeFonts = asRecord(document.themeFonts);
+    const openingHours = normalizeOpeningHours(
+      document.schedule,
+      externalId,
+      issues,
+    );
+    const sourceMetadata = {
+      cardSettings: asRecord(document.cardSettings),
+      city: asString(document.city),
+      establishedYear: asString(document.establishedYear),
+      hours: asString(document.hours),
+      postalCode: asString(document.postalCode),
+      province: asString(document.province),
+      restaurantName: asString(document.restaurantName),
+      tagline: asString(document.tagline),
+      themeColors,
+      themeFonts,
+    };
     const normalized = {
       entityType: "restaurant" as const,
       externalId,
@@ -791,21 +1063,34 @@ function normalizeBranding(
         "branding",
         externalId,
         issues,
+        {
+          directNameKeys: ["name", "nombre", "restaurantName"],
+          directDescriptionKeys: ["description", "descripcion"],
+          directSloganKeys: ["slogan", "eslogan", "tagline"],
+        },
       ),
       colors: {
-        primaryColor: asString(document.primaryColor),
-        secondaryColor: asString(document.secondaryColor),
+        primaryColor:
+          asString(document.primaryColor) ?? asString(themeColors?.primary),
+        secondaryColor:
+          asString(document.secondaryColor) ?? asString(themeColors?.accent),
         backgroundColor: asString(
-          firstDefined(document, ["backgroundColor", "surfaceColor"]),
+          firstDefined(document, ["backgroundColor", "surfaceColor"]) ??
+            themeColors?.background,
         ),
-        textColor: asString(document.textColor),
+        textColor:
+          asString(document.textColor) ??
+          asString(themeFonts?.bodyColor) ??
+          asString(themeColors?.infoTextColor),
       },
       fonts: {
         primaryFont: asString(
-          firstDefined(document, ["primaryFont", "fontHeading"]),
+          firstDefined(document, ["primaryFont", "fontHeading"]) ??
+            themeFonts?.heading,
         ),
         secondaryFont: asString(
-          firstDefined(document, ["secondaryFont", "fontBody"]),
+          firstDefined(document, ["secondaryFont", "fontBody"]) ??
+            themeFonts?.body,
         ),
       },
       assetExternalIds: {
@@ -814,6 +1099,8 @@ function normalizeBranding(
         icon: storageId(firstDefined(document, ["icon", "favicon"])),
       },
       links,
+      openingHours,
+      sourceMetadata,
     };
     return [{ ...normalized, payloadHash: sha256(canonicalJson(normalized)) }];
   });

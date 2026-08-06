@@ -179,6 +179,7 @@ async function upsertMapping(
   runId: string,
   sourceCreatedAt: string | null,
   externalParentId: string | null = null,
+  metadata: Record<string, unknown> = {},
 ) {
   if (!item.proposedInternalId || !item.payloadHash) return;
   const [existing] = await tx<Array<{ internalId: string }>>`
@@ -202,7 +203,7 @@ async function upsertMapping(
       'hercules_convex', ${item.entityType}, ${item.sourceExternalId},
       ${item.proposedInternalId}::uuid, ${externalParentId},
       ${sourceCreatedAt ? new Date(sourceCreatedAt) : null}, ${item.payloadHash},
-      ${runId}::uuid, ${tx.json({ importer: "hercules-delivery-2" })}
+      ${runId}::uuid, ${tx.json({ importer: "hercules-delivery-4", ...metadata })}
     )
     on conflict (source, entity_type, external_id) do update set
       external_parent_id = excluded.external_parent_id,
@@ -248,9 +249,27 @@ async function applyBranding(
   if (restaurantItem.action === "reject" || brandingItem.action === "reject") {
     return;
   }
+  const mappingMetadata = {
+    ...branding.sourceMetadata,
+    openingHours: branding.openingHours,
+  };
   if (restaurantItem.action === "skip" && brandingItem.action === "skip") {
-    await upsertMapping(tx, restaurantItem, runId, branding.sourceCreatedAt);
-    await upsertMapping(tx, brandingItem, runId, branding.sourceCreatedAt);
+    await upsertMapping(
+      tx,
+      restaurantItem,
+      runId,
+      branding.sourceCreatedAt,
+      null,
+      mappingMetadata,
+    );
+    await upsertMapping(
+      tx,
+      brandingItem,
+      runId,
+      branding.sourceCreatedAt,
+      null,
+      mappingMetadata,
+    );
     return;
   }
   const restaurantId = restaurantItem.proposedInternalId!;
@@ -333,8 +352,44 @@ async function applyBranding(
       )
     `;
   }
-  await upsertMapping(tx, restaurantItem, runId, branding.sourceCreatedAt);
-  await upsertMapping(tx, brandingItem, runId, branding.sourceCreatedAt);
+  if (branding.openingHours.length > 0) {
+    await tx`delete from opening_hours where restaurant_id = ${restaurantId}::uuid`;
+    for (const hours of branding.openingHours) {
+      await tx`
+        insert into opening_hours (
+          id, restaurant_id, day_of_week, is_closed,
+          first_opens_at, first_closes_at, second_opens_at, second_closes_at
+        ) values (
+          ${deterministicUuid("opening_hour", `${branding.externalId}:${hours.dayOfWeek}`)}::uuid,
+          ${restaurantId}::uuid, ${hours.dayOfWeek}, ${hours.isClosed},
+          ${hours.firstOpensAt}, ${hours.firstClosesAt}, ${hours.secondOpensAt},
+          ${hours.secondClosesAt}
+        )
+        on conflict (restaurant_id, day_of_week) do update set
+          is_closed = excluded.is_closed,
+          first_opens_at = excluded.first_opens_at,
+          first_closes_at = excluded.first_closes_at,
+          second_opens_at = excluded.second_opens_at,
+          second_closes_at = excluded.second_closes_at
+      `;
+    }
+  }
+  await upsertMapping(
+    tx,
+    restaurantItem,
+    runId,
+    branding.sourceCreatedAt,
+    null,
+    mappingMetadata,
+  );
+  await upsertMapping(
+    tx,
+    brandingItem,
+    runId,
+    branding.sourceCreatedAt,
+    null,
+    mappingMetadata,
+  );
 }
 
 async function applyCategory(
@@ -346,7 +401,14 @@ async function applyCategory(
   const item = planItem(analysis, "category", category.externalId);
   if (item.action === "reject") return;
   if (item.action === "skip") {
-    await upsertMapping(tx, item, runId, category.sourceCreatedAt);
+    await upsertMapping(
+      tx,
+      item,
+      runId,
+      category.sourceCreatedAt,
+      null,
+      category.sourceMetadata,
+    );
     return;
   }
   await tx`
@@ -374,7 +436,14 @@ async function applyCategory(
         description = excluded.description
     `;
   }
-  await upsertMapping(tx, item, runId, category.sourceCreatedAt);
+  await upsertMapping(
+    tx,
+    item,
+    runId,
+    category.sourceCreatedAt,
+    null,
+    category.sourceMetadata,
+  );
 }
 
 async function applyTerms(
@@ -458,7 +527,11 @@ async function applyAssets(
         duration_ms = excluded.duration_ms,
         updated_at = now()
     `;
-    await upsertMapping(tx, item, runId, null);
+    await upsertMapping(tx, item, runId, null, null, {
+      sourceInternalId: asset.sourceInternalId,
+      physicalFilename: asset.physicalFilename,
+      references: asset.references,
+    });
   }
 }
 
@@ -492,6 +565,7 @@ async function applyProduct(
       runId,
       product.sourceCreatedAt,
       product.categoryExternalId,
+      product.sourceMetadata,
     );
     return;
   }
@@ -582,6 +656,7 @@ async function applyProduct(
     runId,
     product.sourceCreatedAt,
     product.categoryExternalId,
+    product.sourceMetadata,
   );
 }
 

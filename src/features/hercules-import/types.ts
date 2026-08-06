@@ -38,8 +38,17 @@ export type StorageDocument = SourceDocument & {
   _creationTime?: number;
 };
 
+export type AssetReference = {
+  entityType: "product" | "branding";
+  externalId: string;
+  role: "primary" | "gallery" | "video" | "logo" | "hero" | "icon";
+  sortOrder: number;
+};
+
 export type AssetManifestEntry = {
   storageId: string;
+  sourceInternalId: string | null;
+  physicalFilename: string | null;
   originalFilename: string | null;
   mimeType: string;
   byteSize: number;
@@ -47,6 +56,7 @@ export type AssetManifestEntry = {
   width: number | null;
   height: number | null;
   durationMs: number | null;
+  references: AssetReference[];
   referencedBy: string[];
   orphan: boolean;
   duplicateOf: string | null;
@@ -78,6 +88,27 @@ export type Translation = {
   name: string;
   description: string;
   slogan?: string;
+  source: "localized" | "base_field";
+};
+
+export type NormalizedEntityStates = {
+  active: boolean | null;
+  visible: boolean | null;
+  available: boolean | null;
+  soldOut: boolean | null;
+  hidden: boolean | null;
+  archived: boolean | null;
+  effectiveActive: boolean;
+};
+
+export type NormalizedOpeningHour = {
+  dayOfWeek: number;
+  isClosed: boolean;
+  firstOpensAt: string | null;
+  firstClosesAt: string | null;
+  secondOpensAt: string | null;
+  secondClosesAt: string | null;
+  crossesMidnight: boolean;
 };
 
 export type NormalizedCategory = {
@@ -87,8 +118,10 @@ export type NormalizedCategory = {
   sortOrder: number;
   isActive: boolean;
   status: string | null;
+  states: NormalizedEntityStates;
   translations: Translation[];
   externalReferences: Record<string, string>;
+  sourceMetadata: Record<string, unknown>;
   payloadHash: string;
 };
 
@@ -100,8 +133,11 @@ export type NormalizedProduct = {
   translations: Translation[];
   fullPriceCents: number;
   halfPriceCents: number | null;
+  halfPortionAvailable: boolean | null;
+  quantity: string | null;
   isActive: boolean;
   isSoldOut: boolean;
+  states: NormalizedEntityStates;
   sortOrder: number;
   tags: string[];
   allergens: string[];
@@ -109,6 +145,7 @@ export type NormalizedProduct = {
   galleryAssetExternalIds: string[];
   videoAssetExternalIds: string[];
   flags: Record<string, boolean | string | number | null>;
+  sourceMetadata: Record<string, unknown>;
   payloadHash: string;
 };
 
@@ -139,6 +176,8 @@ export type NormalizedBranding = {
     icon: string | null;
   };
   links: Array<{ kind: string; label: string | null; url: string; sortOrder: number }>;
+  openingHours: NormalizedOpeningHour[];
+  sourceMetadata: Record<string, unknown>;
   payloadHash: string;
 };
 
@@ -199,6 +238,15 @@ export type ValidationReport = {
   warnings: ValidationIssue[];
   errors: ValidationIssue[];
   userInventory: UserInventory[];
+  translationSummary: Array<{
+    table: "branding" | "categories" | "menuItems";
+    locale: SupportedLocale;
+    present: number;
+    baseFallback: number;
+    absent: number;
+    empty: number;
+    sameAsBase: number;
+  }>;
 };
 
 export type SnapshotData = {
@@ -213,6 +261,7 @@ export type SnapshotData = {
     string,
     {
       entryName: string;
+      physicalFilename: string;
       byteSize: number;
       sha256: string;
       mimeType: string;
