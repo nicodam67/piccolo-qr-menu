@@ -190,7 +190,7 @@ test("preserva exactamente 31 precios reales de media ración", async (t) => {
       _id: `half-product-${index}`,
       halfPrice: undefined,
       hasHalfPortion: undefined,
-      halfPortionPrice: 1 + index / 100,
+      halfPortionPrice: Number((1 + index / 100).toFixed(2)),
       imageStorageId: "storage-image-1",
     }));
   });

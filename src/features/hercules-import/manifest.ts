@@ -109,14 +109,18 @@ export function buildManifest(
       const duplicates = new Set<string>();
       documents.forEach((document) => {
         const id = documentId(document);
-        if (!id && tableClassification === "supported") {
-          issues.push({
-            code: "MISSING_EXTERNAL_ID",
-            severity: "error",
-            table: name,
-            message: `Documento sin _id en ${name}.`,
-          });
-        } else if (seen.has(id)) {
+        if (!id) {
+          if (tableClassification === "supported") {
+            issues.push({
+              code: "MISSING_EXTERNAL_ID",
+              severity: "error",
+              table: name,
+              message: `Documento sin _id en ${name}.`,
+            });
+          }
+          return;
+        }
+        if (seen.has(id)) {
           duplicates.add(id);
           issues.push({
             code: "DUPLICATE_EXTERNAL_ID",
@@ -126,7 +130,7 @@ export function buildManifest(
             message: `_id duplicado "${id}" en ${name}.`,
           });
         }
-        if (id) seen.add(id);
+        seen.add(id);
       });
       if (tableClassification === "unknown") {
         issues.push({
