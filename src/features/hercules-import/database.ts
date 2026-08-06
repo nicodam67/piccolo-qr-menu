@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import postgres, { type Sql } from "postgres";
+import postgres, { type Sql, type TransactionSql } from "postgres";
 
 import { buildImportPlan } from "./planner";
 import { buildValidationReport } from "./reports";
@@ -174,7 +174,7 @@ function planItem(
 }
 
 async function upsertMapping(
-  tx: Sql,
+  tx: TransactionSql,
   item: ImportPlanItem,
   runId: string,
   sourceCreatedAt: string | null,
@@ -214,7 +214,7 @@ async function upsertMapping(
   `;
 }
 
-async function applyLocales(tx: Sql) {
+async function applyLocales(tx: TransactionSql) {
   for (const [index, locale] of SUPPORTED_LOCALES.entries()) {
     const [name, nativeName] = localeLabels[locale];
     await tx`
@@ -234,7 +234,7 @@ async function applyLocales(tx: Sql) {
 }
 
 async function applyBranding(
-  tx: Sql,
+  tx: TransactionSql,
   analysis: ImportAnalysis,
   branding: NormalizedBranding,
   runId: string,
@@ -337,7 +337,7 @@ async function applyBranding(
 }
 
 async function applyCategory(
-  tx: Sql,
+  tx: TransactionSql,
   analysis: ImportAnalysis,
   category: NormalizedCategory,
   runId: string,
@@ -377,7 +377,7 @@ async function applyCategory(
 }
 
 async function applyTerms(
-  tx: Sql,
+  tx: TransactionSql,
   analysis: ImportAnalysis,
   runId: string,
   entityType: "tag" | "allergen",
@@ -422,7 +422,7 @@ async function applyTerms(
 }
 
 async function applyAssets(
-  tx: Sql,
+  tx: TransactionSql,
   analysis: ImportAnalysis,
   runId: string,
 ) {
@@ -472,7 +472,7 @@ function canonicalAssetId(analysis: ImportAnalysis, storageId: string | null) {
 }
 
 async function applyProduct(
-  tx: Sql,
+  tx: TransactionSql,
   analysis: ImportAnalysis,
   product: NormalizedProduct,
   runId: string,
