@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "tsx --test tests/unit/*.test.ts",
-    "test:integration": "tsx --conditions=react-server --test tests/integration/*.test.ts",
+    "test:integration": "tsx --conditions=react-server --test --test-concurrency=1 tests/integration/*.test.ts",
     "test:importer": "tsx --test tests/unit/hercules-importer.test.ts",
     "hercules:inspect": "tsx src/features/hercules-import/cli.ts inspect",
     "hercules:import": "tsx src/features/hercules-import/cli.ts import",
