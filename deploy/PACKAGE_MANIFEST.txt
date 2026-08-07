@@ -1,0 +1,30 @@
+# Manifiesto del paquete de despliegue TerraMaster
+# Ruta de destino en el NAS: /Volume1/docker/piccolo
+#
+# Archivos de orquestación y proxy
+docker-compose.yml
+Dockerfile
+Caddyfile
+.dockerignore
+.env.example
+docker/entrypoint.sh
+
+# Contexto mínimo necesario para construir la imagen `app` en Docker Manager
+package.json
+package-lock.json
+next.config.ts
+src/
+drizzle/
+
+# Documentación operativa
+docs/TERRAMASTER_INSTALL.md
+docs/TERRAMASTER_DEPLOYMENT_CHECKLIST.md
+
+# Excluido explícitamente del paquete
+# - node_modules/
+# - tests/
+# - backups/
+# - data/
+# - .env
+# - .git/
+# - logs y artefactos temporales
