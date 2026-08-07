@@ -31,9 +31,11 @@ Abrir [http://localhost:3000](http://localhost:3000). La ruta raíz redirige a
 ## Despliegue en TerraMaster
 
 La configuración oficial de producción para TerraMaster F4-424 se documenta en
-[`docs/TERRAMASTER_INSTALL.md`](docs/TERRAMASTER_INSTALL.md). Incluye
-PostgreSQL, el servidor Next.js y Caddy con HTTPS local. La validación descrita
-en la guía no arranca contenedores.
+[`docs/TERRAMASTER_INSTALL.md`](docs/TERRAMASTER_INSTALL.md) y el checklist en
+[`docs/TERRAMASTER_DEPLOYMENT_CHECKLIST.md`](docs/TERRAMASTER_DEPLOYMENT_CHECKLIST.md).
+El paquete listo para copiar al NAS se genera con
+`deploy/build-terramaster-package.sh`. La validación descrita en la guía no
+arranca contenedores.
 
 ## Base de datos
 

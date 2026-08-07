@@ -5,6 +5,12 @@ Manager 2.1.005. Los pasos de auditoría y validación no arrancan contenedores.
 Pulsar **Apply** en Docker Manager sí crea y arranca el proyecto; hacerlo solo
 durante la ventana de despliegue autorizada.
 
+Para el despliegue real usa también:
+
+- [`docs/TERRAMASTER_DEPLOYMENT_CHECKLIST.md`](TERRAMASTER_DEPLOYMENT_CHECKLIST.md)
+- `deploy/build-terramaster-package.sh` para generar
+  `deploy/dist/piccolo-terramaster-deploy.tar.gz`
+
 ## Arquitectura
 
 El proyecto contiene una sola aplicación Next.js; sus rutas web y API se sirven
@@ -40,7 +46,15 @@ de los botones pueden aparecer traducidos, pero los campos son los mismos.
 ### 1. Preparar el paquete en el ordenador
 
 Descarga o clona la rama aprobada de Piccolo y, desde su carpeta, crea el
-archivo que se subirá al NAS:
+paquete que se subirá al NAS:
+
+```bash
+chmod +x deploy/build-terramaster-package.sh
+./deploy/build-terramaster-package.sh
+```
+
+El archivo resultante será `deploy/dist/piccolo-terramaster-deploy.tar.gz`.
+Si prefieres empaquetar manualmente con Git, también puedes usar:
 
 ```bash
 git archive --format=tar.gz --output=piccolo-terramaster.tar.gz HEAD
