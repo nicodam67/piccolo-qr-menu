@@ -32,6 +32,139 @@ formato 2.4 permite esperar los healthchecks mediante
 Las imágenes oficiales `node:22-bookworm-slim`, `postgres:16-bookworm` y
 `caddy:2.11.4-alpine` ofrecen arquitectura `linux/amd64`, la del F4-424.
 
+## Guía rápida para una primera instalación
+
+No pulses **Apply** hasta disponer de autorización para desplegar. Los nombres
+de los botones pueden aparecer traducidos, pero los campos son los mismos.
+
+### 1. Preparar el paquete en el ordenador
+
+Descarga o clona la rama aprobada de Piccolo y, desde su carpeta, crea el
+archivo que se subirá al NAS:
+
+```bash
+git archive --format=tar.gz --output=piccolo-terramaster.tar.gz HEAD
+```
+
+El paquete debe contener `docker-compose.yml`, `Dockerfile`, `Caddyfile`,
+`.dockerignore`, `.env.example`, `README.md`, `package.json`,
+`package-lock.json`, `next.config.ts`, `src/`, `drizzle/`, `docker/` y `docs/`.
+No añadas `.env`, `data/`, backups ni contraseñas al paquete.
+
+### 2. Crear la carpeta en el NAS
+
+1. Entra en TOS desde el navegador.
+2. Abre **File Manager**.
+3. En `Volume1`, crea la carpeta compartida `docker` si no existe.
+4. Dentro de `docker`, crea una carpeta llamada `piccolo`.
+5. La ruta resultante debe ser exactamente `/Volume1/docker/piccolo`.
+6. En las propiedades de permisos, permite el acceso únicamente al
+   administrador responsable. Esa carpeta contendrá la contraseña de la base,
+   los datos de PostgreSQL y la clave privada de la CA local.
+
+### 3. Subir y extraer el proyecto
+
+1. Abre `/Volume1/docker/piccolo` en File Manager.
+2. Sube `piccolo-terramaster.tar.gz`.
+3. Selecciona el archivo y pulsa **Extract** en la carpeta actual.
+4. Comprueba que
+   `/Volume1/docker/piccolo/docker-compose.yml` existe. Si aparece otra carpeta
+   `piccolo` dentro, mueve su contenido un nivel arriba.
+
+### 4. Crear `.env`
+
+En el ordenador, genera dos valores distintos:
+
+```bash
+openssl rand -hex 32
+openssl rand -base64 48
+```
+
+Crea un archivo de texto llamado exactamente `.env` —sin extensión `.txt`— con
+este contenido. Sustituye los dos textos entre `<...>`:
+
+```dotenv
+POSTGRES_DB=piccolo_qr_menu
+POSTGRES_USER=piccolo
+POSTGRES_PASSWORD=<PEGAR_AQUI_LA_PRIMERA_SALIDA>
+AUTH_SECRET=<PEGAR_AQUI_LA_SEGUNDA_SALIDA>
+AUTH_SESSION_TTL_SECONDS=28800
+PICCOLO_SITE_ADDRESS=https://192.168.1.196
+PICCOLO_HTTP_PORT=80
+PICCOLO_HTTPS_PORT=443
+```
+
+No añadas comillas ni espacios alrededor de `=`. Sube `.env` a
+`/Volume1/docker/piccolo/.env`. No lo guardes en Git. Si utilizas SSH, protégelo
+con:
+
+```bash
+chmod 600 /Volume1/docker/piccolo/.env
+```
+
+### 5. Crear el proyecto en Docker Manager
+
+1. Abre **Docker Manager**.
+2. Abre **Projects** en el menú izquierdo y pulsa **Add** (`+`).
+3. Introduce estos valores:
+
+   | Campo | Valor exacto |
+   | --- | --- |
+   | Project name | `piccolo` |
+   | Project path | `/Volume1/docker/piccolo` |
+   | Configuration file source | `Local TNAS` |
+   | Configuration file | `/Volume1/docker/piccolo/docker-compose.yml` |
+
+4. Pulsa **Verify YAML**.
+5. Confirma que la validación termina sin errores.
+6. Comprueba que solo aparecen publicados `80/tcp` y `443/tcp`. Los puertos
+   `3000` y `5432` deben seguir siendo internos.
+
+### 6. Iniciar el proyecto
+
+Con autorización de despliegue y backup disponible, pulsa **Apply**. Si Docker
+Manager crea el proyecto detenido, selecciónalo y pulsa **Start**. La primera
+construcción descarga las imágenes y puede tardar varios minutos. No cierres ni
+apagues el NAS durante el proceso.
+
+### 7. Comprobar que funciona
+
+1. En **Projects**, abre `piccolo`.
+2. Comprueba que `postgres`, `app` y `caddy` terminan en estado `healthy`.
+3. Si alguno falla, abre **Log** para ese servicio. No pulses **Clean/Clear**.
+4. Desde un equipo de la LAN, abre `https://192.168.1.196/es`.
+5. Al principio el navegador advertirá que la CA local no es de confianza.
+   Descarga
+   `/Volume1/docker/piccolo/data/caddy-data/caddy/pki/authorities/local/root.crt`
+   mediante File Manager e impórtalo como autoridad raíz en cada TPV y cliente.
+6. Vuelve a abrir la URL y confirma que ya no aparece advertencia TLS.
+
+### 8. Crear el administrador
+
+La aplicación no guarda una contraseña administrativa predeterminada. Sigue el
+procedimiento de [Alta inicial del administrador](#alta-inicial-del-administrador)
+una sola vez después del primer arranque.
+
+### 9. Qué carpetas no se deben borrar
+
+No borres ni reemplaces:
+
+```text
+/Volume1/docker/piccolo/.env
+/Volume1/docker/piccolo/data/postgres
+/Volume1/docker/piccolo/data/caddy-data
+/Volume1/docker/piccolo/data/caddy-config
+```
+
+Tampoco uses **Clean/Clear** en Docker Manager. Detener, iniciar, reconstruir o
+recrear los contenedores no debe eliminar estas rutas.
+
+### 10. Actualizar Piccolo
+
+Sigue siempre el procedimiento de
+[Actualizar sin perder datos](#actualizar-sin-perder-datos). Nunca copies
+manualmente `data/postgres` mientras PostgreSQL esté funcionando.
+
 ## Archivos de despliegue
 
 Los siguientes archivos deben conservar juntos:
@@ -213,13 +346,43 @@ del TPV; es un requisito previo bloqueante para usar el panel administrativo.
 
 Los tres servicios tienen `restart: unless-stopped` y healthchecks. La base de
 datos recibe hasta un minuto para finalizar limpiamente, complementando el SAI.
-El SAI no sustituye las copias externas de PostgreSQL.
+Cada servicio conserva como máximo cinco archivos de log de 10 MB para evitar
+llenar el almacenamiento del NAS. El SAI no sustituye las copias externas de
+PostgreSQL.
 
-Antes de actualizar, realiza y verifica una copia `pg_dump`. En Docker Manager
-no uses **Clean/Clear**: según la versión puede borrar recursos y datos del
-proyecto. Aunque los bind mounts de esta configuración sobreviven a
-`docker compose down -v`, una eliminación manual de `data/` no es recuperable
-sin backup.
+## Actualizar sin perder datos
+
+No actualices directamente sobre la única copia de los datos.
+
+1. Crea la carpeta de backups desde File Manager:
+   `/Volume1/docker/piccolo/backups`.
+2. Con SSH, crea un backup lógico consistente:
+
+   ```bash
+   cd /Volume1/docker/piccolo
+   docker compose exec -T postgres sh -c \
+     'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
+     > "backups/piccolo-$(date +%Y%m%d-%H%M%S).dump"
+   ls -lh backups/
+   ```
+
+   Si TOS solo ofrece el binario clásico, sustituye `docker compose` por
+   `docker-compose`. Confirma que el archivo `.dump` tiene tamaño mayor que
+   cero y cópialo también fuera del NAS.
+3. Prepara un nuevo `piccolo-terramaster.tar.gz` desde la versión aprobada.
+4. Sube el paquete a `/Volume1/docker/piccolo` y extráelo sobre los archivos de
+   aplicación existentes.
+5. No reemplaces `.env` y no borres `data/` ni `backups/`.
+6. En Docker Manager, selecciona `piccolo` y pulsa **Stop**.
+7. Pulsa **Build** para reconstruir el proyecto con el nuevo código.
+8. Pulsa **Start**. El entrypoint espera PostgreSQL y aplica únicamente las
+   migraciones pendientes antes de iniciar Next.js.
+9. Espera a que `postgres`, `app` y `caddy` estén `healthy`.
+10. Comprueba `/es`, `/login` y una página de administración.
+
+Si la actualización falla, conserva el backup y los logs, detén el proyecto y
+no intentes restaurar ni ejecutar rollbacks manuales sin revisar primero la
+migración que falló.
 
 ## Riesgos y bloqueantes
 
@@ -234,5 +397,7 @@ sin backup.
   `images.unsplash.com` para optimizarlas.
 - Antes de conectar una base preexistente, hay que identificar su versión y
   obtener un backup verificado. El arranque aplica migraciones pendientes.
+- La carpeta del proyecto debe estar restringida a administradores: contiene
+  `.env`, PostgreSQL y la clave privada de la CA de Caddy.
 - El repositorio no contiene un instalador Piccolo-Server anterior que pueda
   reutilizarse.

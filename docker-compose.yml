@@ -24,6 +24,11 @@ services:
     stop_grace_period: 1m
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - database
 
@@ -58,6 +63,11 @@ services:
     stop_grace_period: 30s
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - frontend
       - database
@@ -90,6 +100,11 @@ services:
     stop_grace_period: 10s
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - frontend
 
