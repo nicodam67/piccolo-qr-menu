@@ -30,7 +30,7 @@ formato 2.4 permite esperar los healthchecks mediante
 `depends_on.condition: service_healthy`.
 
 Las imágenes oficiales `node:22-bookworm-slim`, `postgres:16-bookworm` y
-`caddy:2.10-alpine` ofrecen arquitectura `linux/amd64`, la del F4-424.
+`caddy:2.11.4-alpine` ofrecen arquitectura `linux/amd64`, la del F4-424.
 
 ## Archivos de despliegue
 

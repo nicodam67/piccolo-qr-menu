@@ -48,7 +48,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/create-admin.cjs ./
 COPY --chown=nextjs:nodejs docker/entrypoint.sh /usr/local/bin/piccolo-entrypoint
 RUN chmod 0755 /usr/local/bin/piccolo-entrypoint
 
-USER nextjs
+USER 1001:1001
 
 EXPOSE 3000
 

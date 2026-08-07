@@ -63,7 +63,7 @@ services:
       - database
 
   caddy:
-    image: caddy:2.10-alpine
+    image: caddy:2.11.4-alpine
     restart: unless-stopped
     environment:
       PICCOLO_SITE_ADDRESS: ${PICCOLO_SITE_ADDRESS:-https://192.168.1.196}
